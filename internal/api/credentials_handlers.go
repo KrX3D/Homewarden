@@ -271,6 +271,7 @@ func (s *Server) installKey(w http.ResponseWriter, r *http.Request) {
 		Password     string `json:"password"`
 		Port         int    `json:"port"`
 		CredentialID int64  `json:"credentialId"`
+		SetupSudo    bool   `json:"setupSudo"`
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -284,13 +285,22 @@ func (s *Server) installKey(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_credential")
 		return
 	}
-	if err := s.conn.InstallKey(r.Context(), d, in.Port, in.User, in.Password, c); err != nil {
+	rule := ""
+	if in.SetupSudo {
+		if integ, ok := s.sw.Registry.Get(d.Kind); ok {
+			rule = integ.Sudoers
+		}
+	}
+	if err := s.conn.InstallKey(r.Context(), d, in.Port, in.User, in.Password, c, rule); err != nil {
 		sshError(w, err)
 		return
 	}
 	// Point the device at the key so the next steps just work.
 	set := conn.FromDevice(d)
 	set.Method, set.CredentialID, set.User = "ssh", c.ID, in.User
+	if rule != "" {
+		set.Sudo = true
+	}
 	if in.Port != 0 {
 		set.Port = in.Port
 	}

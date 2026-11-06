@@ -61,6 +61,9 @@ type Manifest struct {
 	Entry        string                `json:"entry"`
 	Files        []string              `json:"files"`
 	Icon         string                `json:"icon,omitempty"`
+	// Sudoers is the rule Install key can add for updates ($USER is replaced by the
+	// login). Lets a fresh device be set up from the GUI without a terminal.
+	Sudoers string `json:"sudoers,omitempty"`
 }
 
 var idRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,40}$`)

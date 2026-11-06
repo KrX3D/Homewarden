@@ -1,8 +1,11 @@
 {
   "id": "octoprint",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minCore": "0.1.0",
-  "name": { "en": "OctoPrint / OctoPi", "de": "OctoPrint / OctoPi" },
+  "name": {
+    "en": "OctoPrint / OctoPi",
+    "de": "OctoPrint / OctoPi"
+  },
   "description": {
     "en": "OctoPrint core and every plugin individually through OctoPrint's own update system, optionally the OctoPi OS packages over SSH. Updates are blocked while a print job runs, including its heat-up.",
     "de": "OctoPrint und jedes Plugin einzeln über OctoPrints eigenes Update-System, optional die OctoPi-Systempakete per SSH. Updates sind gesperrt, solange ein Druckjob läuft, inklusive Aufheizen."
@@ -12,30 +15,97 @@
     "de": "1. In OctoPrint: Einstellungen, Application Keys (in älteren Versionen API). Einen Schlüssel namens Homewarden für einen Admin-Benutzer anlegen und kopieren.\n2. In Homewarden: Einstellungen, Zugangsdaten, hinzufügen, Typ API-Token, Schlüssel einfügen.\n3. Bei diesem Gerät die Zugangsdaten unter API-Schlüssel wählen. Adresse leer lassen für http://<Geräteadresse>/.\n4. Optional für die OctoPi-Systempakete: Karte Verbindung mit SSH einrichten (Benutzer pi, Schlüssel installieren) und OctoPi-Systempakete einbeziehen einschalten. Für Updates braucht pi die sudoers-Regel aus der Linux-(apt)-Anleitung; der pi-Benutzer von OctoPi hat meist schon volles sudo.\n5. Empfohlene Online-Erkennung: Ping, bereit wenn Port 80 antwortet."
   },
   "connection": "http",
-  "permissions": { "ssh": true, "docker": false, "httpDevice": true, "httpHosts": [] },
+  "permissions": {
+    "ssh": true,
+    "docker": false,
+    "httpDevice": true,
+    "httpHosts": []
+  },
   "settings": [
-    { "key": "apiKey", "type": "credential", "credentialTypes": ["token"], "required": true,
-      "label": { "en": "API key", "de": "API-Schlüssel" } },
-    { "key": "url", "type": "string", "default": "", "placeholder": "http://192.168.20.117/",
-      "label": { "en": "OctoPrint address", "de": "OctoPrint-Adresse" },
-      "help": { "en": "Empty = http://<device address>/. Must point at the device itself.", "de": "Leer = http://<Geräteadresse>/. Muss auf das Gerät selbst zeigen." } },
-    { "key": "includeOS", "type": "bool", "default": false,
-      "label": { "en": "Include OctoPi system packages (SSH)", "de": "OctoPi-Systempakete einbeziehen (SSH)" },
-      "help": { "en": "Also lists apt package updates of the Pi. Needs the Connection card set up.", "de": "Zeigt auch apt-Paketupdates des Pi. Braucht die eingerichtete Karte Verbindung." } },
-    { "key": "backupBeforeUpdate", "type": "bool", "default": true,
-      "label": { "en": "Create an OctoPrint backup before updating", "de": "Vor Updates ein OctoPrint-Backup erstellen" },
-      "help": { "en": "Uses OctoPrint's backup plugin. The backup stays on the Pi; copying it to a share is set up under Backups.", "de": "Nutzt das Backup-Plugin von OctoPrint. Das Backup bleibt auf dem Pi; das Kopieren auf eine Freigabe richtest du unter Backups ein." } },
-    { "key": "insecure", "type": "bool", "default": false,
-      "label": { "en": "Accept self-signed HTTPS certificates", "de": "Selbstsignierte HTTPS-Zertifikate akzeptieren" } }
+    {
+      "key": "apiKey",
+      "type": "credential",
+      "credentialTypes": [
+        "token"
+      ],
+      "required": true,
+      "label": {
+        "en": "API key",
+        "de": "API-Schlüssel"
+      }
+    },
+    {
+      "key": "url",
+      "type": "string",
+      "default": "",
+      "placeholder": "http://192.168.20.117/",
+      "label": {
+        "en": "OctoPrint address",
+        "de": "OctoPrint-Adresse"
+      },
+      "help": {
+        "en": "Empty = http://<device address>/. Must point at the device itself.",
+        "de": "Leer = http://<Geräteadresse>/. Muss auf das Gerät selbst zeigen."
+      }
+    },
+    {
+      "key": "includeOS",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Include OctoPi system packages (SSH)",
+        "de": "OctoPi-Systempakete einbeziehen (SSH)"
+      },
+      "help": {
+        "en": "Also lists apt package updates of the Pi. Needs the Connection card set up.",
+        "de": "Zeigt auch apt-Paketupdates des Pi. Braucht die eingerichtete Karte Verbindung."
+      }
+    },
+    {
+      "key": "backupBeforeUpdate",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Create an OctoPrint backup before updating",
+        "de": "Vor Updates ein OctoPrint-Backup erstellen"
+      },
+      "help": {
+        "en": "Uses OctoPrint's backup plugin. The backup stays on the Pi; copying it to a share is set up under Backups.",
+        "de": "Nutzt das Backup-Plugin von OctoPrint. Das Backup bleibt auf dem Pi; das Kopieren auf eine Freigabe richtest du unter Backups ein."
+      }
+    },
+    {
+      "key": "insecure",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Accept self-signed HTTPS certificates",
+        "de": "Selbstsignierte HTTPS-Zertifikate akzeptieren"
+      }
+    }
   ],
   "presence": {
-    "reach": { "method": "ping" },
-    "ready": { "method": "tcp", "port": 80 },
+    "reach": {
+      "method": "ping"
+    },
+    "ready": {
+      "method": "tcp",
+      "port": 80
+    },
     "settleSeconds": 60,
     "intervalSeconds": 30
   },
-  "capabilities": ["detect", "update", "busy", "backup"],
+  "capabilities": [
+    "detect",
+    "update",
+    "busy",
+    "backup",
+    "restore"
+  ],
   "entry": "main.js",
-  "files": ["main.js"],
-  "icon": "icon.svg"
+  "files": [
+    "main.js"
+  ],
+  "icon": "icon.svg",
+  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot"
 }

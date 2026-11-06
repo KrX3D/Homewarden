@@ -28,6 +28,7 @@ func (s *Server) AttachBackups() {
 	m.Handle("GET /api/backups", s.authed(auth.PermDevicesView, s.listBackups))
 	m.Handle("GET /api/backups/{id}/download", s.authed(auth.PermBackupsRun, s.downloadBackup))
 	m.Handle("POST /api/devices/{id}/backup", s.authed(auth.PermBackupsRun, s.backupDevice))
+	m.Handle("POST /api/backups/{id}/restore", s.authed(auth.PermBackupsRun, s.restoreBackup))
 	m.Handle("PUT /api/devices/{id}/backup-settings", s.authed(auth.PermBackupsManage, s.setBackupSettings))
 	m.Handle("PUT /api/devices/{id}/guards", s.authed(auth.PermDevicesManage, s.setGuards))
 }
@@ -276,4 +277,45 @@ func (s *Server) setGuards(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.setConfigKey(w, r, d, "guards", in)
+}
+
+// restoreBackup puts a stored backup back onto a device: the one it came from, or a
+// replacement ({"deviceId": n}).
+func (s *Server) restoreBackup(w http.ResponseWriter, r *http.Request) {
+	id, err := PathID(r)
+	if err != nil {
+		fail(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	b, err := s.Store.Backup(r.Context(), id)
+	if err != nil {
+		fail(w, http.StatusNotFound, "not_found")
+		return
+	}
+	var in struct {
+		DeviceID int64 `json:"deviceId"`
+		Force    bool  `json:"force"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if in.DeviceID == 0 {
+		in.DeviceID = b.DeviceID
+	}
+	d, err := s.Store.Device(r.Context(), in.DeviceID)
+	if err != nil {
+		fail(w, http.StatusNotFound, "not_found")
+		return
+	}
+	integ, ok := s.sw.Registry.Get(d.Kind)
+	if !ok || !integ.Has("restore") {
+		fail(w, http.StatusBadRequest, "no_restore_support")
+		return
+	}
+	j, err := s.sw.Software.EnqueueRestore(r.Context(), d, b.ID, in.Force, PrincipalFrom(r).User.Username)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, j)
 }

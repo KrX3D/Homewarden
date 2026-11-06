@@ -1,8 +1,8 @@
 {
   "integrations": [
-    { "id": "linux-apt", "version": "1.0.0", "path": "linux-apt" },
+    { "id": "linux-apt", "version": "1.1.0", "path": "linux-apt" },
     { "id": "docker", "version": "1.1.0", "path": "docker" },
-    { "id": "octoprint", "version": "1.0.0", "path": "octoprint" },
+    { "id": "octoprint", "version": "1.1.0", "path": "octoprint" },
     { "id": "proxmox", "version": "0.9.0", "path": "proxmox" },
     { "id": "proxmox-backup", "version": "0.9.0", "path": "proxmox-backup" },
     { "id": "unraid", "version": "0.9.0", "path": "unraid" },

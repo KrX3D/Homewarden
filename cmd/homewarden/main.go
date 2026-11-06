@@ -80,6 +80,7 @@ func main() {
 	sw := &jobs.Software{St: st, Reg: reg, Host: &integrations.Host{St: st, Vault: v, Conn: connSvc}, Runner: runner, Events: broker}
 	sw.Register()
 	sw.RegisterBackup()
+	sw.RegisterRestore()
 	runner.Start(ctx, 4)
 	engine.OnReady(sw.OnReady)
 	go sw.AutoScan(ctx)

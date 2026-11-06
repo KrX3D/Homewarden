@@ -1,8 +1,11 @@
 {
   "id": "linux-apt",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minCore": "0.1.0",
-  "name": { "en": "Linux (apt)", "de": "Linux (apt)" },
+  "name": {
+    "en": "Linux (apt)",
+    "de": "Linux (apt)"
+  },
   "description": {
     "en": "Debian, Ubuntu, Raspberry Pi OS and Proxmox hosts over SSH: OS version, upgradable packages, security updates, reboot required, end of life.",
     "de": "Debian, Ubuntu, Raspberry Pi OS und Proxmox-Hosts per SSH: OS-Version, aktualisierbare Pakete, Sicherheitsupdates, Neustart nötig, Supportende."
@@ -12,31 +15,59 @@
     "de": "1. Stelle sicher, dass SSH auf dem Gerät aktiv ist (Raspberry Pi: sudo raspi-config, Interface Options, SSH).\n2. Nutze in der Karte Verbindung den Knopf Schlüssel installieren: Benutzer und Passwort einmal eingeben. Homewarden hinterlegt seinen eigenen Schlüssel und speichert das Passwort nicht.\n3. Für Updates braucht der Benutzer sudo ohne Passwort für apt. Auf dem Gerät ausführen:\n   echo \"$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot\" | sudo tee /etc/sudoers.d/homewarden\n   sudo chmod 440 /etc/sudoers.d/homewarden\n   Dann in der Karte Verbindung sudo für Updates verwenden einschalten.\n4. Verbindung testen, dann Jetzt scannen."
   },
   "connection": "ssh",
-  "permissions": { "ssh": true, "docker": false, "httpDevice": false, "httpHosts": [] },
+  "permissions": {
+    "ssh": true,
+    "docker": false,
+    "httpDevice": false,
+    "httpHosts": []
+  },
   "settings": [
     {
       "key": "refreshLists",
       "type": "bool",
       "default": true,
-      "label": { "en": "Refresh package lists before each scan", "de": "Paketlisten vor jedem Scan aktualisieren" },
-      "help": { "en": "Runs apt-get update (needs sudo). Without it, the scan only knows what the device last downloaded.", "de": "Führt apt-get update aus (braucht sudo). Ohne das kennt der Scan nur, was das Gerät zuletzt geladen hat." }
+      "label": {
+        "en": "Refresh package lists before each scan",
+        "de": "Paketlisten vor jedem Scan aktualisieren"
+      },
+      "help": {
+        "en": "Runs apt-get update (needs sudo). Without it, the scan only knows what the device last downloaded.",
+        "de": "Führt apt-get update aus (braucht sudo). Ohne das kennt der Scan nur, was das Gerät zuletzt geladen hat."
+      }
     },
     {
       "key": "allowReboot",
       "type": "bool",
       "default": false,
-      "label": { "en": "Allow rebooting from Homewarden", "de": "Neustart aus Homewarden erlauben" },
-      "help": { "en": "Adds a Reboot component when a reboot is required.", "de": "Zeigt einen Eintrag Neustart, wenn ein Neustart nötig ist." }
+      "label": {
+        "en": "Allow rebooting from Homewarden",
+        "de": "Neustart aus Homewarden erlauben"
+      },
+      "help": {
+        "en": "Adds a Reboot component when a reboot is required.",
+        "de": "Zeigt einen Eintrag Neustart, wenn ein Neustart nötig ist."
+      }
     }
   ],
   "presence": {
-    "reach": { "method": "ping" },
-    "ready": { "method": "tcp", "port": 22 },
+    "reach": {
+      "method": "ping"
+    },
+    "ready": {
+      "method": "tcp",
+      "port": 22
+    },
     "settleSeconds": 60,
     "intervalSeconds": 30
   },
-  "capabilities": ["detect", "update"],
+  "capabilities": [
+    "detect",
+    "update"
+  ],
   "entry": "main.js",
-  "files": ["main.js"],
-  "icon": "icon.svg"
+  "files": [
+    "main.js"
+  ],
+  "icon": "icon.svg",
+  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot"
 }

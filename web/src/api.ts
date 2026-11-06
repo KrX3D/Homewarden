@@ -102,7 +102,7 @@ export type Permissions = { ssh: boolean; docker: boolean; httpDevice: boolean; 
 export type Integration = {
   id: string; version: string; name: Text; description: Text; howto?: Text; connection: string;
   permissions: Permissions; settings?: IntegrationSetting[]; presence?: PresenceConfig; capabilities: string[];
-  source: string; iconSvg?: string;
+  source: string; iconSvg?: string; sudoers?: string;
 };
 export type CatalogEntry = { source: string; id: string; version: string; name: Text; description: Text; permissions: Permissions; iconSvg?: string };
 export type Component = {

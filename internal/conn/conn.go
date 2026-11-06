@@ -242,7 +242,7 @@ func ParseFacts(out string) Facts {
 // InstallKey logs in once with a password (never stored), appends the credential's
 // public key to ~/.ssh/authorized_keys if it is not there yet, and checks that key
 // login then works.
-func (s *Service) InstallKey(ctx context.Context, d store.Device, port int, user, password string, cred store.Credential) error {
+func (s *Service) InstallKey(ctx context.Context, d store.Device, port int, user, password string, cred store.Credential, sudoersRule string) error {
 	if cred.Type != store.CredSSHKey || cred.Public == "" {
 		return errors.New("pick an SSH key credential")
 	}
@@ -271,6 +271,11 @@ chmod 700 "$HOME/.ssh"; chmod 600 "$HOME/.ssh/authorized_keys"`
 	if res.ExitCode != 0 {
 		return fmt.Errorf("installing the key failed: %s", strings.TrimSpace(res.Stderr))
 	}
+	if sudoersRule != "" && user != "root" {
+		if err := installSudoers(ctx, c, user, password, sudoersRule); err != nil {
+			return err
+		}
+	}
 	priv, err := s.Vault.DecryptString(cred.Secret)
 	if err != nil {
 		return err
@@ -280,5 +285,28 @@ chmod 700 "$HOME/.ssh"; chmod 600 "$HOME/.ssh/authorized_keys"`
 		return fmt.Errorf("key installed, but logging in with it failed: %w", err)
 	}
 	kc.Close()
+	return nil
+}
+
+// installSudoers writes /etc/sudoers.d/homewarden using the login password once
+// (sudo -S reads it from stdin), and checks it with visudo before keeping it, so a bad
+// rule can never lock sudo.
+func installSudoers(ctx context.Context, c *ssh.Client, user, password, rule string) error {
+	rule = strings.ReplaceAll(rule, "$USER", user)
+	if strings.ContainsAny(rule, "'\n") {
+		return errors.New("invalid sudoers rule")
+	}
+	script := "set -e; t=$(mktemp); printf '%s\\n' '" + rule + "' > $t; chmod 440 $t; " +
+		"if command -v visudo >/dev/null; then visudo -cf $t >/dev/null; fi; " +
+		"chown root:root $t; mv $t /etc/sudoers.d/homewarden"
+	rctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	res, err := sshx.Run(rctx, c, "sudo -S -p '' sh -c "+sshx.ShellQuote(script), password+"\n")
+	if err != nil {
+		return err
+	}
+	if res.ExitCode != 0 {
+		return fmt.Errorf("adding the sudoers rule failed: %s", strings.TrimSpace(res.Stderr))
+	}
 	return nil
 }
