@@ -6,6 +6,8 @@
     { "id": "proxmox", "version": "0.9.0", "path": "proxmox" },
     { "id": "proxmox-backup", "version": "0.9.0", "path": "proxmox-backup" },
     { "id": "unraid", "version": "0.9.0", "path": "unraid" },
-    { "id": "unifi", "version": "0.9.0", "path": "unifi" }
+    { "id": "unifi", "version": "0.9.0", "path": "unifi" },
+    { "id": "deploydeck", "version": "0.9.0", "path": "deploydeck" },
+    { "id": "windows", "version": "0.9.0", "path": "windows" }
   ]
 }

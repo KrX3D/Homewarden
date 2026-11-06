@@ -106,7 +106,10 @@ func run(c command) result {
 	defer cancel()
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", c.Cmd)
+		// PowerShell writes in the console code page by default; force UTF-8 so names
+		// with umlauts survive, and so localized table headers stay parseable.
+		cmd = exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+			"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8; "+c.Cmd)
 	} else {
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", c.Cmd)
 	}

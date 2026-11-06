@@ -220,6 +220,12 @@ fakes (proxmox, proxmox-backup, unraid). Bump to 1.0.0 once confirmed on real sy
 - PBS: API (`PBSAPIToken=<tokenid>:<secret>`, colon!), datastore usage, newest backup,
   failed tasks; package updates optional (off for PBS in Docker).
 - UniFi: classic API (/proxy/network on UniFi OS), X-API-KEY or local login (TOKEN cookie + X-CSRF-Token); firmware via `cmd/devmgr upgrade`, gateways last.
+- DeployDeck: session login (`POST /api/login`, cookie `dd_session`), reads `/api/hosts`
+  + `/api/scripts`; update = `POST /api/scripts/{id}/run` (share) or
+  `/api/scripts/{installScriptId}/install {computer}` (PC). Tested on a fake only.
+- Windows: PowerShell through the agent (UTF-8 forced by the agent). Windows Update via
+  the COM API (verified read-only on a real Windows 10 PC), winget table parsed by
+  header positions (untested on real output; winget as SYSTEM found under WindowsApps).
 - Unraid: SSH as root; plugins via `/usr/local/sbin/plugin check|update <file>.plg`;
   OS is notify-only (`warning: self`); busy during parity check/rebuild and mover.
 - `ssh.exec` with `sudo: true` adds no sudo when the SSH user is root. The sudo prefix

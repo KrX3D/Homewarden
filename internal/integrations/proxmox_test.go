@@ -147,3 +147,50 @@ func TestUniFiDetect(t *testing.T) {
 		t.Fatalf("facts: %v", facts)
 	}
 }
+
+func TestDeployDeckDetect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/login" {
+			http.SetCookie(w, &http.Cookie{Name: "dd_session", Value: "abc"})
+			w.Write([]byte(`{"ok":true}`))
+			return
+		}
+		if c, err := r.Cookie("dd_session"); err != nil || c.Value != "abc" {
+			w.WriteHeader(401)
+			return
+		}
+		switch r.URL.Path {
+		case "/api/hosts":
+			w.Write([]byte(`{"hosts":["PC1","LAPTOP"],"programs":[{"program":"7-Zip","script":"7ZipUpdate.ps1","localVersion":"24.08","onlineVersion":"24.09","installed":{"PC1":"24.08","LAPTOP":"23.01"},"installScriptId":9}]}`))
+		case "/api/scripts":
+			w.Write([]byte(`[{"id":3,"relPath":"7ZipUpdate.ps1","programName":"7-Zip","localVersion":"24.08","onlineVersion":"24.09"}]`))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	dir := t.TempDir()
+	st, _ := store.Open(filepath.Join(dir, "t.db"))
+	defer st.Close()
+	v, _ := vault.Load(dir)
+	sec, _ := v.EncryptString("pw")
+	cred, _ := st.CreateCredential(context.Background(), store.Credential{Name: "dd", Type: store.CredPassword, Username: "admin", Secret: sec})
+	u, _ := url.Parse(srv.URL)
+	cfg, _ := json.Marshal(map[string]any{"settings": map[string]any{"login": cred.ID, "port": u.Port(), "perPC": true}})
+	r := NewRegistry(dir, st, builtin.FS)
+	in, err := r.Install(context.Background(), BuiltinSource, "deploydeck")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := (&Host{St: st, Vault: v}).Call(context.Background(), in, store.Device{ID: 1, Host: u.Hostname(), Config: cfg}, "detect", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res struct {
+		Components []map[string]any `json:"components"`
+	}
+	json.Unmarshal(out, &res)
+	if len(res.Components) != 2 || res.Components[0]["id"] != "prog:3" || res.Components[1]["id"] != "pc:LAPTOP:9" {
+		t.Fatalf("want share update + LAPTOP behind, got %v", res.Components)
+	}
+}
