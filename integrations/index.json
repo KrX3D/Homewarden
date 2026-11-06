@@ -8,6 +8,6 @@
     { "id": "unraid", "version": "0.10.0", "path": "unraid" },
     { "id": "unifi", "version": "0.10.0", "path": "unifi" },
     { "id": "deploydeck", "version": "0.9.0", "path": "deploydeck" },
-    { "id": "windows", "version": "0.10.0", "path": "windows" }
+    { "id": "windows", "version": "0.11.0", "path": "windows" }
   ]
 }

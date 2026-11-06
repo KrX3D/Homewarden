@@ -229,6 +229,16 @@ fakes (proxmox, proxmox-backup, unraid). Bump to 1.0.0 once confirmed on real sy
 - Windows: PowerShell through the agent (UTF-8 forced by the agent). Windows Update via
   the COM API (verified read-only on a real Windows 10 PC), winget table parsed by
   header positions (untested on real output; winget as SYSTEM found under WindowsApps).
+- Windows + update scripts (DeployDeck replacement): optional `scriptsPath` (UNC to
+  InstallationScripts). Detect reads `<scripts>\Log\State\*.json` and the PC key the
+  scripts use (`GetPcByUUID.ps1`, else hardware UUID; logged with its source) and lists
+  `ps:<Script>` where installedByHost[key] < share version; `showShare` adds
+  `share:<Script>` (share behind vendor). Update runs the script on the PC through the
+  agent and logs its `##deploydeck:` line. Share login is sent on stdin. Verified
+  read-only against the real share from a real PC. Not replaced: script editing via
+  Gitea PRs, code signing, container-side (pwsh on Linux) runs.
+- Agent on Windows strips PSModulePath before starting powershell.exe (PS 7's path breaks
+  5.1 built-in modules).
 - Unraid: SSH as root; plugins via `/usr/local/sbin/plugin check|update <file>.plg`;
   OS is notify-only (`warning: self`); busy during parity check/rebuild and mover.
 - `ssh.exec` with `sudo: true` adds no sudo when the SSH user is root. The sudo prefix

@@ -64,6 +64,9 @@ function detect(ctx) {
         updateAvailable: true, security: !!u.security, meta: { warning: u.reboot ? 'reboots' : '' } });
     });
   }
+  if (setting(ctx, 'scriptsPath', '')) {
+    try { comps = comps.concat(scriptComponents(ctx)); } catch (e) { ctx.log('Update scripts: ' + (e.message || e)); }
+  }
   if (setting(ctx, 'winget', true)) {
     try {
       wingetList(ctx).forEach(function (a) {
@@ -83,6 +86,15 @@ function update(ctx, ids) {
   var wg = all ? cur.filter(function (c) { return c.id.indexOf('wg:') === 0; }).map(function (c) { return c.id.slice(3); })
     : ids.filter(function (i) { return i.indexOf('wg:') === 0; }).map(function (i) { return i.slice(3); });
   var failed = [];
+  var scripts = all ? cur.filter(function (c) { return /^(ps|share):/.test(c.id); }).map(function (c) { return c.id; })
+    : ids.filter(function (i) { return /^(ps|share):/.test(i); });
+  var ran = {};
+  scripts.forEach(function (id) {
+    var script = id.replace(/^(ps|share):/, '');
+    if (ran[script]) return;
+    ran[script] = true;
+    try { runScript(ctx, script); } catch (e) { failed.push(script); ctx.log(String(e.message || e)); }
+  });
   if (wu.length) {
     wu.forEach(function (id) { if (!/^[0-9a-fA-F-]{36}$/.test(id)) throw new Error('Unexpected update id ' + id); });
     ctx.log('Windows Update: installing ' + wu.length + ' updates');
@@ -116,4 +128,77 @@ function metrics(ctx, opts) {
   j.memPct = j.memTotalMB ? Math.round(100 * j.memUsedMB / j.memTotalMB) : null;
   j.temps = [];
   return j;
+}
+
+// ---- your own update scripts on the share (the DeployDeck scripts)
+
+function q(s) { return "'" + String(s).replace(/'/g, "''") + "'"; }
+
+// The share login travels on stdin, so it never shows up in a process list.
+function shareSession(ctx) {
+  var login = ctx.secret('shareLogin');
+  var path = setting(ctx, 'scriptsPath', '');
+  var root = (/^(\\\\[^\\]+\\[^\\]+)/.exec(path) || [])[1];
+  if (!login || !root) return { prefix: '', stdin: '' };
+  return {
+    prefix: "$hwpw = [Console]::In.ReadLine(); $hwc = New-Object System.Management.Automation.PSCredential(" + q(login.username) +
+      ", (ConvertTo-SecureString $hwpw -AsPlainText -Force)); New-PSDrive -Name HWShare -PSProvider FileSystem -Root " + q(root) +
+      " -Credential $hwc -ErrorAction Stop | Out-Null; ",
+    stdin: login.secret + '\n'
+  };
+}
+
+function scriptComponents(ctx) {
+  var path = setting(ctx, 'scriptsPath', '');
+  var state = setting(ctx, 'statePath', '') || (path.replace(/\\+$/, '') + '\\Log\\State');
+  var sess = shareSession(ctx);
+  var key = setting(ctx, 'hostKey', '');
+  var cmd = sess.prefix + "$key = " + q(key) + "; $src = 'setting'; $why = ''; if (-not $key) { $src = 'GetPcByUUID.ps1'; " +
+    "try { $key = & (Join-Path " + q(path) + " 'GetPcByUUID.ps1') 2>$null | Select-Object -Last 1 } catch { $why = $_.Exception.Message } ; " +
+    "if (-not $key -or $key -eq 'Unknown') { $src = 'hardware UUID'; $key = (Get-CimInstance Win32_ComputerSystemProduct).UUID.ToUpper() } }; " +
+    "$recs = Get-ChildItem -LiteralPath " + q(state) + " -Filter *.json -ErrorAction Stop | ForEach-Object { try { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } catch {} }; " +
+    "[pscustomobject]@{ key = $key; src = $src; why = $why; records = @($recs | Select-Object script, program, localVersion, onlineVersion, lastCheck, lastCheckResult, installedByHost) } | ConvertTo-Json -Depth 6 -Compress";
+  var r = ctx.ssh.exec(cmd, { timeout: 120, stdin: sess.stdin });
+  if (r.code !== 0 || !r.stdout.trim()) throw new Error((r.stderr || 'cannot read the state folder').trim().split('\n').slice(-2).join(' '));
+  var data = JSON.parse(r.stdout.trim());
+  var out = [];
+  var behind = 0, missing = 0;
+  (data.records || []).forEach(function (rec) {
+    if (!rec || !rec.script) return;
+    var mine = rec.installedByHost ? rec.installedByHost[data.key] : undefined;
+    if (typeof mine === 'string') mine = mine.trim();
+    var share = String(rec.localVersion || '').trim();
+    rec.onlineVersion = String(rec.onlineVersion || '').trim();
+    if (mine === undefined || mine === null) return; // never ran here
+    if (mine === '') { missing++; return; }        // not installed on this PC
+    var upd = !!share && ctx.util.compareVersions(share, mine) > 0;
+    if (upd) behind++;
+    out.push({ id: 'ps:' + rec.script, name: rec.program || rec.script, group: 'app', installed: mine, available: upd ? share : '',
+      updateAvailable: upd, meta: { script: rec.script, summary: 'script' } });
+    if (setting(ctx, 'showShare', false) && rec.onlineVersion && share && ctx.util.compareVersions(rec.onlineVersion, share) > 0) {
+      out.push({ id: 'share:' + rec.script, name: (rec.program || rec.script) + ' (share)', group: 'package', installed: share,
+        available: rec.onlineVersion, updateAvailable: true, meta: { script: rec.script, note: 'installer on the share is behind the vendor' } });
+    }
+  });
+  ctx.log('Update scripts: PC key ' + data.key + ' (from ' + data.src + (data.why ? ', GetPcByUUID.ps1 failed: ' + data.why : '') + '), ' + out.length + ' programs tracked here, ' + behind + ' behind the share, ' + missing + ' not installed.');
+  return out;
+}
+
+function runScript(ctx, script) {
+  if (!/^[A-Za-z0-9+._-]+Update\.ps1$/.test(script)) throw new Error('Unexpected script name ' + script);
+  var path = setting(ctx, 'scriptsPath', '');
+  var sess = shareSession(ctx);
+  ctx.log('Running ' + script + ' on this PC');
+  var r = ctx.ssh.exec(sess.prefix + "& (Join-Path " + q(path) + " " + q(script) + ") *>&1 | Out-String -Width 300; exit $LASTEXITCODE",
+    { timeout: 3600, stdin: sess.stdin });
+  var lines = (r.stdout + '\n' + r.stderr).split(/\r?\n/);
+  var result = lines.filter(function (l) { return l.indexOf('##deploydeck:') === 0; }).pop();
+  ctx.log(lines.filter(function (l) { return l.trim() && l.indexOf('##deploydeck:') !== 0; }).slice(-25).join('\n'));
+  if (result) {
+    try {
+      var res = JSON.parse(result.slice('##deploydeck:'.length));
+      ctx.log(script + ': share ' + (res.local || '?') + ', vendor ' + (res.online || '?') + (res.updated ? ', updated' : ''));
+    } catch (e) {}
+  }
+  if (r.code !== 0) throw new Error(script + ' exited with code ' + r.code);
 }
