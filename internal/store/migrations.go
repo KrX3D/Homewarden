@@ -215,4 +215,21 @@ CREATE TABLE agents (
 CREATE INDEX agents_key ON agents(key_hash);
 CREATE INDEX agents_enroll ON agents(enroll_hash);
 `,
+	// 8: notification channels and what was already sent.
+	`
+CREATE TABLE notify_channels (
+	id         INTEGER PRIMARY KEY,
+	name       TEXT NOT NULL,
+	type       TEXT NOT NULL,
+	config     TEXT NOT NULL,
+	events     TEXT NOT NULL DEFAULT '[]',
+	enabled    INTEGER NOT NULL DEFAULT 1,
+	created_at INTEGER NOT NULL
+);
+
+CREATE TABLE notify_sent (
+	key TEXT PRIMARY KEY,
+	at  INTEGER NOT NULL
+);
+`,
 }

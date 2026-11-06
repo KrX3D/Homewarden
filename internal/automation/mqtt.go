@@ -24,6 +24,9 @@ type MQTTSettings struct {
 	Broker       string `json:"broker"` // tcp://host:1883
 	CredentialID int64  `json:"credentialId,omitempty"`
 	BaseTopic    string `json:"baseTopic"`
+	// HADiscovery publishes Home Assistant MQTT discovery configs, so every device
+	// appears in HA with an online sensor, an update count and buttons.
+	HADiscovery bool `json:"haDiscovery"`
 }
 
 // MQTT connects Homewarden to a broker: it publishes device states and update counts
@@ -127,9 +130,35 @@ func (m *MQTT) publishAll(ctx context.Context, c mqtt.Client, cfg MQTTSettings) 
 	counts, _ := m.St.UpdateCounts(ctx)
 	for _, d := range devs {
 		base := cfg.BaseTopic + "/device/" + Slug(d.Name)
+		if cfg.HADiscovery {
+			publishDiscovery(c, cfg, d)
+		}
 		c.Publish(base+"/state", 1, true, d.State)
 		c.Publish(base+"/updates", 1, true, strconv.Itoa(counts[d.ID][0]))
 	}
+}
+
+// publishDiscovery announces one device to Home Assistant.
+func publishDiscovery(c mqtt.Client, cfg MQTTSettings, d store.Device) {
+	slug := Slug(d.Name)
+	base := cfg.BaseTopic + "/device/" + slug
+	uid := "homewarden_" + strconv.FormatInt(d.ID, 10)
+	dev := map[string]any{"identifiers": []string{uid}, "name": d.Name, "manufacturer": "Homewarden", "model": d.Kind}
+	avail := cfg.BaseTopic + "/status"
+	pub := func(component, object string, payload map[string]any) {
+		payload["unique_id"] = uid + "_" + object
+		payload["object_id"] = "homewarden_" + slug + "_" + object
+		payload["device"] = dev
+		payload["availability_topic"] = avail
+		b, _ := json.Marshal(payload)
+		c.Publish(fmt.Sprintf("homeassistant/%s/%s/%s/config", component, uid, object), 1, true, b)
+	}
+	pub("binary_sensor", "online", map[string]any{"name": "Online", "state_topic": base + "/state", "device_class": "connectivity",
+		"value_template": "{{ 'ON' if value == 'ready' else 'OFF' }}"})
+	pub("sensor", "updates", map[string]any{"name": "Updates", "state_topic": base + "/updates", "icon": "mdi:package-up", "state_class": "measurement"})
+	pub("button", "scan", map[string]any{"name": "Scan", "command_topic": base + "/cmd", "payload_press": "scan", "icon": "mdi:magnify"})
+	pub("button", "update_security", map[string]any{"name": "Install security updates", "command_topic": base + "/cmd", "payload_press": "update security", "icon": "mdi:shield-sync"})
+	pub("button", "update_all", map[string]any{"name": "Install all updates", "command_topic": base + "/cmd", "payload_press": "update", "icon": "mdi:update"})
 }
 
 // forward republishes device events while connected.
@@ -143,7 +172,7 @@ func (m *MQTT) forward(ctx context.Context, c mqtt.Client, cfg MQTTSettings, sto
 		case <-stop:
 			return
 		case ev := <-ch:
-			if ev.Type != "device.state" && ev.Type != "device.software" {
+			if ev.Type != "device.state" && ev.Type != "device.software" && ev.Type != "device.changed" {
 				continue
 			}
 			b, _ := json.Marshal(ev.Data)
@@ -157,6 +186,12 @@ func (m *MQTT) forward(ctx context.Context, c mqtt.Client, cfg MQTTSettings, sto
 				continue
 			}
 			base := cfg.BaseTopic + "/device/" + Slug(d.Name)
+			if ev.Type == "device.changed" {
+				if cfg.HADiscovery {
+					publishDiscovery(c, cfg, d)
+				}
+				continue
+			}
 			if ev.Type == "device.state" {
 				c.Publish(base+"/state", 1, true, x.State)
 			} else {

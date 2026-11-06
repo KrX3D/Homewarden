@@ -8,11 +8,11 @@ outside.
 It runs as a single Docker container and is set up entirely through its web interface.
 No playbooks or config files to write.
 
-> **Status: first version.** Works today: devices with staged online detection, the
-> inbox, credentials and SSH onboarding, the integration catalog with Linux (apt),
-> Docker hosts and OctoPrint, updates with live logs, busy rules and backups to SMB or
-> a folder. Unraid, Proxmox, Proxmox Backup Server, UniFi, Windows, schedules,
-> MQTT/API triggers and notifications come next.
+> **Status:** integrations for Linux (apt), Docker and OctoPrint are tested; Proxmox VE,
+> Proxmox Backup Server, Unraid, UniFi, Windows and DeployDeck are beta (version 0.9).
+> Also included: an agent for hosts Homewarden cannot reach, schedules and update
+> policies, API tokens, MQTT with Home Assistant discovery, notifications, backups
+> with restore onto a replacement device.
 
 ## Features
 

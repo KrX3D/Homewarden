@@ -17,6 +17,7 @@ function AutomationCard({ device }: { device: Device }) {
   const [p, setP] = useState<Policy>(saved);
   const [pending, setPending] = useState<{ action: string; since: number }[]>([]);
   const [ok, setOk] = useState(false);
+  const [offMin, setOffMin] = useState<number>(((device.config as { notify?: { offlineMinutes?: number } }).notify?.offlineMinutes) ?? 0);
   const { busy, error, run } = useAction();
   useEffect(() => setP(saved), [JSON.stringify(saved)]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { get<typeof pending>(`/api/devices/${device.id}/pending`).then(setPending).catch(() => {}); }, [device.id, device.state]);
@@ -26,7 +27,7 @@ function AutomationCard({ device }: { device: Device }) {
   return (
     <section className="card">
       <h2>{t('auto.title')}</h2>
-      <form className="stack" onSubmit={(e: FormEvent) => { e.preventDefault(); setOk(false); run(async () => { await put(`/api/devices/${device.id}/policy`, p); setOk(true); }); }}>
+      <form className="stack" onSubmit={(e: FormEvent) => { e.preventDefault(); setOk(false); run(async () => { await put(`/api/devices/${device.id}/policy`, p); await put(`/api/devices/${device.id}/notify`, { offlineMinutes: offMin }); setOk(true); }); }}>
         <label className="field">{t('auto.mode')}
           <select id="pol-mode" value={p.mode} disabled={!manage} onChange={(e) => setP({ ...p, mode: e.target.value as Policy['mode'] })}>
             <option value="manual">{t('auto.manual')}</option>
@@ -53,6 +54,10 @@ function AutomationCard({ device }: { device: Device }) {
             <span className="hint">{t('auto.scopeHint')}</span>
           </label>
         )}
+        <label className="field">{t('auto.offline')}
+          <input id="pol-offline" type="number" min={0} max={10080} value={offMin} disabled={!manage} onChange={(e) => setOffMin(Number(e.target.value))} style={{ maxWidth: 140 }} />
+          <span className="hint">{t('auto.offlineHint')}</span>
+        </label>
         {ok && <div className="alert ok">{t('conn.saved')}</div>}
         <ErrorAlert error={error} />
         {manage && <div><button className="btn" type="submit" disabled={busy}>{t('common.save')}</button></div>}
@@ -131,6 +136,8 @@ function MQTTTab() {
           {creds.filter((c) => c.type === 'password').map((c) => <option key={c.id} value={c.id}>{c.name} ({c.username})</option>)}
         </select>
       </label>
+      <label className="check"><input id="mqtt-ha" type="checkbox" checked={!!cfg.haDiscovery} onChange={(e) => setCfg({ ...cfg, haDiscovery: e.target.checked })} />{t('mqtt.ha')}</label>
+      <span className="small muted">{t('mqtt.haHint')}</span>
       <label className="field">{t('mqtt.base')}
         <input id="mqtt-base" type="text" className="mono" value={cfg.baseTopic} onChange={(e) => setCfg({ ...cfg, baseTopic: e.target.value })} />
       </label>

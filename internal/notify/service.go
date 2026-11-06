@@ -1,0 +1,306 @@
+package notify
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/KrX3D/Homewarden/internal/events"
+	"github.com/KrX3D/Homewarden/internal/store"
+	"github.com/KrX3D/Homewarden/internal/vault"
+)
+
+// Event names a channel can subscribe to.
+const (
+	EvUpdates  = "updates"  // new updates found
+	EvSecurity = "security" // new security updates only
+	EvJobs     = "jobs"     // failed or blocked jobs
+	EvWarnings = "warnings" // device warnings (disks, undervoltage, old backups, end of life)
+	EvOffline  = "offline"  // device offline longer than its limit (per-device opt-in)
+)
+
+// Events lists all event names in display order.
+var Events = []string{EvUpdates, EvSecurity, EvJobs, EvWarnings, EvOffline}
+
+// Service turns server events into notifications.
+type Service struct {
+	St     *store.Store
+	Vault  *vault.Vault
+	Events *events.Broker
+
+	mu      sync.Mutex
+	offline map[int64]*time.Timer
+}
+
+// Settings are global notification settings.
+type Settings struct {
+	Lang    string `json:"lang"`    // en | de
+	BaseURL string `json:"baseUrl"` // for links in messages
+}
+
+// LoadSettings reads them.
+func LoadSettings(ctx context.Context, st *store.Store) Settings {
+	raw, _ := st.GetSetting(ctx, "notify", "")
+	var s Settings
+	_ = json.Unmarshal([]byte(raw), &s)
+	if s.Lang != "de" {
+		s.Lang = "en"
+	}
+	return s
+}
+
+func (s *Service) text(lang, en, de string) string {
+	if lang == "de" {
+		return de
+	}
+	return en
+}
+
+// Dispatch sends a message to every enabled channel subscribed to event.
+func (s *Service) Dispatch(ctx context.Context, event string, m Message) {
+	chans, err := s.St.NotifyChannels(ctx)
+	if err != nil {
+		return
+	}
+	m.Event = event
+	for _, c := range chans {
+		if !c.Enabled || !contains(c.Events, event) {
+			continue
+		}
+		cfg, err := s.DecryptConfig(c)
+		if err != nil {
+			log.Printf("notify %s: %v", c.Name, err)
+			continue
+		}
+		if err := Send(ctx, c.Type, cfg, m); err != nil {
+			log.Printf("notify %s: %v", c.Name, err)
+		}
+	}
+}
+
+// DecryptConfig opens a channel's stored config.
+func (s *Service) DecryptConfig(c store.NotifyChannel) (Config, error) {
+	var cfg Config
+	plain, err := s.Vault.DecryptString(c.Config)
+	if err != nil {
+		return cfg, err
+	}
+	err = json.Unmarshal([]byte(plain), &cfg)
+	return cfg, err
+}
+
+func contains(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// Run follows server events until ctx ends.
+func (s *Service) Run(ctx context.Context) {
+	s.offline = map[int64]*time.Timer{}
+	ch := s.Events.Subscribe()
+	defer s.Events.Unsubscribe(ch)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev := <-ch:
+			b, _ := json.Marshal(ev.Data)
+			var x struct {
+				ID       int64  `json:"id"`
+				Status   string `json:"status"`
+				State    string `json:"state"`
+				Previous string `json:"previous"`
+			}
+			_ = json.Unmarshal(b, &x)
+			switch ev.Type {
+			case "device.software":
+				s.onSoftware(ctx, x.ID)
+			case "job.status":
+				if x.Status == store.JobFailed || x.Status == store.JobBlocked {
+					s.onJob(ctx, x.ID)
+				}
+			case "device.state":
+				s.onState(ctx, x.ID, x.State)
+			}
+		}
+	}
+}
+
+func (s *Service) link(set Settings, deviceID int64) string {
+	if set.BaseURL == "" {
+		return ""
+	}
+	return strings.TrimRight(set.BaseURL, "/") + fmt.Sprintf("/devices/%d", deviceID)
+}
+
+func (s *Service) onSoftware(ctx context.Context, deviceID int64) {
+	d, err := s.St.Device(ctx, deviceID)
+	if err != nil || d.Status != store.StatusActive {
+		return
+	}
+	set := LoadSettings(ctx, s.St)
+	comps, err := s.St.Components(ctx, deviceID)
+	if err != nil {
+		return
+	}
+	var fresh, freshSec []string
+	for _, c := range comps {
+		// Summary rows ("46 packages") would only repeat the individual updates.
+		if !c.UpdateAvailable || (c.Group == "os" && c.Available == "") {
+			continue
+		}
+		key := fmt.Sprintf("upd:%d:%s:%s", deviceID, c.ID, c.Available)
+		if ok, _ := s.St.MarkSent(ctx, key); !ok {
+			continue
+		}
+		label := c.Name
+		if c.Available != "" {
+			label += " " + c.Available
+		}
+		fresh = append(fresh, label)
+		if c.Security {
+			freshSec = append(freshSec, label)
+		}
+	}
+	list := func(items []string) string {
+		if len(items) > 10 {
+			return "- " + strings.Join(items[:10], "\n- ") + fmt.Sprintf("\n… +%d", len(items)-10)
+		}
+		return "- " + strings.Join(items, "\n- ")
+	}
+	if len(fresh) > 0 {
+		s.Dispatch(ctx, EvUpdates, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s: %d new updates", "%s: %d neue Updates"), d.Name, len(fresh)),
+			Body: list(fresh), Link: s.link(set, d.ID)})
+	}
+	if len(freshSec) > 0 {
+		s.Dispatch(ctx, EvSecurity, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s: %d security updates", "%s: %d Sicherheitsupdates"), d.Name, len(freshSec)),
+			Body: list(freshSec), Priority: 1, Link: s.link(set, d.ID)})
+	}
+
+	// Warnings: notify once while a warning is present; clear when it goes away.
+	f, err := s.St.DeviceFacts(ctx, deviceID)
+	if err != nil {
+		return
+	}
+	var facts struct {
+		Warnings  []string `json:"warnings"`
+		EOLPassed bool     `json:"eolPassed"`
+	}
+	_ = json.Unmarshal(f.Facts, &facts)
+	if facts.EOLPassed {
+		facts.Warnings = append(facts.Warnings, "eol")
+	}
+	present := map[string]bool{}
+	for _, w := range facts.Warnings {
+		present[w] = true
+		if ok, _ := s.St.MarkSent(ctx, fmt.Sprintf("warn:%d:%s:", deviceID, w)); ok {
+			s.Dispatch(ctx, EvWarnings, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s: warning", "%s: Warnung"), d.Name),
+				Body: warningText(set.Lang, w), Priority: 1, Link: s.link(set, d.ID)})
+		}
+	}
+	for _, w := range []string{"undervoltage", "disk_problems", "datastore_full", "backup_old", "backup_errors", "unifi_offline", "eol"} {
+		if !present[w] {
+			_ = s.St.ClearSent(ctx, fmt.Sprintf("warn:%d:%s:", deviceID, w))
+		}
+	}
+}
+
+func warningText(lang, w string) string {
+	en := map[string]string{
+		"undervoltage": "The Pi reported undervoltage.", "disk_problems": "A disk reports errors, is disabled or runs hot.",
+		"datastore_full": "A backup datastore is almost full.", "backup_old": "The newest backup is older than the limit.",
+		"backup_errors": "Backup tasks failed in the last 7 days.", "unifi_offline": "UniFi devices are offline.",
+		"eol": "The operating system no longer receives updates.",
+	}
+	de := map[string]string{
+		"undervoltage": "Der Pi hat Unterspannung gemeldet.", "disk_problems": "Eine Platte meldet Fehler, ist deaktiviert oder zu heiß.",
+		"datastore_full": "Ein Backup-Datastore ist fast voll.", "backup_old": "Das neueste Backup ist älter als die Grenze.",
+		"backup_errors": "Backup-Tasks sind in den letzten 7 Tagen fehlgeschlagen.", "unifi_offline": "UniFi-Geräte sind offline.",
+		"eol": "Das Betriebssystem bekommt keine Updates mehr.",
+	}
+	m := en
+	if lang == "de" {
+		m = de
+	}
+	if t, ok := m[w]; ok {
+		return t
+	}
+	return w
+}
+
+func (s *Service) onJob(ctx context.Context, jobID int64) {
+	j, err := s.St.Job(ctx, jobID)
+	if err != nil {
+		return
+	}
+	set := LoadSettings(ctx, s.St)
+	lines := strings.Split(strings.TrimSpace(j.Log), "\n")
+	if len(lines) > 6 {
+		lines = lines[len(lines)-6:]
+	}
+	title := fmt.Sprintf(s.text(set.Lang, "Failed: %s", "Fehlgeschlagen: %s"), j.Title)
+	if j.Status == store.JobBlocked {
+		title = fmt.Sprintf(s.text(set.Lang, "Blocked: %s", "Blockiert: %s"), j.Title)
+	}
+	link := ""
+	if set.BaseURL != "" {
+		link = strings.TrimRight(set.BaseURL, "/") + fmt.Sprintf("/jobs/%d", j.ID)
+	}
+	s.Dispatch(ctx, EvJobs, Message{Title: title, Body: strings.Join(lines, "\n"), Priority: 1, Link: link})
+}
+
+// onState starts a timer when a device with an offline limit goes offline, and
+// reports "back online" when an offline notification was sent.
+func (s *Service) onState(ctx context.Context, deviceID int64, state string) {
+	d, err := s.St.Device(ctx, deviceID)
+	if err != nil {
+		return
+	}
+	var cfg struct {
+		Notify struct {
+			OfflineMinutes int `json:"offlineMinutes"`
+		} `json:"notify"`
+	}
+	_ = json.Unmarshal(d.Config, &cfg)
+	limit := cfg.Notify.OfflineMinutes
+	s.mu.Lock()
+	if t, ok := s.offline[deviceID]; ok {
+		t.Stop()
+		delete(s.offline, deviceID)
+	}
+	s.mu.Unlock()
+	set := LoadSettings(ctx, s.St)
+	key := fmt.Sprintf("off:%d:", deviceID)
+	if state != store.StateOffline {
+		// "down" exists only if we reported this device offline; then say it is back.
+		inserted, _ := s.St.MarkSent(ctx, key+"down")
+		_ = s.St.ClearSent(ctx, key)
+		if !inserted {
+			s.Dispatch(ctx, EvOffline, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is back online", "%s ist wieder online"), d.Name), Link: s.link(set, d.ID)})
+		}
+		return
+	}
+	if limit <= 0 || d.Status != store.StatusActive {
+		return
+	}
+	s.mu.Lock()
+	s.offline[deviceID] = time.AfterFunc(time.Duration(limit)*time.Minute, func() {
+		cur, err := s.St.Device(ctx, deviceID)
+		if err != nil || cur.State != store.StateOffline {
+			return
+		}
+		if ok, _ := s.St.MarkSent(ctx, key+"down"); ok {
+			s.Dispatch(ctx, EvOffline, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is offline", "%s ist offline"), d.Name),
+				Body: fmt.Sprintf(s.text(set.Lang, "No answer for %d minutes.", "Seit %d Minuten keine Antwort."), limit), Priority: 1, Link: s.link(set, d.ID)})
+		}
+	})
+	s.mu.Unlock()
+}

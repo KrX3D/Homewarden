@@ -17,6 +17,7 @@ import (
 	"github.com/KrX3D/Homewarden/internal/auth"
 	"github.com/KrX3D/Homewarden/internal/automation"
 	"github.com/KrX3D/Homewarden/internal/conn"
+	"github.com/KrX3D/Homewarden/internal/notify"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
 )
@@ -51,6 +52,7 @@ type Server struct {
 	sw      SoftwareDeps
 	auto    *automation.Service
 	agents  *agent.Hub
+	notify  *notify.Service
 	baseCtx context.Context
 	mqtt    *automation.MQTT
 
