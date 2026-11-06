@@ -213,3 +213,13 @@ function metrics(ctx, opts) {
   if (opts && opts.smart) m.smart = readSmart(ctx);
   return m;
 }
+
+// changelog(ctx, componentId): the Debian changelog of the new version (top entries).
+function changelog(ctx, id) {
+  if (!id || id.indexOf('pkg:') !== 0) return { text: '', url: '' };
+  var pkg = id.slice(4);
+  if (!/^[a-z0-9][a-z0-9+.\-]*$/.test(pkg)) throw new Error('invalid package');
+  // Errors (no internet, missing certificates) are shown instead of an empty window.
+  var r = ctx.ssh.exec('LANG=C apt-get changelog -qq ' + pkg + " 2>&1 | grep -v '^W:' | head -80", { timeout: 60 });
+  return { text: r.stdout.trim(), url: '' };
+}

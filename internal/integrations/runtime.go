@@ -377,7 +377,7 @@ func (c *call) httpRequest(o httpOpts) map[string]any {
 
 // dockerRequest talks to a Docker Engine API: the local socket or tcp://host:port
 // from the device's dockerEndpoint setting.
-func (c *call) dockerRequest(method, path string, body any) map[string]any {
+func (c *call) dockerRequest(method, path string, body any, headers map[string]string) map[string]any {
 	if !c.in.Permissions.Docker {
 		c.throw("this integration has no Docker permission")
 	}
@@ -417,6 +417,9 @@ func (c *call) dockerRequest(method, path string, body any) map[string]any {
 	}
 	if rb != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	resp, err := (&http.Client{Transport: transport}).Do(req)
 	if err != nil {

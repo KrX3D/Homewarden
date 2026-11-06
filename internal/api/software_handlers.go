@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -39,6 +40,8 @@ func (s *Server) AttachSoftware(d SoftwareDeps) {
 	m.Handle("POST /api/devices/{id}/update", s.authed(auth.PermUpdatesRun, s.updateDevice2))
 	m.Handle("GET /api/updates", s.authed(auth.PermDevicesView, s.pendingUpdates))
 	m.Handle("GET /api/devices/{id}/metrics", s.authed(auth.PermDevicesView, s.deviceMetrics))
+	m.Handle("GET /api/devices/{id}/changelog", s.authed(auth.PermDevicesView, s.componentChangelog))
+	m.Handle("GET /api/devices/{id}/choices", s.authed(auth.PermUpdatesRun, s.componentChoices))
 	m.Handle("POST /api/devices/{id}/metrics", s.authed(auth.PermDevicesView, s.sampleMetrics))
 
 	m.Handle("GET /api/jobs", s.authed(auth.PermJobsView, s.listJobs))
@@ -332,4 +335,37 @@ func (s *Server) sampleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 	p, _ := s.Store.LatestMetrics(r.Context(), d.ID)
 	writeJSON(w, http.StatusOK, p)
+}
+
+// callComponent runs an integration function that takes a component id.
+func (s *Server) callComponent(w http.ResponseWriter, r *http.Request, capability, fn string) {
+	d, ok := s.loadDevice(w, r)
+	if !ok {
+		return
+	}
+	in, ok := s.sw.Registry.Get(d.Kind)
+	if !ok || !in.Has(capability) {
+		fail(w, http.StatusBadRequest, "not_supported")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	raw, err := s.sw.Software.Host.Call(ctx, in, d, fn, r.URL.Query().Get("component"), nil)
+	if err != nil {
+		FailMsg(w, http.StatusBadGateway, "integration_failed", err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(raw)
+}
+
+// componentChangelog returns {text, url} for one component.
+func (s *Server) componentChangelog(w http.ResponseWriter, r *http.Request) {
+	s.callComponent(w, r, "changelog", "changelog")
+}
+
+// componentChoices returns the versions a component can be switched to (rollback or
+// another tag). Pick one by updating "<component>@<choice>".
+func (s *Server) componentChoices(w http.ResponseWriter, r *http.Request) {
+	s.callComponent(w, r, "choose", "choices")
 }

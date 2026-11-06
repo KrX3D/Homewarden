@@ -204,3 +204,16 @@ function update(ctx, ids) {
   }
   return { octoprint: targets, os: os, packages: pkgs.length };
 }
+
+// changelog(ctx, componentId): OctoPrint's release notes link; for releases on GitHub
+// also the text.
+function changelog(ctx, id) {
+  var key = (id || '').replace(/^ou:/, '');
+  var su = api(ctx, 'GET', '/plugin/softwareupdate/check', null, true).json || {};
+  var c = (su.information || {})[key] || {};
+  var url = c.releaseNotes || '';
+  var m = /github\.com\/([^\/]+)\/([^\/]+)\/releases\/tag\/([^\/?#]+)/.exec(url);
+  if (!m) return { text: '', url: url };
+  var r = ctx.http.request({ url: 'https://api.github.com/repos/' + m[1] + '/' + m[2] + '/releases/tags/' + m[3], headers: { Accept: 'application/vnd.github+json' } });
+  return { text: r.json && r.json.body ? r.json.body.slice(0, 20000) : '', url: url };
+}

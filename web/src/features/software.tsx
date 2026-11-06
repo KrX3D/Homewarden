@@ -97,7 +97,10 @@ function WarningPill({ c }: { c: Component }) {
   return <span className="pill warn" title={t('warnHint.' + w)}>{t('warn.' + w)}</span>;
 }
 
-function ComponentTable({ comps, selected, onToggle }: { comps: Component[]; selected?: Set<string>; onToggle?: (id: string) => void }) {
+function ComponentTable({ comps, selected, onToggle, onChangelog, onChoose }: {
+  comps: Component[]; selected?: Set<string>; onToggle?: (id: string) => void;
+  onChangelog?: (c: Component) => void; onChoose?: (c: Component) => void;
+}) {
   const t = useT();
   return (
     <div className="table-wrap">
@@ -115,7 +118,9 @@ function ComponentTable({ comps, selected, onToggle }: { comps: Component[]; sel
                   {c.security && c.updateAvailable && <span className="pill crit">{t('sw.security')}</span>}
                   {!c.updatable && c.updateAvailable && <span className="pill off" title={t('sw.notifyOnlyHint')}>{t('sw.notifyOnly')}</span>}
                   <WarningPill c={c} />
-                  {c.meta?.changelog && <a className="small" href={c.meta.changelog} target="_blank" rel="noreferrer">{t('sw.changelog')}</a>}
+                  {onChangelog && (c.updateAvailable || c.group === 'container') && c.group !== 'action' ? <button type="button" className="btn subtle sm" onClick={() => onChangelog(c)}>{t('sw.changelog')}</button>
+                    : c.meta?.changelog && <a className="small" href={c.meta.changelog} target="_blank" rel="noreferrer">{t('sw.changelog')}</a>}
+                  {onChoose && c.group === 'container' && c.updatable && <button type="button" className="btn subtle sm" onClick={() => onChoose(c)}>{t('sw.choose')}</button>}
                 </span>
               </td>
             </tr>
@@ -255,6 +260,8 @@ function SoftwareCard({ device }: { device: Device }) {
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [force, setForce] = useState(false);
+  const [logFor, setLogFor] = useState<Component | null>(null);
+  const [chooseFor, setChooseFor] = useState<Component | null>(null);
   const { busy, error, run } = useAction();
   const load = useCallback(() => { get<Software>(`/api/devices/${device.id}/software`).then(setSw).catch(() => {}); }, [device.id]);
   useEffect(() => { load(); }, [load]);
@@ -303,7 +310,9 @@ function SoftwareCard({ device }: { device: Device }) {
             <span style={{ flex: 1 }} />
             {sw.components.length > 10 && <input id="sw-filter" type="text" placeholder={t('sw.filter')} value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: 220 }} />}
           </div>
-          <ComponentTable comps={comps} selected={selected} onToggle={can('updates.run') ? toggle : undefined} />
+          <ComponentTable comps={comps} selected={selected} onToggle={can('updates.run') ? toggle : undefined}
+            onChangelog={integ.capabilities.includes('changelog') ? setLogFor : undefined}
+            onChoose={integ.capabilities.includes('choose') && can('updates.run') ? setChooseFor : undefined} />
           {can('updates.run') && pending.length > 0 && (
             <div className="row">
               <button className="btn" type="button" disabled={busy || selected.size === 0 || !!running} onClick={() => update([...selected])}>{t('sw.updateSelected', { n: selected.size })}</button>
@@ -340,7 +349,52 @@ function SoftwareCard({ device }: { device: Device }) {
           <JobList jobs={sw.jobs} compact />
         </details>
       )}
+      {logFor && <ChangelogModal device={device} comp={logFor} onClose={() => setLogFor(null)} />}
+      {chooseFor && <ChooseModal device={device} comp={chooseFor} onClose={() => setChooseFor(null)} onDone={() => { setChooseFor(null); load(); }} />}
     </section>
+  );
+}
+
+function ChangelogModal({ device, comp, onClose }: { device: Device; comp: Component; onClose: () => void }) {
+  const t = useT();
+  const [data, setData] = useState<{ text: string; url: string } | null>(null);
+  const { error, run } = useAction();
+  useEffect(() => { run(async () => setData(await get(`/api/devices/${device.id}/changelog?component=${encodeURIComponent(comp.id)}`))); }, [comp.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Modal title={t('sw.changelogOf', { name: comp.name })} onClose={onClose} footer={<button className="btn" type="button" onClick={onClose}>{t('common.close')}</button>}>
+      {!data && !error && <Spinner />}
+      {data && (data.text ? <pre className="log" style={{ maxHeight: '60vh' }}>{data.text}</pre> : <p className="muted small">{t('sw.noChangelog')}</p>)}
+      {data?.url && <a className="small" href={data.url} target="_blank" rel="noreferrer">{data.url}</a>}
+      <ErrorAlert error={error} />
+    </Modal>
+  );
+}
+
+function ChooseModal({ device, comp, onClose, onDone }: { device: Device; comp: Component; onClose: () => void; onDone: () => void }) {
+  const t = useT();
+  const [data, setData] = useState<{ current: string; choices: { value: string; label: string; note?: string }[] } | null>(null);
+  const [pick, setPick] = useState('');
+  const { busy, error, run } = useAction();
+  useEffect(() => { run(async () => setData(await get(`/api/devices/${device.id}/choices?component=${encodeURIComponent(comp.id)}`))); }, [comp.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Modal title={t('sw.chooseFor', { name: comp.name })} onClose={onClose} footer={
+      <>
+        <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
+        <button className="btn" type="button" disabled={busy || !pick} onClick={() => run(async () => { await post(`/api/devices/${device.id}/update`, { components: [comp.id + '@' + pick] }); onDone(); })}>{t('sw.switch')}</button>
+      </>
+    }>
+      {!data && !error && <Spinner />}
+      {data && (
+        <div className="stack">
+          <p className="small">{t('sw.chooseIntro', { current: data.current })}</p>
+          <select id="choose-version" value={pick} onChange={(e) => setPick(e.target.value)} size={Math.min(12, Math.max(4, data.choices.length))}>
+            {data.choices.map((c) => <option key={c.value} value={c.value}>{c.label}{c.note ? ` (${c.note === 'on this host' ? t('sw.onHost') : c.note})` : ''}</option>)}
+          </select>
+          <p className="small muted">{t('sw.chooseHint')}</p>
+        </div>
+      )}
+      <ErrorAlert error={error} />
+    </Modal>
   );
 }
 
