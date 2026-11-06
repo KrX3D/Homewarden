@@ -188,8 +188,19 @@ decision is made or changed, update it in the same PR.
 - Devices: `status` active|discovered|ignored; `parent_id` builds the host tree;
   `presence` JSON {reach, ready, settleSeconds, intervalSeconds}; reach `none` = state
   comes from elsewhere (e.g. container state from its host integration).
-- `web/src/extensions.ts` - `deviceSections` lets later features add cards to the
-  device page.
+- `web/src/extensions.ts` - `deviceSections` (cards on the device page) and
+  `settingsTabs`; feature modules in `web/src/features/` push into them and are
+  imported once from `main.tsx`.
+- `internal/store/credentials.go` + `internal/api/credentials_handlers.go` - vault of
+  ssh_key / password / token. Secrets are vault-encrypted, never returned by the API.
+  SSH keys are ed25519 generated in-app (or a pasted unencrypted key). A credential
+  referenced by any device config field ending in `credentialId` cannot be deleted.
+- `internal/sshx/` - SSH dial/run, key generation, TOFU host-key pinning
+  (`known_hosts` table keyed by host:port; mismatch = `host_key_changed`, the UI offers
+  "trust the new key" which deletes the pin).
+- `internal/conn/` - device `config.connection` {method: ssh, port, credentialId,
+  user, sudo}. `Exec(..., privileged)` wraps in `sudo -n sh -c` when sudo is on.
+  `InstallKey` logs in once with a password (never stored) and appends the public key.
 - `internal/web/` - embeds `dist/` (Vite output; only `.gitkeep` is tracked)
 - `web/` - React + TypeScript + Vite. `src/i18n/en.json` + `de.json` must always have
   the same keys. Theme/lang/device-view are per-user prefs (`PUT /api/me/prefs`).

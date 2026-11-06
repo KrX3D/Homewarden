@@ -76,4 +76,25 @@ CREATE TABLE presence_events (
 );
 CREATE INDEX presence_events_device ON presence_events(device_id, at);
 `,
+	// 3: credentials vault and pinned SSH host keys.
+	`
+CREATE TABLE credentials (
+	id         INTEGER PRIMARY KEY,
+	name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+	type       TEXT NOT NULL,
+	username   TEXT NOT NULL DEFAULT '',
+	secret     TEXT NOT NULL,
+	public     TEXT NOT NULL DEFAULT '',
+	created_at INTEGER NOT NULL,
+	updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE known_hosts (
+	address     TEXT PRIMARY KEY,
+	key_type    TEXT NOT NULL,
+	fingerprint TEXT NOT NULL,
+	key         TEXT NOT NULL,
+	first_seen  INTEGER NOT NULL
+);
+`,
 }

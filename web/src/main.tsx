@@ -10,6 +10,7 @@ import '@fontsource/jetbrains-mono/400.css';
 import './styles.css';
 import './styles-devices.css';
 import { SessionProvider } from './session';
+import './features/credentials';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(

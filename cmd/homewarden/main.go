@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/api"
+	"github.com/KrX3D/Homewarden/internal/conn"
 	"github.com/KrX3D/Homewarden/internal/discovery"
 	"github.com/KrX3D/Homewarden/internal/events"
 	"github.com/KrX3D/Homewarden/internal/presence"
@@ -60,6 +61,7 @@ func main() {
 	broker := events.New()
 	engine := presence.New(st, broker)
 	srv.AttachDevices(api.DeviceDeps{Events: broker, Presence: engine, Scanner: discovery.New(ctx, st, broker)})
+	srv.AttachCredentials(&conn.Service{St: st, Vault: v})
 	go engine.Run(ctx)
 
 	token, err := srv.PrepareSetup(ctx)
