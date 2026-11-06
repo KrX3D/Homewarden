@@ -166,7 +166,19 @@ decision is made or changed, update it in the same PR.
 
 ## Layout
 
-- `cmd/homewarden/` - entry point (currently a placeholder server: `/` and `/healthz`)
+- `cmd/homewarden/` - entry point: opens vault + DB, logs the setup token, serves HTTP
+- `internal/store/` - SQLite (modernc, pure Go), migrations in `migrations.go`
+  (append only; `PRAGMA user_version` counts them), one connection
+- `internal/vault/` - AES-256-GCM for secrets; key from `HOMEWARDEN_MASTER_KEY` or
+  `/data/master.key`
+- `internal/auth/` - bcrypt passwords (min 10 chars), session tokens (stored as
+  SHA-256), TOTP (RFC 6238), setup token, login rate limiter, permission catalog
+- `internal/api/` - HTTP API. Every non-GET `/api/` request needs the `X-Homewarden`
+  header (CSRF). Errors are `{"error": "<code>"}`; the UI translates `error.<code>`.
+  `Server.Authed(perm, h)` and `Server.Handle` let other packages add routes.
+- `internal/web/` - embeds `dist/` (Vite output; only `.gitkeep` is tracked)
+- `web/` - React + TypeScript + Vite. `src/i18n/en.json` + `de.json` must always have
+  the same keys. Theme/lang/device-view are per-user prefs (`PUT /api/me/prefs`).
 - `Dockerfile` - multi-stage, Go cross-compiled per target arch
 - `docker/entrypoint.sh` - PUID/PGID handling
 - `unraid/homewarden.xml` - Unraid container template

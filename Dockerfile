@@ -1,3 +1,15 @@
+# The web interface is plain static files, so it is built once on the build machine's
+# own architecture no matter which platform the image is for.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+# Vite writes into ../internal/web/dist, the Go embed directory.
+RUN mkdir -p /internal/web/dist && npm run build
+
+
 # The Go stage runs on the build machine's own architecture and cross-compiles for the
 # target. Only the small runtime stage runs under emulation for arm64, which keeps the
 # multi-arch build fast.
@@ -5,10 +17,12 @@ FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
 
 WORKDIR /src
 
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 COPY cmd ./cmd
+COPY internal ./internal
+COPY --from=frontend /internal/web/dist ./internal/web/dist
 
 ARG TARGETOS
 ARG TARGETARCH
