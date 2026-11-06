@@ -5,3 +5,6 @@ import type { Device } from './api';
 
 /** Extra sections rendered on the device detail page, in order. */
 export const deviceSections: ComponentType<{ device: Device }>[] = [];
+
+/** Extra tabs on the settings page. */
+export const settingsTabs: { path: string; labelKey: string; perm?: string; element: JSX.Element }[] = [];

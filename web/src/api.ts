@@ -86,3 +86,8 @@ export type Device = {
   notes: string;
   createdAt: number;
 };
+
+export type CredentialType = 'ssh_key' | 'password' | 'token';
+export type Credential = { id: number; name: string; type: CredentialType; username: string; public: string; createdAt: number; updatedAt: number; usedBy: number };
+export type ConnectionSettings = { method: 'ssh' | ''; port?: number; credentialId?: number; user?: string; sudo: boolean };
+export type Facts = { user: string; hostname: string; os: string; kernel: string; arch: string; sudo: boolean; hostKey: string; hostKeyFirst: boolean };

@@ -89,7 +89,7 @@ export default function DeviceDetail() {
             <Legend cls="warn" label={t('state.reachable')} />
             <Legend cls="off" label={t('state.offline')} />
           </div>
-          {history && <p className="small muted">{t('detail.uptime', { pct: uptime(history) })}</p>}
+          {history && uptime(history) !== '–' && <p className="small muted">{t('detail.uptime', { pct: uptime(history) })}</p>}
         </section>
       </div>
 
@@ -144,7 +144,7 @@ function uptime(h: History) {
   const segs = segments(h);
   const known = segs.filter((s) => s.state !== 'unknown');
   const total = known.reduce((a, s) => a + (s.to - s.from), 0);
-  if (!total) return '–';
+  if (total < 60) return '–';
   const up = known.filter((s) => s.state === 'ready' || s.state === 'reachable').reduce((a, s) => a + (s.to - s.from), 0);
   return ((up / total) * 100).toFixed(1);
 }

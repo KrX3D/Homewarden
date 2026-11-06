@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/auth"
+	"github.com/KrX3D/Homewarden/internal/conn"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
 )
@@ -44,6 +45,7 @@ type Server struct {
 	limiter *auth.Limiter
 	mux     *http.ServeMux
 	dev     DeviceDeps
+	conn    *conn.Service
 
 	setupMu    sync.Mutex
 	setupToken string

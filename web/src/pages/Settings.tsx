@@ -9,8 +9,8 @@ import { IconEdit, IconPlus } from '../components/icons';
 
 export type SettingsTab = { path: string; label: string; perm?: string; element: JSX.Element };
 
-/** Tabs contributed by later features are appended here. */
-export const extraSettingsTabs: SettingsTab[] = [];
+/** Tabs contributed by other features (see extensions.ts). */
+import { settingsTabs as extraSettingsTabs } from '../extensions';
 
 export default function SettingsPage() {
   const t = useT();
@@ -19,7 +19,7 @@ export default function SettingsPage() {
     { path: 'account', label: t('settings.account'), element: <AccountTab /> },
     { path: 'users', label: t('settings.users'), perm: 'users.manage', element: <UsersTab /> },
     { path: 'roles', label: t('settings.roles'), perm: 'users.manage', element: <RolesTab /> },
-    ...extraSettingsTabs,
+    ...extraSettingsTabs.map((x) => ({ ...x, label: t(x.labelKey) })),
   ].filter((x) => !x.perm || can(x.perm));
   return (
     <>
