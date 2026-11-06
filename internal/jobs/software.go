@@ -50,6 +50,7 @@ type detectResult struct {
 type discovered struct {
 	ExternalID string                `json:"externalId"`
 	Name       string                `json:"name"`
+	MAC        string                `json:"mac"`
 	Host       string                `json:"host"`
 	Kind       string                `json:"kind"`
 	State      string                `json:"state"` // running | stopped
@@ -251,7 +252,7 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 			if kind == "" {
 				kind = "generic"
 			}
-			nd, err := s.St.CreateDevice(ctx, store.Device{Name: f.Name, Kind: kind, Host: f.Host, ParentID: &pid, GroupName: firstNonEmpty(f.Group, parent.GroupName),
+			nd, err := s.St.CreateDevice(ctx, store.Device{Name: f.Name, Kind: kind, Host: f.Host, MAC: f.MAC, ParentID: &pid, GroupName: firstNonEmpty(f.Group, parent.GroupName),
 				Status: store.StatusDiscovered, Source: source, ExternalID: f.ExternalID, Presence: pres})
 			if err != nil {
 				return created, err

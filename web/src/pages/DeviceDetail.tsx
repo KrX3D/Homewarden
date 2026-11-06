@@ -72,6 +72,7 @@ export default function DeviceDetail() {
           <dl className="kv">
             <dt>{t('devices.colHost')}</dt><dd className="mono">{d.host || '–'}</dd>
             <dt>{t('devices.colGroup')}</dt><dd>{d.groupName || '–'}</dd>
+            {d.mac && <><dt>{t('devices.colMac')}</dt><dd><span className="mono">{d.mac}</span>{d.vendor ? ` · ${d.vendor}` : ''}</dd></>}
             <dt>{t('detail.state')}</dt><dd>{t('stateHint.' + d.state)}</dd>
             <dt>{t('detail.since')}</dt><dd>{d.stateSince ? `${formatTime(lang, d.stateSince)} (${formatAgo(lang, d.stateSince)})` : '–'}</dd>
             <dt>{t('devices.colSeen')}</dt><dd>{d.lastSeen ? formatAgo(lang, d.lastSeen) : t('devices.neverSeen')}</dd>

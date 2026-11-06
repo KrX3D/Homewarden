@@ -73,6 +73,7 @@ export type Device = {
   kind: string;
   host: string;
   mac: string;
+  vendor?: string;
   parentId: number | null;
   groupName: string;
   status: DeviceStatus;

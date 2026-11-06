@@ -712,5 +712,6 @@
  "roles.noGroups": "Noch keine Gerätegruppen. Lege zuerst bei Geräten eine Gruppe fest.",
  "roles.onlyGroups": "Nur Geräte in: {groups}",
  "error.oidc_incomplete": "Gib Issuer-URL und Client-ID an.",
- "error.oidc_discovery": "Der Anbieter ist nicht erreichbar oder kein OpenID-Connect-Issuer."
+ "error.oidc_discovery": "Der Anbieter ist nicht erreichbar oder kein OpenID-Connect-Issuer.",
+ "devices.colMac": "MAC / Hersteller"
 }

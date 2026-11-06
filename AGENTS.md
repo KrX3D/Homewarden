@@ -325,6 +325,11 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   stays. Redirect URI `/api/auth/oidc/callback` (honours X-Forwarded-Proto/Host).
 - Roles may be limited to device groups (`roles.device_groups`, empty = all).
   `Principal.SeesDevice`; enforced in loadDevice (404), device lists, updates, jobs.
+- MAC vendors: `internal/oui` reads Wireshark's manuf list, downloaded in the Dockerfile
+  to `/usr/local/share/homewarden/manuf` (download failure is tolerated). Device JSON
+  gets `vendor` computed from `mac`. MACs come from UniFi discovery (`mac` in
+  discover() results) and from `/proc/net/arp` after a network scan (only visible with
+  host networking / macvlan).
 - `web/src/useEvents.ts` - ONE shared EventSource for the whole app. Never open more:
   each SSE stream holds one of the browser's six HTTP/1.1 connections per host, and the
   device page hung once that ran out.

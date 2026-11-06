@@ -250,12 +250,13 @@ function InboxTable({ devices, status, onChanged }: { devices: Device[]; status:
       <ErrorAlert error={error} />
       <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>{t('devices.colName')}</th><th>{t('devices.colHost')}</th><th>{t('inbox.source')}</th><th>{t('inbox.found')}</th><th></th></tr></thead>
+          <thead><tr><th>{t('devices.colName')}</th><th>{t('devices.colHost')}</th><th>{t('devices.colMac')}</th><th>{t('inbox.source')}</th><th>{t('inbox.found')}</th><th></th></tr></thead>
           <tbody>
             {devices.map((d) => (
               <tr key={d.id}>
                 <td><strong>{d.name}</strong></td>
                 <td className="mono small">{d.host}</td>
+                <td className="small">{d.mac ? <><span className="mono">{d.mac}</span>{d.vendor && <div className="muted">{d.vendor}</div>}</> : ''}</td>
                 <td><span className="chip">{t('source.' + d.source) !== 'source.' + d.source ? t('source.' + d.source) : d.source}</span></td>
                 <td className="small muted">{formatAgo(lang, d.createdAt)}</td>
                 <td style={{ textAlign: 'right' }}>

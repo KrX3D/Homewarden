@@ -57,6 +57,12 @@ FROM alpine:3.22
 # su-exec: the entrypoint drops from root to PUID:PGID.
 RUN apk add --no-cache ca-certificates tzdata su-exec
 
+# MAC vendor names (Wireshark's manuf list). Optional: without it the vendor column
+# stays empty, so a failed download does not fail the build.
+RUN mkdir -p /usr/local/share/homewarden && \
+    (wget -q -T 30 -O /usr/local/share/homewarden/manuf https://www.wireshark.org/download/automated/data/manuf \
+     || echo "# manuf download failed" > /usr/local/share/homewarden/manuf)
+
 COPY --from=build /out/homewarden /usr/local/bin/homewarden
 COPY --from=build /out/agent /usr/local/share/homewarden/agent
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh

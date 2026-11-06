@@ -11,6 +11,7 @@ import (
 	"github.com/KrX3D/Homewarden/internal/auth"
 	"github.com/KrX3D/Homewarden/internal/discovery"
 	"github.com/KrX3D/Homewarden/internal/events"
+	"github.com/KrX3D/Homewarden/internal/oui"
 	"github.com/KrX3D/Homewarden/internal/presence"
 	"github.com/KrX3D/Homewarden/internal/store"
 )
@@ -146,6 +147,7 @@ func (s *Server) loadDevice(w http.ResponseWriter, r *http.Request) (store.Devic
 
 func (s *Server) getDevice(w http.ResponseWriter, r *http.Request) {
 	if d, ok := s.loadDevice(w, r); ok {
+		d.Vendor = oui.Lookup(d.MAC)
 		writeJSON(w, http.StatusOK, d)
 	}
 }
@@ -289,12 +291,14 @@ func (s *Server) discoveryScan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]int{"hosts": n})
 }
 
-// visibleDevices filters devices by the principal's device groups.
+// visibleDevices filters devices by the principal's device groups and fills in the
+// MAC vendor.
 func (s *Server) visibleDevices(r *http.Request, devs []store.Device) []store.Device {
 	p := PrincipalFrom(r)
 	out := make([]store.Device, 0, len(devs))
 	for _, d := range devs {
 		if p.SeesDevice(d) {
+			d.Vendor = oui.Lookup(d.MAC)
 			out = append(out, d)
 		}
 	}

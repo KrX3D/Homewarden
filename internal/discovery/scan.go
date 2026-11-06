@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -154,7 +155,7 @@ func (s *Scanner) scan(ctx context.Context, hosts []netip.Addr) Result {
 			}
 			cancel()
 			d := store.Device{
-				Name: name, Host: ip, Status: store.StatusDiscovered, Source: "scan", ExternalID: ip,
+				Name: name, Host: ip, MAC: arpMAC(ip), Status: store.StatusDiscovered, Source: "scan", ExternalID: ip,
 				Presence: store.PresenceConfig{Reach: store.ProbeConfig{Method: "ping"}, SettleSeconds: 60, IntervalSeconds: 30},
 			}
 			if _, err := s.st.CreateDevice(ctx, d); err == nil {
@@ -166,4 +167,21 @@ func (s *Scanner) scan(ctx context.Context, hosts []netip.Addr) Result {
 	}
 	wg.Wait()
 	return res
+}
+
+// arpMAC reads the MAC of an address from the kernel's ARP table. It is only there
+// when Homewarden shares the layer-2 network with the device (host networking or a
+// macvlan/br0 setup); behind Docker's NAT bridge it stays empty.
+func arpMAC(ip string) string {
+	b, err := os.ReadFile("/proc/net/arp")
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(b), "\n")[1:] {
+		f := strings.Fields(line)
+		if len(f) >= 4 && f[0] == ip && f[3] != "00:00:00:00:00:00" {
+			return strings.ToLower(f[3])
+		}
+	}
+	return ""
 }
