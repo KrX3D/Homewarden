@@ -11,11 +11,14 @@ import DevicesPage from './pages/Devices';
 import SettingsPage from './pages/Settings';
 import { navItems } from './extensions';
 import { useBadges } from './features/software';
+import { PublicStatus } from './features/monitors';
 
 export type NavItem = { to: string; label: string; icon: ReactNode; perm?: string; badge?: number };
 
 export default function App() {
   const { meta, me, loading } = useSession();
+  // The public status page needs no login.
+  if (location.pathname === '/status') return <PublicStatus />;
   if (loading) {
     return <div className="auth-wrap"><Spinner /></div>;
   }

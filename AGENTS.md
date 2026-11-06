@@ -302,6 +302,11 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   `config.notify.offlineMinutes` (+ "back online"). Messages in en/de (global setting).
 - Home Assistant: MQTT discovery (setting `haDiscovery`) publishes per device a
   connectivity binary_sensor, an updates sensor and scan/update buttons.
+- `internal/monitor/` - uptime monitors (http status/keyword/JSON path/cert expiry, tcp,
+  ping, dns, push heartbeat at `/api/push/<token>`, no CSRF); down after 2 failures;
+  results kept 30 days. Maintenance windows (global or per device) mute monitor and
+  offline notifications. Public status page `/status` (SPA route, data from
+  `/api/public/status`: names, state, bars only) for monitors marked public.
 - `web/src/useEvents.ts` - ONE shared EventSource for the whole app. Never open more:
   each SSE stream holds one of the browser's six HTTP/1.1 connections per host, and the
   device page hung once that ran out.

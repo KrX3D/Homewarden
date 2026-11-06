@@ -17,6 +17,7 @@ import (
 	"github.com/KrX3D/Homewarden/internal/auth"
 	"github.com/KrX3D/Homewarden/internal/automation"
 	"github.com/KrX3D/Homewarden/internal/conn"
+	"github.com/KrX3D/Homewarden/internal/monitor"
 	"github.com/KrX3D/Homewarden/internal/notify"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
@@ -45,16 +46,17 @@ type Server struct {
 	Build  BuildInfo
 	Static http.Handler
 
-	limiter *auth.Limiter
-	mux     *http.ServeMux
-	dev     DeviceDeps
-	conn    *conn.Service
-	sw      SoftwareDeps
-	auto    *automation.Service
-	agents  *agent.Hub
-	notify  *notify.Service
-	baseCtx context.Context
-	mqtt    *automation.MQTT
+	limiter  *auth.Limiter
+	mux      *http.ServeMux
+	dev      DeviceDeps
+	conn     *conn.Service
+	sw       SoftwareDeps
+	auto     *automation.Service
+	agents   *agent.Hub
+	notify   *notify.Service
+	monitors *monitor.Runner
+	baseCtx  context.Context
+	mqtt     *automation.MQTT
 
 	setupMu    sync.Mutex
 	setupToken string
@@ -122,7 +124,8 @@ func (s *Server) routes() {
 
 // ServeHTTP applies the CSRF rule and dispatches.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet && r.Method != http.MethodHead {
+	// Push heartbeats come from scripts and devices, authenticated by the token in the URL.
+	if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet && r.Method != http.MethodHead && !strings.HasPrefix(r.URL.Path, "/api/push/") {
 		// Bearer tokens are not sent automatically by browsers, so they cannot be forged
 		// cross-site; only cookie sessions need the header.
 		if r.Header.Get(csrfHeader) == "" && !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") && !strings.HasPrefix(r.URL.Path, "/api/agent/") {

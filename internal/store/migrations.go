@@ -232,4 +232,41 @@ CREATE TABLE notify_sent (
 	at  INTEGER NOT NULL
 );
 `,
+	// 9: monitors, their results and maintenance windows.
+	`
+CREATE TABLE monitors (
+	id           INTEGER PRIMARY KEY,
+	name         TEXT NOT NULL,
+	type         TEXT NOT NULL,
+	config       TEXT NOT NULL DEFAULT '{}',
+	device_id    INTEGER REFERENCES devices(id) ON DELETE SET NULL,
+	interval_s   INTEGER NOT NULL DEFAULT 60,
+	enabled      INTEGER NOT NULL DEFAULT 1,
+	public       INTEGER NOT NULL DEFAULT 0,
+	push_token   TEXT NOT NULL DEFAULT '',
+	status       TEXT NOT NULL DEFAULT 'unknown',
+	status_since INTEGER,
+	last_check   INTEGER,
+	last_ms      REAL,
+	last_msg     TEXT NOT NULL DEFAULT '',
+	cert_expires INTEGER,
+	created_at   INTEGER NOT NULL
+);
+
+CREATE TABLE monitor_results (
+	monitor_id INTEGER NOT NULL REFERENCES monitors(id) ON DELETE CASCADE,
+	at         INTEGER NOT NULL,
+	ok         INTEGER NOT NULL,
+	ms         REAL
+);
+CREATE INDEX monitor_results_at ON monitor_results(monitor_id, at);
+
+CREATE TABLE maintenance (
+	id        INTEGER PRIMARY KEY,
+	title     TEXT NOT NULL,
+	device_id INTEGER REFERENCES devices(id) ON DELETE CASCADE,
+	starts    INTEGER NOT NULL,
+	ends      INTEGER NOT NULL
+);
+`,
 }
