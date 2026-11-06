@@ -60,7 +60,7 @@ export type Meta = {
 
 export type Me = { user: User; role: Role };
 
-export type ProbeMethod = 'none' | 'ping' | 'tcp' | 'http';
+export type ProbeMethod = 'none' | 'ping' | 'tcp' | 'http' | 'agent';
 export type Probe = { method: ProbeMethod; port?: number; url?: string };
 export type PresenceConfig = { reach: Probe; ready: Probe; settleSeconds: number; intervalSeconds: number };
 export type DeviceState = 'unknown' | 'offline' | 'reachable' | 'ready' | 'paused';
@@ -89,7 +89,7 @@ export type Device = {
 
 export type CredentialType = 'ssh_key' | 'password' | 'token';
 export type Credential = { id: number; name: string; type: CredentialType; username: string; public: string; createdAt: number; updatedAt: number; usedBy: number };
-export type ConnectionSettings = { method: 'ssh' | ''; port?: number; credentialId?: number; user?: string; sudo: boolean };
+export type ConnectionSettings = { method: 'ssh' | 'agent' | ''; port?: number; credentialId?: number; user?: string; sudo: boolean };
 export type Facts = { user: string; hostname: string; os: string; kernel: string; arch: string; sudo: boolean; hostKey: string; hostKeyFirst: boolean };
 
 export type Text = Record<string, string>;
@@ -129,3 +129,6 @@ export type Guard = { name: string; type: 'ssh' | 'http'; command?: string; url?
 export type Policy = { mode: 'manual' | 'auto' | 'scheduled'; schedule: string; scope: 'security' | 'all' };
 export type APIToken = { id: number; name: string; createdAt: number; lastUsed: number | null };
 export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: number; baseTopic: string };
+
+export type AgentStatus = { enrolled: boolean; online: boolean; pendingEnrollment?: boolean;
+  agent?: { hostname: string; os: string; arch: string; version: string; lastSeen: number | null } };

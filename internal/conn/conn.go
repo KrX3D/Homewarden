@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/KrX3D/Homewarden/internal/agent"
 	"github.com/KrX3D/Homewarden/internal/sshx"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
@@ -56,8 +57,22 @@ func WithSettings(d store.Device, s Settings) (json.RawMessage, error) {
 
 // Service opens connections.
 type Service struct {
-	St    *store.Store
-	Vault *vault.Vault
+	St     *store.Store
+	Vault  *vault.Vault
+	Agents *agent.Hub
+}
+
+// UsesAgent reports whether the device is reached through its agent.
+func UsesAgent(d store.Device) bool { return FromDevice(d).Method == "agent" }
+
+// AgentExec runs a command through the device's agent (which runs as root, so there
+// is no sudo).
+func (s *Service) AgentExec(ctx context.Context, d store.Device, cmd, stdin string, timeout time.Duration) (sshx.Result, error) {
+	if s.Agents == nil {
+		return sshx.Result{}, errors.New("agents are not available")
+	}
+	r, err := s.Agents.Exec(ctx, d.ID, cmd, stdin, timeout)
+	return sshx.Result{Stdout: r.Stdout, Stderr: r.Stderr, ExitCode: r.Code}, err
 }
 
 // hostKeys adapts the store to sshx.HostKeyStore.
@@ -126,6 +141,9 @@ func (s *Service) Dial(ctx context.Context, d store.Device) (*ssh.Client, Settin
 // Exec runs one command on a device. With privileged=true and sudo enabled in the
 // device settings, the command is prefixed with `sudo -n` (never prompts).
 func (s *Service) Exec(ctx context.Context, d store.Device, cmd string, privileged bool, timeout time.Duration) (sshx.Result, error) {
+	if UsesAgent(d) {
+		return s.AgentExec(ctx, d, cmd, "", timeout)
+	}
 	c, set, err := s.Dial(ctx, d)
 	if err != nil {
 		return sshx.Result{}, err
@@ -161,6 +179,13 @@ if sudo -n -l >/dev/null 2>&1; then echo "sudo=yes"; else echo "sudo=no"; fi`
 
 // Test connects to a device and reports what it found.
 func (s *Service) Test(ctx context.Context, d store.Device) (Facts, error) {
+	if UsesAgent(d) {
+		res, err := s.AgentExec(ctx, d, factsScript, "", 30*time.Second)
+		if err != nil {
+			return Facts{}, err
+		}
+		return ParseFacts(res.Stdout), nil
+	}
 	t, _, err := s.Target(ctx, d)
 	if err != nil {
 		return Facts{}, err
@@ -207,6 +232,9 @@ func ParseFacts(out string) Facts {
 		case "sudo":
 			f.Sudo = v == "yes"
 		}
+	}
+	if f.User == "root" {
+		f.Sudo = true // root needs no sudo
 	}
 	return f
 }

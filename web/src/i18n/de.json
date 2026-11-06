@@ -521,5 +521,20 @@
  "factWarn.datastore_full": "Ein Datastore ist fast voll. Räume auf oder erweitere den Platz, bevor Backups fehlschlagen.",
  "factWarn.backup_old": "Das neueste Backup in einem Datastore ist älter als die für dieses Gerät eingestellte Grenze.",
  "factWarn.backup_errors": "Backup-, Verify- oder Sync-Tasks sind in den letzten 7 Tagen fehlgeschlagen. Das Job-Log listet sie auf.",
- "factWarn.disk_problems": "Eine Platte meldet Fehler, ist deaktiviert oder wird zu heiß. Prüfe die Seite Main in Unraid."
+ "factWarn.disk_problems": "Eine Platte meldet Fehler, ist deaktiviert oder wird zu heiß. Prüfe die Seite Main in Unraid.",
+ "probe.agent": "Agent-Lebenszeichen",
+ "conn.needHost": "Gib diesem Gerät eine Adresse, um SSH zu nutzen, oder verwende den Agent.",
+ "agent.name": "Agent",
+ "agent.intro": "Ein kleines Programm auf dem Gerät, das sich selbst mit Homewarden verbindet. Nutze es, wenn Homewarden das Gerät nicht direkt erreicht (anderes Netz, Firewall) oder du es SSH vorziehst. Alles, was per SSH geht, geht auch über den Agent; er läuft als root (Windows: SYSTEM).",
+ "agent.connected": "Verbunden",
+ "agent.disconnected": "Nicht verbunden",
+ "agent.notInstalled": "Nicht installiert",
+ "agent.install": "Installationsbefehl erstellen",
+ "agent.reinstall": "Neuen Installationsbefehl erstellen",
+ "agent.revoke": "Agent entfernen",
+ "agent.usePresence": "Agent für die Online-Erkennung verwenden",
+ "agent.commandIntro": "Führe das einmal auf dem Gerät aus. Es lädt den Agent von Homewarden, verbindet ihn mit diesem Gerät und richtet ihn als Dienst ein.",
+ "agent.insecure": "Homewarden nutzt ein selbstsigniertes HTTPS-Zertifikat",
+ "agent.adminPs": "PowerShell als Administrator",
+ "agent.tokenHint": "Der Befehl enthält einen Einmal-Token, 24 Stunden gültig. Ein neuer Befehl ersetzt ihn."
 }

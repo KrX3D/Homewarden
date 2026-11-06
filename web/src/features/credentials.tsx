@@ -3,7 +3,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { del, get, post, put, ApiError, type ConnectionSettings, type Credential, type CredentialType, type Device, type Facts } from '../api';
 import { errorText, formatTime, useLang, useT } from '../i18n';
 import { useSession } from '../session';
-import { ConfirmButton, ErrorAlert, Modal, useAction } from '../components/ui';
+import { ConfirmButton, ErrorAlert, Modal, Segmented, useAction } from '../components/ui';
+import { AgentPanel } from './agentPanel';
 import { IconEdit, IconKey, IconPlus } from '../components/icons';
 import { deviceSections, settingsTabs } from '../extensions';
 
@@ -178,8 +179,8 @@ function ConnectionCard({ device }: { device: Device }) {
     loadKey();
   }, [device.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!device.host) return null;
   const configured = !!initial.credentialId;
+  const mode = set.method === 'agent' ? 'agent' : 'ssh';
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -200,10 +201,16 @@ function ConnectionCard({ device }: { device: Device }) {
     <section className="card">
       <div className="card-head">
         <h2 className="grow">{t('conn.title')}</h2>
-        <span className={'pill ' + (configured ? 'accent' : 'off')}>{configured ? 'SSH' : t('conn.notSet')}</span>
+        <span className={'pill ' + (configured || initial.method === 'agent' ? 'accent' : 'off')}>{initial.method === 'agent' ? t('agent.name') : configured ? 'SSH' : t('conn.notSet')}</span>
       </div>
       <p className="small muted">{t('conn.intro')}</p>
-      {manage ? (
+      {manage && (
+        <Segmented label={t('conn.title')} value={mode} onChange={(v) => setSet({ ...set, method: v as 'ssh' | 'agent' })} options={[
+          { value: 'ssh', label: 'SSH' },
+          { value: 'agent', label: t('agent.name') },
+        ]} />
+      )}
+      {mode === 'agent' ? <AgentPanel device={device} /> : !device.host ? <p className="small muted">{t('conn.needHost')}</p> : manage ? (
         <form className="stack" onSubmit={submit}>
           <div className="row" style={{ alignItems: 'flex-end' }}>
             <label className="field" style={{ flex: '2 1 200px' }}>

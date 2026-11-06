@@ -199,4 +199,20 @@ CREATE TABLE pending_actions (
 	PRIMARY KEY (device_id, action)
 );
 `,
+	// 7: agents.
+	`
+CREATE TABLE agents (
+	device_id      INTEGER PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+	key_hash       TEXT NOT NULL DEFAULT '',
+	enroll_hash    TEXT NOT NULL DEFAULT '',
+	enroll_expires INTEGER NOT NULL DEFAULT 0,
+	hostname       TEXT NOT NULL DEFAULT '',
+	os             TEXT NOT NULL DEFAULT '',
+	arch           TEXT NOT NULL DEFAULT '',
+	version        TEXT NOT NULL DEFAULT '',
+	last_seen      INTEGER
+);
+CREATE INDEX agents_key ON agents(key_hash);
+CREATE INDEX agents_enroll ON agents(enroll_hash);
+`,
 }

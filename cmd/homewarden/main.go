@@ -13,6 +13,7 @@ import (
 	"time"
 
 	builtin "github.com/KrX3D/Homewarden/integrations"
+	"github.com/KrX3D/Homewarden/internal/agent"
 	"github.com/KrX3D/Homewarden/internal/api"
 	"github.com/KrX3D/Homewarden/internal/automation"
 	"github.com/KrX3D/Homewarden/internal/conn"
@@ -65,8 +66,11 @@ func main() {
 	broker := events.New()
 	engine := presence.New(st, broker)
 	srv.AttachDevices(api.DeviceDeps{Events: broker, Presence: engine, Scanner: discovery.New(ctx, st, broker)})
-	connSvc := &conn.Service{St: st, Vault: v}
+	hub := agent.NewHub()
+	engine.AgentOnline = hub.Online
+	connSvc := &conn.Service{St: st, Vault: v, Agents: hub}
 	srv.AttachCredentials(connSvc)
+	srv.AttachAgents(hub)
 
 	reg := integrations.NewRegistry(dataDir, st, builtin.FS)
 	if err := reg.Load(ctx); err != nil {

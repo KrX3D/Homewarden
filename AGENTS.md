@@ -225,6 +225,19 @@ fakes (proxmox, proxmox-backup, unraid). Bump to 1.0.0 once confirmed on real sy
   only covers the first command of a compound shell line, so scripts that may run as
   non-root must keep privileged calls to single commands.
 
+### Agent
+
+- `cmd/homewarden-agent` (stdlib only) long-polls `POST /api/agent/poll` with
+  `Authorization: Agent hwa_...`, runs commands with `/bin/sh -c` (Windows:
+  PowerShell), posts `/api/agent/result`. Enrollment: device Connection card creates a
+  one-time token (24 h); `/agent/install.sh` / `install.ps1` download the binary from
+  `/agent/download/<os>-<arch>` (built into the image under
+  `/usr/local/share/homewarden/agent`) and run `-enroll-only`, then install a systemd
+  service / Unraid `/boot/config/go` line / Windows scheduled task as SYSTEM.
+- Devices with `config.connection.method = agent` route `ssh.exec`, guards and
+  connection tests through `internal/agent.Hub`; presence reach method `agent` = polled
+  within 75 s. `/api/agent/*` is exempt from the CSRF header (header auth).
+
 ### Integration contract (main.js)
 
 Plain ES5-ish JS (goja), synchronous. Functions, each `(ctx, arg)`:

@@ -171,7 +171,7 @@ func Run(ctx context.Context, host string, p store.ProbeConfig, timeout time.Dur
 			u = "http://" + host + "/"
 		}
 		return HTTP(ctx, u, timeout)
-	case "none", "":
+	case "none", "", "agent":
 		return 0, nil
 	}
 	return 0, fmt.Errorf("unknown probe method %q", p.Method)

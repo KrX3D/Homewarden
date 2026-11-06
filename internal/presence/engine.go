@@ -7,6 +7,7 @@ package presence
 
 import (
 	"context"
+	"errors"
 	"log"
 	"sync"
 	"time"
@@ -63,8 +64,13 @@ func Next(cur string, t *tracker, cfg store.PresenceConfig, in Input) string {
 	return store.StateReachable
 }
 
+var errAgentOffline = errors.New("agent not connected")
+
 // Engine runs presence checks for all active devices.
 type Engine struct {
+	// AgentOnline reports whether a device's agent polled recently (reach method "agent").
+	AgentOnline func(deviceID int64) bool
+
 	st     *store.Store
 	events *events.Broker
 
@@ -132,7 +138,7 @@ func (e *Engine) round(ctx context.Context, sem chan struct{}) {
 	}
 	now := time.Now()
 	for _, d := range devs {
-		if d.Presence.Reach.Method == "none" || d.Host == "" {
+		if d.Presence.Reach.Method == "none" || (d.Host == "" && d.Presence.Reach.Method != "agent") {
 			continue
 		}
 		e.mu.Lock()
@@ -177,7 +183,15 @@ func (e *Engine) CheckNow(ctx context.Context, id int64) (store.Device, error) {
 
 func (e *Engine) check(ctx context.Context, d store.Device, t *tracker) {
 	cfg := d.Presence
-	rtt, err := Run(ctx, d.Host, cfg.Reach, probeTimeout)
+	var rtt time.Duration
+	var err error
+	if cfg.Reach.Method == "agent" {
+		if e.AgentOnline == nil || !e.AgentOnline(d.ID) {
+			err = errAgentOffline
+		}
+	} else {
+		rtt, err = Run(ctx, d.Host, cfg.Reach, probeTimeout)
+	}
 	in := Input{Reached: err == nil, Now: time.Now()}
 	if in.Reached {
 		if cfg.Ready.Method == "none" || cfg.Ready.Method == "" {
@@ -202,7 +216,7 @@ func (e *Engine) check(ctx context.Context, d store.Device, t *tracker) {
 	at := in.Now.Unix()
 	if in.Reached {
 		var ms *float64
-		if cfg.Reach.Method != "none" {
+		if cfg.Reach.Method != "none" && cfg.Reach.Method != "agent" {
 			v := float64(rtt.Microseconds()) / 1000
 			ms = &v
 		}

@@ -57,7 +57,7 @@ func validProbe(p store.ProbeConfig, allowNone bool) bool {
 	switch p.Method {
 	case "none":
 		return allowNone
-	case "ping":
+	case "ping", "agent":
 		return true
 	case "tcp":
 		return p.Port > 0 && p.Port < 65536
@@ -77,7 +77,7 @@ func (in *deviceInput) validate() string {
 		return "invalid_name"
 	case len(in.Host) > 255 || strings.ContainsAny(in.Host, " /\\"):
 		return "invalid_host"
-	case in.Host == "" && in.Presence.Reach.Method != "none":
+	case in.Host == "" && in.Presence.Reach.Method != "none" && in.Presence.Reach.Method != "agent":
 		return "host_required"
 	case !validProbe(in.Presence.Reach, true) || !validProbe(in.Presence.Ready, true):
 		return "invalid_probe"

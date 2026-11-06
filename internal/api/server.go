@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/KrX3D/Homewarden/internal/agent"
 	"github.com/KrX3D/Homewarden/internal/auth"
 	"github.com/KrX3D/Homewarden/internal/automation"
 	"github.com/KrX3D/Homewarden/internal/conn"
@@ -49,6 +50,7 @@ type Server struct {
 	conn    *conn.Service
 	sw      SoftwareDeps
 	auto    *automation.Service
+	agents  *agent.Hub
 	baseCtx context.Context
 	mqtt    *automation.MQTT
 
@@ -121,7 +123,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		// Bearer tokens are not sent automatically by browsers, so they cannot be forged
 		// cross-site; only cookie sessions need the header.
-		if r.Header.Get(csrfHeader) == "" && !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+		if r.Header.Get(csrfHeader) == "" && !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") && !strings.HasPrefix(r.URL.Path, "/api/agent/") {
 			fail(w, http.StatusForbidden, "csrf")
 			return
 		}
