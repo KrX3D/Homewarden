@@ -1,0 +1,45 @@
+{
+  "id": "proxmox",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": { "en": "Proxmox VE", "de": "Proxmox VE" },
+  "description": {
+    "en": "Beta. Proxmox VE host: package updates read through the API, installed over SSH; containers (LXC) and VMs show up in the inbox; Debian-based LXCs can be updated from the host, optionally after a snapshot. Updates wait while a backup (vzdump) runs.",
+    "de": "Beta. Proxmox-VE-Host: Paketupdates per API gelesen, per SSH installiert; Container (LXC) und VMs erscheinen im Posteingang; Debian-basierte LXCs können vom Host aus aktualisiert werden, optional nach einem Snapshot. Updates warten, solange ein Backup (vzdump) läuft."
+  },
+  "howto": {
+    "en": "1. In Proxmox: Datacenter, Permissions, API Tokens, Add. User root@pam, Token ID homewarden, untick Privilege Separation (or give the token PVEAuditor plus VM.Snapshot on / for snapshots).\n2. In Homewarden: Settings, Credentials, API token. Username = the full token id, e.g. root@pam!homewarden. Token = the secret shown once in Proxmox.\n3. Pick it under API token here. Leave Node empty for a single-node setup.\n4. For updates (host and LXCs): set up the Connection card with SSH as root (Install key with the root password once). Turn on Use sudo only if you log in as a normal user with sudo rights.\n5. Suggested online detection: ping, ready when TCP 8006 answers.",
+    "de": "1. In Proxmox: Datacenter, Permissions, API Tokens, Add. Benutzer root@pam, Token-ID homewarden, Privilege Separation abwählen (oder dem Token PVEAuditor plus VM.Snapshot auf / für Snapshots geben).\n2. In Homewarden: Einstellungen, Zugangsdaten, API-Token. Benutzername = die volle Token-ID, z. B. root@pam!homewarden. Token = das Geheimnis, das Proxmox einmal anzeigt.\n3. Hier unter API-Token auswählen. Knoten bei einem einzelnen Server leer lassen.\n4. Für Updates (Host und LXCs): Karte Verbindung mit SSH als root einrichten (einmal Schlüssel installieren mit dem root-Passwort). sudo nur einschalten, wenn du dich als normaler Benutzer mit sudo-Rechten anmeldest.\n5. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 8006 antwortet."
+  },
+  "connection": "http",
+  "permissions": { "ssh": true, "docker": false, "httpDevice": true, "httpHosts": [] },
+  "settings": [
+    { "key": "apiToken", "type": "credential", "credentialTypes": ["token"], "required": true,
+      "label": { "en": "API token", "de": "API-Token" },
+      "help": { "en": "Credential username = token id (root@pam!homewarden), secret = token value.", "de": "Benutzername der Zugangsdaten = Token-ID (root@pam!homewarden), Geheimnis = Token-Wert." } },
+    { "key": "node", "type": "string", "default": "", "placeholder": "pve",
+      "label": { "en": "Node", "de": "Knoten" },
+      "help": { "en": "Empty = the first node the API lists.", "de": "Leer = der erste Knoten, den die API liefert." } },
+    { "key": "port", "type": "number", "default": 8006, "label": { "en": "API port", "de": "API-Port" } },
+    { "key": "insecure", "type": "bool", "default": true,
+      "label": { "en": "Accept the self-signed certificate", "de": "Selbstsigniertes Zertifikat akzeptieren" } },
+    { "key": "refreshLists", "type": "bool", "default": false,
+      "label": { "en": "Refresh package lists before each scan", "de": "Paketlisten vor jedem Scan aktualisieren" },
+      "help": { "en": "Proxmox refreshes them daily by itself. Needs Sys.Modify for the token.", "de": "Proxmox aktualisiert sie selbst täglich. Braucht Sys.Modify für den Token." } },
+    { "key": "includeLXC", "type": "bool", "default": true,
+      "label": { "en": "Check running Debian/Ubuntu LXCs for updates (over SSH)", "de": "Laufende Debian/Ubuntu-LXCs auf Updates prüfen (per SSH)" } },
+    { "key": "snapshotBeforeUpdate", "type": "bool", "default": true,
+      "label": { "en": "Snapshot an LXC before updating it", "de": "Vor dem Update eines LXC einen Snapshot erstellen" },
+      "help": { "en": "Named homewarden-<date>. Needs VM.Snapshot. Old Homewarden snapshots beyond the newest 3 are removed.", "de": "Heißt homewarden-<Datum>. Braucht VM.Snapshot. Alte Homewarden-Snapshots über die neuesten 3 hinaus werden entfernt." } }
+  ],
+  "presence": {
+    "reach": { "method": "ping" },
+    "ready": { "method": "tcp", "port": 8006 },
+    "settleSeconds": 60,
+    "intervalSeconds": 30
+  },
+  "capabilities": ["detect", "update", "discover", "busy"],
+  "entry": "main.js",
+  "files": ["main.js"],
+  "icon": "icon.svg"
+}

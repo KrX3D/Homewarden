@@ -239,9 +239,9 @@ func (c *call) sshExec(cmd string, opts *execOpts) map[string]any {
 	}
 	client, set := c.client, c.set
 	c.sshMu.Unlock()
-	if opts.Sudo {
+	if opts.Sudo && client.User() != "root" {
 		if !set.Sudo {
-			c.throw("this needs root: turn on \"Use sudo for updates\" in the Connection card")
+			c.throw("this needs root: log in as root, or turn on \"Use sudo for updates\" in the Connection card")
 		}
 		// Prefix rather than wrap in sh -c: a sudoers rule that only allows the package
 		// manager must be enough. Scripts pass one command, env vars in front
