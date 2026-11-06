@@ -1,0 +1,29 @@
+{
+  "id": "deploydeck",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": { "en": "DeployDeck (Windows programs)", "de": "DeployDeck (Windows-Programme)" },
+  "description": {
+    "en": "Beta. Reads DeployDeck: which programs on the share are behind the vendor (update = run its update script) and which PC has not installed the current version yet (update = DeployDeck installs it on that PC over WinRM). PCs show up in the inbox.",
+    "de": "Beta. Liest DeployDeck: welche Programme auf der Freigabe hinter dem Hersteller sind (Update = Update-Skript ausführen) und auf welchem PC die aktuelle Version noch fehlt (Update = DeployDeck installiert sie per WinRM auf dem PC). PCs erscheinen im Posteingang."
+  },
+  "howto": {
+    "en": "1. The address of this Homewarden device is the DeployDeck container (e.g. 192.168.90.114). Port is usually 8080.\n2. Add a Password credential with a DeployDeck login (the DD_ADMIN_USER account works) and pick it under Login.\n3. Installs on PCs only work for programs whose install script is accepted and enabled in DeployDeck, and for PCs added on DeployDeck's Computer page.",
+    "de": "1. Die Adresse dieses Homewarden-Geräts ist der DeployDeck-Container (z. B. 192.168.90.114). Port meist 8080.\n2. Zugangsdaten vom Typ Passwort mit einem DeployDeck-Login anlegen (das DD_ADMIN_USER-Konto geht) und unter Anmeldung auswählen.\n3. Installationen auf PCs gehen nur für Programme, deren Installationsskript in DeployDeck akzeptiert und aktiv ist, und für PCs, die auf DeployDecks Computer-Seite eingetragen sind."
+  },
+  "connection": "http",
+  "permissions": { "ssh": false, "docker": false, "httpDevice": true, "httpHosts": [] },
+  "settings": [
+    { "key": "login", "type": "credential", "credentialTypes": ["password"], "required": true, "label": { "en": "Login", "de": "Anmeldung" } },
+    { "key": "port", "type": "number", "default": 8080, "label": { "en": "Port", "de": "Port" } },
+    { "key": "https", "type": "bool", "default": false, "label": { "en": "Use HTTPS", "de": "HTTPS verwenden" } },
+    { "key": "perPC", "type": "bool", "default": true,
+      "label": { "en": "Show which PC is behind", "de": "Zeigen, welcher PC zurückliegt" },
+      "help": { "en": "One entry per program and PC whose installed version is older than the share.", "de": "Ein Eintrag pro Programm und PC, dessen installierte Version älter ist als die auf der Freigabe." } }
+  ],
+  "presence": { "reach": { "method": "tcp", "port": 8080 }, "ready": { "method": "none" }, "settleSeconds": 0, "intervalSeconds": 60 },
+  "capabilities": ["detect", "update", "discover"],
+  "entry": "main.js",
+  "files": ["main.js"],
+  "icon": "icon.svg"
+}
