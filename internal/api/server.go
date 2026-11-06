@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/auth"
+	"github.com/KrX3D/Homewarden/internal/automation"
 	"github.com/KrX3D/Homewarden/internal/conn"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
@@ -47,6 +48,9 @@ type Server struct {
 	dev     DeviceDeps
 	conn    *conn.Service
 	sw      SoftwareDeps
+	auto    *automation.Service
+	baseCtx context.Context
+	mqtt    *automation.MQTT
 
 	setupMu    sync.Mutex
 	setupToken string
@@ -58,6 +62,10 @@ func New(st *store.Store, v *vault.Vault, build BuildInfo, static http.Handler) 
 	s.routes()
 	return s
 }
+
+// SetBaseContext gives handlers a context that lives as long as the server, for work
+// that must outlive a request (e.g. reconnecting MQTT).
+func (s *Server) SetBaseContext(ctx context.Context) { s.baseCtx = ctx }
 
 // Extra lets later packages register routes on the same mux.
 func (s *Server) Handle(pattern string, h http.Handler) { s.mux.Handle(pattern, h) }
@@ -111,7 +119,9 @@ func (s *Server) routes() {
 // ServeHTTP applies the CSRF rule and dispatches.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet && r.Method != http.MethodHead {
-		if r.Header.Get(csrfHeader) == "" {
+		// Bearer tokens are not sent automatically by browsers, so they cannot be forged
+		// cross-site; only cookie sessions need the header.
+		if r.Header.Get(csrfHeader) == "" && !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
 			fail(w, http.StatusForbidden, "csrf")
 			return
 		}
@@ -174,6 +184,25 @@ func (s *Server) Authed(perm string, h http.HandlerFunc) http.Handler { return s
 
 func (s *Server) authed(perm string, h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+			u, err := s.Store.TokenUser(r.Context(), auth.HashToken(strings.TrimSpace(bearer)))
+			if err != nil || u.Disabled {
+				fail(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			role, err := s.Store.Role(r.Context(), u.RoleID)
+			if err != nil {
+				internal(w, err)
+				return
+			}
+			p := Principal{User: u, Role: role}
+			if perm != "" && !p.Can(perm) {
+				fail(w, http.StatusForbidden, "forbidden")
+				return
+			}
+			h(w, r.WithContext(context.WithValue(r.Context(), userKey, p)))
+			return
+		}
 		c, err := r.Cookie(sessionCookie)
 		if err != nil || c.Value == "" {
 			fail(w, http.StatusUnauthorized, "unauthorized")

@@ -14,6 +14,7 @@ import (
 
 	builtin "github.com/KrX3D/Homewarden/integrations"
 	"github.com/KrX3D/Homewarden/internal/api"
+	"github.com/KrX3D/Homewarden/internal/automation"
 	"github.com/KrX3D/Homewarden/internal/conn"
 	"github.com/KrX3D/Homewarden/internal/discovery"
 	"github.com/KrX3D/Homewarden/internal/events"
@@ -80,6 +81,14 @@ func main() {
 	go sw.AutoScan(ctx)
 	srv.AttachSoftware(api.SoftwareDeps{Registry: reg, Runner: runner, Software: sw})
 	srv.AttachBackups()
+
+	auto := &automation.Service{St: st, Sw: sw}
+	engine.OnReady(auto.OnReady)
+	go auto.Run(ctx)
+	mq := &automation.MQTT{St: st, Vault: v, Events: broker, Auto: auto}
+	mq.Reload(ctx)
+	srv.SetBaseContext(ctx)
+	srv.AttachAutomation(auto, mq)
 
 	go engine.Run(ctx)
 

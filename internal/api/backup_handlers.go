@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/KrX3D/Homewarden/internal/auth"
+	"github.com/KrX3D/Homewarden/internal/automation"
 	"github.com/KrX3D/Homewarden/internal/backup"
 	"github.com/KrX3D/Homewarden/internal/jobs"
 	"github.com/KrX3D/Homewarden/internal/store"
@@ -228,6 +229,11 @@ func (s *Server) setBackupSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	if in.Keep < 1 || in.Keep > 100 {
 		in.Keep = 5
+	}
+	in.Schedule = strings.TrimSpace(in.Schedule)
+	if in.Schedule != "" && !automation.ValidCron(in.Schedule) {
+		fail(w, http.StatusBadRequest, "invalid_cron")
+		return
 	}
 	if in.TargetID != 0 {
 		if _, err := s.Store.BackupTarget(r.Context(), in.TargetID); err != nil {

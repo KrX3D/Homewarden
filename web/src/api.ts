@@ -123,5 +123,9 @@ export type Software = {
 export type BackupTargetConfig = { host?: string; share?: string; credentialId?: number; domain?: string; folder?: string };
 export type BackupTarget = { id: number; name: string; type: 'smb' | 'local'; config: BackupTargetConfig; createdAt: number };
 export type Backup = { id: number; deviceId: number; targetId: number | null; name: string; path: string; size: number; at: number; jobId: number | null };
-export type BackupSettings = { targetId: number; beforeUpdate: boolean; keep: number };
+export type BackupSettings = { targetId: number; beforeUpdate: boolean; keep: number; schedule?: string };
 export type Guard = { name: string; type: 'ssh' | 'http'; command?: string; url?: string; contains?: string; mode: 'block' | 'warn' };
+
+export type Policy = { mode: 'manual' | 'auto' | 'scheduled'; schedule: string; scope: 'security' | 'all' };
+export type APIToken = { id: number; name: string; createdAt: number; lastUsed: number | null };
+export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: number; baseTopic: string };

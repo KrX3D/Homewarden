@@ -245,6 +245,15 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   backup stops the update unless forced). Device config `guards`: [{name, type ssh|http,
   command|url, contains, mode block|warn}] run before every update (ssh: exit 0 = busy;
   http: body contains text = busy).
+- `internal/automation/` - scheduler (cron per device: `config.policy` {mode manual|auto|
+  scheduled, schedule, scope security|all} and `config.backup.schedule`), pending
+  actions (run when the device is next ready), MQTT (`<base>/status`,
+  `<base>/device/<slug>/state|updates`, commands on `<base>/device/<slug>/cmd`:
+  scan | backup | update | update security). Auto/scheduled updates run as a scan job
+  with `thenUpdate`; security scope never selects `os` summary rows.
+- API tokens (`hw_...`, Settings, API tokens) authenticate with
+  `Authorization: Bearer`; such requests skip the CSRF header check.
+  `POST /api/devices/{id}/trigger {action, scope}` is the simple external endpoint.
 - `web/src/useEvents.ts` - ONE shared EventSource for the whole app. Never open more:
   each SSE stream holds one of the browser's six HTTP/1.1 connections per host, and the
   device page hung once that ran out.
