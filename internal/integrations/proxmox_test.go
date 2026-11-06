@@ -48,6 +48,7 @@ func runDetect(t *testing.T, id string, srv *httptest.Server, settings map[strin
 	}
 	u, _ := url.Parse(srv.URL)
 	settings["apiToken"] = cred.ID
+	settings["apiKey"] = cred.ID
 	settings["port"] = u.Port()
 	cfg, _ := json.Marshal(map[string]any{"settings": settings})
 	r := NewRegistry(dir, st, builtin.FS)
@@ -106,5 +107,43 @@ func TestPBSDetect(t *testing.T) {
 		if !strings.Contains(string(w), want) {
 			t.Fatalf("missing warning %s in %s (facts %v)", want, w, facts)
 		}
+	}
+}
+
+func TestUniFiDetect(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-API-KEY") != "secret-uuid" {
+			w.WriteHeader(401)
+			return
+		}
+		var data any
+		switch r.URL.Path {
+		case "/proxy/network/api/s/default/stat/sysinfo":
+			data = []map[string]any{{"version": "9.0.114", "update_available": false}}
+		case "/proxy/network/api/s/default/stat/device":
+			data = []map[string]any{
+				{"mac": "aa:bb", "name": "AP Living", "type": "uap", "model": "U6LR", "version": "6.6.55", "upgradable": true, "upgrade_to_firmware": "6.6.77", "state": 1},
+				{"mac": "cc:dd", "name": "Switch", "type": "usw", "version": "7.0.50", "upgradable": false, "state": 0},
+			}
+		default:
+			w.WriteHeader(404)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"meta": map[string]any{"rc": "ok"}, "data": data})
+	}))
+	defer srv.Close()
+	// The fake checks X-API-KEY against the credential secret runDetect stores.
+	res := runDetect(t, "unifi", srv, map[string]any{"insecure": true, "unifiOS": true, "site": "default"})
+	comps := res["components"].([]any)
+	if len(comps) != 3 {
+		t.Fatalf("want app + 2 devices, got %v", comps)
+	}
+	ap := comps[1].(map[string]any)
+	if ap["updateAvailable"] != true || ap["available"] != "6.6.77" {
+		t.Fatalf("AP: %v", ap)
+	}
+	facts := res["facts"].(map[string]any)
+	if facts["offlineDevices"] != float64(1) {
+		t.Fatalf("facts: %v", facts)
 	}
 }

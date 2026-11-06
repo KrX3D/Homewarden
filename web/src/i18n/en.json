@@ -536,5 +536,6 @@
  "agent.commandIntro": "Run this once on the device. It downloads the agent from Homewarden, connects it to this device and installs it as a service.",
  "agent.insecure": "Homewarden uses a self-signed HTTPS certificate",
  "agent.adminPs": "PowerShell as administrator",
- "agent.tokenHint": "The command contains a one-time token, valid for 24 hours. Creating a new one replaces it."
+ "agent.tokenHint": "The command contains a one-time token, valid for 24 hours. Creating a new one replaces it.",
+ "factWarn.unifi_offline": "One or more UniFi devices are offline or not adopted."
 }
