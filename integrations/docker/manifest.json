@@ -1,6 +1,6 @@
 {
   "id": "docker",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "minCore": "0.1.0",
   "name": {
     "en": "Docker host",
@@ -33,7 +33,8 @@
       "mcr.microsoft.com",
       "*.data.mcr.microsoft.com",
       "registry.gitlab.com",
-      "public.ecr.aws"
+      "public.ecr.aws",
+      "api.github.com"
     ],
     "httpHostsSetting": "extraRegistries"
   },
@@ -104,6 +105,60 @@
         "en": "Off keeps it stopped as <name>-hw-old. The old image is kept in both cases until cleaned up.",
         "de": "Aus behält ihn gestoppt als <name>-hw-old. Das alte Image bleibt in beiden Fällen, bis es aufgeräumt wird."
       }
+    },
+    {
+      "key": "registryHost",
+      "type": "string",
+      "default": "",
+      "placeholder": "gitea.krx3d.de",
+      "label": {
+        "en": "Private registry",
+        "de": "Private Registry"
+      },
+      "help": {
+        "en": "Host of a registry that needs a login, e.g. your Gitea. Add it to Extra registries too.",
+        "de": "Host einer Registry mit Anmeldung, z. B. dein Gitea. Auch unter Zusätzliche Registries eintragen."
+      }
+    },
+    {
+      "key": "registryLogin",
+      "type": "credential",
+      "credentialTypes": [
+        "password",
+        "token"
+      ],
+      "label": {
+        "en": "Login for the private registry",
+        "de": "Anmeldung für die private Registry"
+      },
+      "help": {
+        "en": "Gitea: your user name and an access token with package read permission.",
+        "de": "Gitea: dein Benutzername und ein Access Token mit Leserecht auf Packages."
+      }
+    },
+    {
+      "key": "rebuildToken",
+      "type": "credential",
+      "credentialTypes": [
+        "token"
+      ],
+      "label": {
+        "en": "Token to start image builds",
+        "de": "Token zum Starten von Image-Builds"
+      },
+      "help": {
+        "en": "For containers built from your own repository (image label org.opencontainers.image.source on GitHub or your Gitea): a Rebuild entry starts the build workflow. GitHub: a token with Actions write. Gitea: an access token with repository write.",
+        "de": "Für Container aus deinem eigenen Repository (Image-Label org.opencontainers.image.source auf GitHub oder deinem Gitea): Ein Eintrag Neu bauen startet den Build-Workflow. GitHub: Token mit Actions-Schreibrecht. Gitea: Access Token mit Schreibrecht aufs Repository."
+      }
+    },
+    {
+      "key": "rebuildWorkflow",
+      "type": "string",
+      "default": "docker.yml",
+      "label": {
+        "en": "Build workflow file",
+        "de": "Build-Workflow-Datei"
+      }
     }
   ],
   "presence": {
@@ -120,7 +175,9 @@
     "detect",
     "update",
     "discover",
-    "metrics"
+    "metrics",
+    "choose",
+    "changelog"
   ],
   "entry": "main.js",
   "files": [

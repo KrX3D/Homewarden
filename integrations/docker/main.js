@@ -16,8 +16,8 @@ function setting(ctx, key, def) {
   return v === undefined || v === null || v === '' ? def : v;
 }
 
-function dock(ctx, method, path, body) {
-  var r = ctx.docker.request(method, path, body);
+function dock(ctx, method, path, body, headers) {
+  var r = ctx.docker.request(method, path, body, headers || null);
   if (r.status >= 400) {
     var msg = (r.json && r.json.message) || r.body;
     throw new Error('Docker ' + method + ' ' + path.split('?')[0] + ': ' + r.status + ' ' + msg);
@@ -56,9 +56,12 @@ function reg(ctx, ref, method, path, accept) {
   if (r.status === 401 && !tokens[key]) {
     var h = r.headers['www-authenticate'] || '';
     var realm = /realm="([^"]+)"/.exec(h), service = /service="([^"]+)"/.exec(h), scope = /scope="([^"]+)"/.exec(h);
-    if (!realm) throw new Error(ref.registry + ' wants a login, which is not supported yet');
+    if (!realm) throw new Error(ref.registry + ' wants a login: set Private registry and its login in the Integration card');
     var turl = realm[1] + '?scope=' + encodeURIComponent(scope ? scope[1] : 'repository:' + ref.repo + ':pull') + (service ? '&service=' + encodeURIComponent(service[1]) : '');
-    var t = ctx.http.request({ url: turl, timeout: 30 });
+    var th = {};
+    var login = privateLogin(ctx, ref);
+    if (login) th.Authorization = 'Basic ' + b64(login.username + ':' + login.secret);
+    var t = ctx.http.request({ url: turl, timeout: 30, headers: th });
     if (t.status !== 200 || !t.json) throw new Error('token from ' + realm[1] + ': HTTP ' + t.status);
     tokens[key] = t.json.token || t.json.access_token;
     return reg(ctx, ref, method, path, accept);
@@ -158,6 +161,12 @@ function detect(ctx) {
       meta: { image: ref.full, state: c.State, digest: shortDigest((img.RepoDigests || [])[0] ? img.RepoDigests[0].split('@')[1] : ''),
         warning: self ? 'self' : 'restarts-container', unraid: !!(c.Labels && c.Labels['net.unraid.docker.managed']) }
     };
+    var src = (img.Config && img.Config.Labels && img.Config.Labels['org.opencontainers.image.source']) || '';
+    comp.meta.source = src;
+    if (src && ctx.secret('rebuildToken') && repoOf(ctx, src)) {
+      comps.push({ id: 'rebuild:' + name, name: name + ': rebuild image', group: 'action', installed: '', available: 'start build',
+        updateAvailable: false, updatable: true, meta: { note: src, warning: '' } });
+    }
     if (!img.RepoDigests || img.RepoDigests.length === 0) {
       comp.meta.note = 'local image';
       comps.push(comp);
@@ -212,12 +221,16 @@ function discover(ctx) {
   });
 }
 
-function recreate(ctx, name) {
+function recreate(ctx, name, newImage) {
   var old = dock(ctx, 'GET', '/containers/' + encodeURIComponent(name) + '/json').json;
   if (isSelf(ctx, { Id: old.Id })) throw new Error(name + ' is Homewarden itself; update it from the host');
+  if (newImage) {
+    ctx.log(name + ': switching image ' + old.Config.Image + ' -> ' + newImage);
+    old.Config.Image = newImage;
+  }
   var ref = parseRef(old.Config.Image);
   ctx.log(name + ': pulling ' + ref.full);
-  var pull = dock(ctx, 'POST', '/images/create?fromImage=' + encodeURIComponent((ref.domain === 'docker.io' ? '' : ref.domain + '/') + ref.repo) + '&tag=' + encodeURIComponent(ref.tag));
+  var pull = pullImage(ctx, ref);
   var errLine = /"error":\s*"([^"]+)"/.exec(pull.body);
   if (errLine) throw new Error('pull failed: ' + errLine[1]);
   var img = dock(ctx, 'GET', '/images/' + encodeURIComponent(old.Config.Image) + '/json').json;
@@ -309,15 +322,28 @@ function recreate(ctx, name) {
 
 function update(ctx, ids) {
   var targets = [];
+  var switches = [];
+  var failed = [];
   var cleanup = ids.indexOf('cleanup') >= 0;
   if (ids.indexOf('*') >= 0) {
     detect(ctx).components.forEach(function (c) {
       if (c.group === 'container' && c.updateAvailable && c.updatable) targets.push(c.name);
     });
   } else {
-    ids.forEach(function (id) { if (id.indexOf('ctr:') === 0) targets.push(id.slice(4)); });
+    ids.forEach(function (id) {
+      if (id.indexOf('ctr:') !== 0) return;
+      var at = id.indexOf('@');
+      if (at > 0) { switches.push({ name: id.slice(4, at), tag: id.slice(at + 1) }); return; }
+      targets.push(id.slice(4));
+    });
   }
-  var failed = [];
+  ids.filter(function (id) { return id.indexOf('rebuild:') === 0; }).forEach(function (id) { rebuild(ctx, id.slice(8)); });
+  switches.forEach(function (sw) {
+    if (!/^[A-Za-z0-9_.\-]{1,128}$/.test(sw.tag)) throw new Error('invalid tag ' + sw.tag);
+    var cur = dock(ctx, 'GET', '/containers/' + encodeURIComponent(sw.name) + '/json').json;
+    var ref = parseRef(cur.Config.Image);
+    try { recreate(ctx, sw.name, ref.name + ':' + sw.tag); } catch (e) { failed.push(sw.name); ctx.log(String(e.message || e)); }
+  });
   targets.forEach(function (name) {
     try { recreate(ctx, name); } catch (e) { failed.push(name); ctx.log(String(e.message || e)); }
   });
@@ -346,4 +372,104 @@ function metrics(ctx) {
     } catch (e) {}
   });
   return out;
+}
+
+// ---- private registry, versions, rebuild, changelog
+
+function b64(str) {
+  // btoa is not available in the sandbox; this handles ASCII credentials.
+  var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', out = '', i = 0;
+  while (i < str.length) {
+    var a = str.charCodeAt(i++), b = str.charCodeAt(i++), c = str.charCodeAt(i++);
+    var n = (a << 16) | ((b || 0) << 8) | (c || 0);
+    out += chars[(n >> 18) & 63] + chars[(n >> 12) & 63] + (isNaN(b) ? '=' : chars[(n >> 6) & 63]) + (isNaN(c) ? '=' : chars[n & 63]);
+  }
+  return out;
+}
+
+function privateLogin(ctx, ref) {
+  var host = setting(ctx, 'registryHost', '');
+  if (!host || host !== ref.domain) return null;
+  return ctx.secret('registryLogin');
+}
+
+function pullImage(ctx, ref) {
+  var headers = null;
+  var login = privateLogin(ctx, ref);
+  if (login) headers = { 'X-Registry-Auth': b64(JSON.stringify({ username: login.username, password: login.secret, serveraddress: ref.domain })) };
+  return dock(ctx, 'POST', '/images/create?fromImage=' + encodeURIComponent((ref.domain === 'docker.io' ? '' : ref.domain + '/') + ref.repo) + '&tag=' + encodeURIComponent(ref.tag), null, headers);
+}
+
+// choices(ctx, componentId): tags the container can switch to, newest first, plus the
+// images already on the host (instant rollback).
+function choices(ctx, id) {
+  if (!id || id.indexOf('ctr:') !== 0) return { choices: [] };
+  var name = id.slice(4);
+  var cur = dock(ctx, 'GET', '/containers/' + encodeURIComponent(name) + '/json').json;
+  var ref = parseRef(cur.Config.Image);
+  var local = (dock(ctx, 'GET', '/images/json').json || []).reduce(function (acc, im) {
+    (im.RepoTags || []).forEach(function (t) {
+      var r = parseRef(t);
+      if (r.name === ref.name && r.tag !== ref.tag) acc.push({ value: r.tag, label: r.tag, note: 'on this host' });
+    });
+    return acc;
+  }, []);
+  var remote = [];
+  try {
+    var r = reg(ctx, ref, 'GET', '/tags/list?n=1000', 'application/json');
+    var tags = (r.json && r.json.tags) || [];
+    // Version tags (1.2.3, v1.2, 2024.11.01, 1.2.3-ls45) first, newest first; other
+    // named tags after them; signatures and per-architecture tags left out.
+    var isVer = function (t) { return /^v?\d+(\.\d+)+([-+._][0-9a-z.]+)?$/i.test(t); };
+    tags = tags.filter(function (t) { return t !== ref.tag && !/(sig|att|sbom)$/.test(t) && !/(amd64|arm64|armv7|arm\.v\d|armhf|i386|ppc64le|s390x)/.test(t); });
+    tags.sort(function (a, b) {
+      var va = isVer(a), vb = isVer(b);
+      if (va !== vb) return va ? -1 : 1;
+      return va ? ctx.util.compareVersions(b, a) : (a < b ? -1 : 1);
+    });
+    remote = tags.slice(0, 40).map(function (t) { return { value: t, label: t }; });
+  } catch (e) { ctx.log('tags: ' + (e.message || e)); }
+  var seen = {};
+  return { current: ref.tag, choices: local.concat(remote).filter(function (c) { if (seen[c.value]) return false; seen[c.value] = 1; return true; }) };
+}
+
+// repoOf turns an image source label into {api, owner, repo, kind} for GitHub or the
+// user's Gitea (the private registry host, or an extra registry).
+function repoOf(ctx, src) {
+  var m = /^https?:\/\/([^\/]+)\/([^\/]+)\/([^\/#?]+?)(\.git)?\/?$/.exec(src);
+  if (!m) return null;
+  if (m[1] === 'github.com') return { kind: 'github', api: 'https://api.github.com/repos/' + m[2] + '/' + m[3], owner: m[2], repo: m[3] };
+  var hosts = (setting(ctx, 'extraRegistries', '') + ',' + setting(ctx, 'registryHost', '')).split(',').map(function (h) { return h.trim(); });
+  if (hosts.indexOf(m[1]) >= 0) return { kind: 'gitea', api: 'https://' + m[1] + '/api/v1/repos/' + m[2] + '/' + m[3], owner: m[2], repo: m[3] };
+  return null;
+}
+
+function rebuild(ctx, name) {
+  var cur = dock(ctx, 'GET', '/containers/' + encodeURIComponent(name) + '/json').json;
+  var img = dock(ctx, 'GET', '/images/' + encodeURIComponent(cur.Image) + '/json').json;
+  var src = (img.Config && img.Config.Labels && img.Config.Labels['org.opencontainers.image.source']) || '';
+  var repo = repoOf(ctx, src);
+  var tok = ctx.secret('rebuildToken');
+  if (!repo || !tok) throw new Error(name + ': no source repository label or no rebuild token');
+  var auth = repo.kind === 'github' ? 'Bearer ' + tok.secret : 'token ' + tok.secret;
+  var info = ctx.http.request({ url: repo.api, headers: { Authorization: auth, Accept: 'application/json' } });
+  var branch = (info.json && info.json.default_branch) || 'main';
+  var wf = setting(ctx, 'rebuildWorkflow', 'docker.yml');
+  var r = ctx.http.request({ method: 'POST', url: repo.api + '/actions/workflows/' + encodeURIComponent(wf) + '/dispatches',
+    headers: { Authorization: auth, Accept: 'application/json' }, body: { ref: branch } });
+  if (r.status >= 300) throw new Error(name + ': starting ' + wf + ' failed: HTTP ' + r.status + ' ' + (r.body || '').slice(0, 200));
+  ctx.log(name + ': started ' + wf + ' on ' + repo.owner + '/' + repo.repo + ' (' + branch + '). The new image shows up as an update once the build is done.');
+}
+
+// changelog(ctx, componentId): release notes of the image's GitHub repository.
+function changelog(ctx, id) {
+  var name = (id || '').replace(/^(ctr|tag):/, '').split(':')[0].split('@')[0];
+  var cur = dock(ctx, 'GET', '/containers/' + encodeURIComponent(name) + '/json').json;
+  var img = dock(ctx, 'GET', '/images/' + encodeURIComponent(cur.Image) + '/json').json;
+  var src = (img.Config && img.Config.Labels && img.Config.Labels['org.opencontainers.image.source']) || '';
+  var m = /^https?:\/\/github\.com\/([^\/]+)\/([^\/#?]+?)(\.git)?\/?$/.exec(src);
+  if (!m) return { text: '', url: src };
+  var r = ctx.http.request({ url: 'https://api.github.com/repos/' + m[1] + '/' + m[2] + '/releases?per_page=3', headers: { Accept: 'application/vnd.github+json' } });
+  var rel = (r.json || []).map(function (x) { return '## ' + (x.name || x.tag_name) + '\n\n' + (x.body || '').trim(); }).join('\n\n');
+  return { text: rel.slice(0, 20000), url: 'https://github.com/' + m[1] + '/' + m[2] + '/releases' };
 }

@@ -676,5 +676,15 @@
  "res.container": "Container / guest",
  "factWarn.disk_full": "A file system is more than 90% full.",
  "factWarn.hot": "A temperature sensor reports 80 °C or more.",
- "factWarn.smart_failing": "A disk failed its SMART self-assessment. Replace it soon."
+ "factWarn.smart_failing": "A disk failed its SMART self-assessment. Replace it soon.",
+ "sw.choose": "Choose version",
+ "sw.changelogOf": "Changes: {name}",
+ "sw.noChangelog": "No change notes available for this component.",
+ "sw.chooseFor": "Version of {name}",
+ "sw.chooseIntro": "Currently {current}. Pick the version to switch to; older ones roll back.",
+ "sw.chooseHint": "The container is recreated with the same settings on the chosen tag. Versions marked on this host need no download.",
+ "sw.switch": "Switch",
+ "sw.onHost": "on this host",
+ "error.not_supported": "This integration does not support that.",
+ "error.integration_failed": "The integration reported an error."
 }

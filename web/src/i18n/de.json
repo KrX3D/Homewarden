@@ -676,5 +676,15 @@
  "res.container": "Container / Gast",
  "factWarn.disk_full": "Ein Dateisystem ist zu mehr als 90 % voll.",
  "factWarn.hot": "Ein Temperatursensor meldet 80 °C oder mehr.",
- "factWarn.smart_failing": "Die SMART-Selbstbewertung einer Platte ist fehlgeschlagen. Bald ersetzen."
+ "factWarn.smart_failing": "Die SMART-Selbstbewertung einer Platte ist fehlgeschlagen. Bald ersetzen.",
+ "sw.choose": "Version wählen",
+ "sw.changelogOf": "Änderungen: {name}",
+ "sw.noChangelog": "Für diese Komponente gibt es keine Änderungshinweise.",
+ "sw.chooseFor": "Version von {name}",
+ "sw.chooseIntro": "Aktuell {current}. Wähle die Version, auf die gewechselt werden soll; ältere bedeuten ein Zurückrollen.",
+ "sw.chooseHint": "Der Container wird mit denselben Einstellungen auf dem gewählten Tag neu erstellt. Versionen mit auf diesem Host brauchen keinen Download.",
+ "sw.switch": "Wechseln",
+ "sw.onHost": "auf diesem Host",
+ "error.not_supported": "Diese Integration unterstützt das nicht.",
+ "error.integration_failed": "Die Integration hat einen Fehler gemeldet."
 }

@@ -1,6 +1,6 @@
 {
   "id": "octoprint",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minCore": "0.1.0",
   "name": {
     "en": "OctoPrint / OctoPi",
@@ -19,7 +19,9 @@
     "ssh": true,
     "docker": false,
     "httpDevice": true,
-    "httpHosts": []
+    "httpHosts": [
+      "api.github.com"
+    ]
   },
   "settings": [
     {
@@ -100,7 +102,8 @@
     "update",
     "busy",
     "backup",
-    "restore"
+    "restore",
+    "changelog"
   ],
   "entry": "main.js",
   "files": [

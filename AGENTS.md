@@ -264,6 +264,11 @@ Plain ES5-ish JS (goja), synchronous. Functions, each `(ctx, arg)`:
   `POST /api/backups/{id}/restore {deviceId}`: onto the same or a replacement device).
 - Manifest `sudoers` ($USER placeholder): Install key can add it with the one-time
   password (`sudo -S`, checked with visudo) so a fresh device needs no terminal.
+- `changelog(ctx, componentId)` (capability `changelog`) -> `{text, url}`, shown in a
+  modal (`GET /api/devices/{id}/changelog?component=`).
+- `choices(ctx, componentId)` (capability `choose`) -> `{current, choices[{value, label,
+  note}]}`; picking one runs an update of `"<componentId>@<value>"` (Docker: switch or
+  roll back the tag).
 - `discover(ctx)` (capability `discover`) -> `[{externalId, name, host, kind, state:
   running|stopped, group, presence?}]`; new ones land in the inbox as children.
 ctx: `device`, `settings`, `log()`, `sleep(ms)`, `now()`, `secret(settingKey)` ->
