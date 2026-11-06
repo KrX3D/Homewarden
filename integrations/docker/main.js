@@ -226,12 +226,17 @@ function recreate(ctx, name) {
     return;
   }
   var wasRunning = old.State.Running;
+  var safety = setting(ctx, 'safetyNet', false);
   var tmp = name + '-hw-old';
   if (wasRunning) { ctx.log(name + ': stopping'); dock(ctx, 'POST', '/containers/' + old.Id + '/stop?t=30'); }
-  dock(ctx, 'POST', '/containers/' + old.Id + '/rename?name=' + encodeURIComponent(tmp));
+  if (safety) {
+    dock(ctx, 'POST', '/containers/' + old.Id + '/rename?name=' + encodeURIComponent(tmp));
+  } else {
+    // Same as Unraid's own update: the old container goes, the new one replaces it.
+    dock(ctx, 'DELETE', '/containers/' + old.Id);
+  }
 
   var cfg = JSON.parse(JSON.stringify(old.Config));
-  cfg.Image = old.Config.Image;
   if (cfg.Hostname && old.Id.indexOf(cfg.Hostname) === 0) delete cfg.Hostname; // auto-assigned, not a user setting
   var nets = old.NetworkSettings.Networks || {};
   var names = Object.keys(nets);
@@ -241,36 +246,62 @@ function recreate(ctx, name) {
     return { IPAMConfig: e.IPAMConfig, Links: e.Links, Aliases: (e.Aliases || []).filter(function (a) { return old.Id.indexOf(a) !== 0; }) };
   };
   cfg.HostConfig = old.HostConfig;
+  var first = null;
   if (names.length && mode.indexOf('container:') !== 0 && mode !== 'host') {
-    var first = names.indexOf(mode) >= 0 ? mode : names[0];
+    first = names.indexOf(mode) >= 0 ? mode : names[0];
     cfg.NetworkingConfig = { EndpointsConfig: {} };
     cfg.NetworkingConfig.EndpointsConfig[first] = endpoint(first);
   }
-  var created;
-  try {
-    created = dock(ctx, 'POST', '/containers/create?name=' + encodeURIComponent(name), cfg).json;
-    names.forEach(function (n) {
-      if (cfg.NetworkingConfig && cfg.NetworkingConfig.EndpointsConfig[n]) return;
-      if (mode.indexOf('container:') === 0 || mode === 'host') return;
-      dock(ctx, 'POST', '/networks/' + encodeURIComponent(n) + '/connect', { Container: created.Id, EndpointConfig: endpoint(n) });
-    });
-    if (wasRunning) {
-      ctx.log(name + ': starting new container');
-      dock(ctx, 'POST', '/containers/' + created.Id + '/start');
-      ctx.sleep(5000);
-      var st = dock(ctx, 'GET', '/containers/' + created.Id + '/json').json.State;
-      if (!st.Running) throw new Error('the new container stopped right away (exit code ' + st.ExitCode + ')');
+
+  // Creates and starts a container from cfg with the given image; returns its id.
+  function launch(image) {
+    var c = JSON.parse(JSON.stringify(cfg));
+    c.Image = image;
+    var created = dock(ctx, 'POST', '/containers/create?name=' + encodeURIComponent(name), c).json;
+    try {
+      names.forEach(function (n) {
+        if (n === first || mode.indexOf('container:') === 0 || mode === 'host') return;
+        dock(ctx, 'POST', '/networks/' + encodeURIComponent(n) + '/connect', { Container: created.Id, EndpointConfig: endpoint(n) });
+      });
+      if (wasRunning) {
+        dock(ctx, 'POST', '/containers/' + created.Id + '/start');
+        ctx.sleep(5000);
+        var st = dock(ctx, 'GET', '/containers/' + created.Id + '/json').json.State;
+        if (!st.Running) throw new Error('the new container stopped right away (exit code ' + st.ExitCode + ')');
+      }
+    } catch (e) {
+      ctx.docker.request('DELETE', '/containers/' + created.Id + '?force=1');
+      throw e;
     }
-  } catch (e) {
-    ctx.log(name + ': ' + (e.message || e) + '. Rolling back.');
-    if (created) ctx.docker.request('DELETE', '/containers/' + created.Id + '?force=1');
-    dock(ctx, 'POST', '/containers/' + old.Id + '/rename?name=' + encodeURIComponent(name));
-    if (wasRunning) dock(ctx, 'POST', '/containers/' + old.Id + '/start');
-    throw new Error(name + ': update rolled back: ' + (e.message || e));
+    return created.Id;
   }
-  if (setting(ctx, 'removeOld', true)) {
+
+  try {
+    ctx.log(name + ': creating the new container');
+    launch(old.Config.Image);
+  } catch (e) {
+    var why = String(e.message || e);
+    if (safety) {
+      ctx.log(name + ': ' + why + '. Restoring the old container.');
+      dock(ctx, 'POST', '/containers/' + old.Id + '/rename?name=' + encodeURIComponent(name));
+      if (wasRunning) dock(ctx, 'POST', '/containers/' + old.Id + '/start');
+      throw new Error(name + ': update rolled back: ' + why);
+    }
+    // No safety net: the old container is gone, but its image is still there.
+    ctx.log(name + ': ' + why + '. Recreating it from the previous image.');
+    try {
+      launch(old.Image);
+      throw new Error(name + ': new image failed (' + why + '); running the previous image again');
+    } catch (e2) {
+      if (String(e2.message).indexOf('running the previous image again') >= 0) throw e2;
+      throw new Error(name + ': update failed and the previous image did not start either: ' + why);
+    }
+  }
+  if (!safety) {
+    ctx.log(name + ': updated');
+  } else if (setting(ctx, 'removeOld', true)) {
     dock(ctx, 'DELETE', '/containers/' + old.Id);
-    ctx.log(name + ': updated, old container removed (old image kept)');
+    ctx.log(name + ': updated, old container removed');
   } else {
     ctx.log(name + ': updated, old container kept as ' + tmp);
   }
