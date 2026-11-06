@@ -41,7 +41,7 @@ main{text-align:center;padding:24px}
 svg{width:72px;height:72px;color:var(--accent)}
 p{color:var(--muted)}
 </style></head><body><main>
-<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22 24 7l18 15"/><path d="M10 19v21h28V19"/><path d="M13 30h6l3-6 4 11 3-5h6"/></svg>
+<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22 24 7l18 15"/><path d="M32 13V6h5v11"/><path d="M10 19v21h28V19"/><path d="M13 30h6l3-6 4 11 3-5h6"/></svg>
 <h1>Homewarden</h1>
 <p>The container is running. The application is still being built.</p>
 </main></body></html>`

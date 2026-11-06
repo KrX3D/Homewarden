@@ -29,16 +29,22 @@ FROM alpine:3.22
 
 # ca-certificates: every registry, GitHub and vendor API call is TLS.
 # tzdata: schedules run in the user's local time (set TZ).
-RUN apk add --no-cache ca-certificates tzdata
+# su-exec: the entrypoint drops from root to PUID:PGID.
+RUN apk add --no-cache ca-certificates tzdata su-exec
 
 COPY --from=build /out/homewarden /usr/local/bin/homewarden
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENV HOMEWARDEN_ADDR=:8080 \
-    HOMEWARDEN_DATA=/data
+    HOMEWARDEN_DATA=/data \
+    PUID=99 \
+    PGID=100
 VOLUME /data
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
     CMD wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1
 
-ENTRYPOINT ["/usr/local/bin/homewarden"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/local/bin/homewarden"]
