@@ -101,7 +101,7 @@ func (s *Server) listDevices(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, devs)
+	writeJSON(w, http.StatusOK, s.visibleDevices(r, devs))
 }
 
 func (s *Server) createDevice(w http.ResponseWriter, r *http.Request) {
@@ -133,7 +133,7 @@ func (s *Server) loadDevice(w http.ResponseWriter, r *http.Request) (store.Devic
 		return store.Device{}, false
 	}
 	d, err := s.Store.Device(r.Context(), id)
-	if errors.Is(err, store.ErrNotFound) {
+	if errors.Is(err, store.ErrNotFound) || err == nil && !PrincipalFrom(r).SeesDevice(d) {
 		fail(w, http.StatusNotFound, "not_found")
 		return d, false
 	}
@@ -287,4 +287,29 @@ func (s *Server) discoveryScan(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.Store.SetSetting(r.Context(), "discovery.cidr", strings.TrimSpace(in.CIDR))
 	writeJSON(w, http.StatusAccepted, map[string]int{"hosts": n})
+}
+
+// visibleDevices filters devices by the principal's device groups.
+func (s *Server) visibleDevices(r *http.Request, devs []store.Device) []store.Device {
+	p := PrincipalFrom(r)
+	out := make([]store.Device, 0, len(devs))
+	for _, d := range devs {
+		if p.SeesDevice(d) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// visibleDeviceIDs returns the ids the principal may see, or nil for "all".
+func (s *Server) visibleDeviceIDs(r *http.Request) map[int64]bool {
+	if len(PrincipalFrom(r).Role.Groups) == 0 {
+		return nil
+	}
+	devs, _ := s.Store.Devices(r.Context(), "")
+	ids := map[int64]bool{}
+	for _, d := range s.visibleDevices(r, devs) {
+		ids[d.ID] = true
+	}
+	return ids
 }

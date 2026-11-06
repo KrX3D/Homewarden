@@ -235,6 +235,7 @@ func (s *Server) createRole(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name        string
 		Permissions []string
+		Groups      []string
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -249,7 +250,7 @@ func (s *Server) createRole(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "role_name_taken")
 		return
 	}
-	role, err := s.Store.CreateRole(r.Context(), in.Name, perms)
+	role, err := s.Store.CreateRole(r.Context(), in.Name, perms, in.Groups)
 	if err != nil {
 		internal(w, err)
 		return
@@ -275,6 +276,7 @@ func (s *Server) updateRole(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name        string
 		Permissions []string
+		Groups      []string
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -289,7 +291,7 @@ func (s *Server) updateRole(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "role_name_taken")
 		return
 	}
-	if err := s.Store.UpdateRole(r.Context(), id, in.Name, perms); err != nil {
+	if err := s.Store.UpdateRole(r.Context(), id, in.Name, perms, in.Groups); err != nil {
 		internal(w, err)
 		return
 	}

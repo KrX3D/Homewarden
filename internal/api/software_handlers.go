@@ -266,7 +266,16 @@ func (s *Server) pendingUpdates(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"components": comps, "devices": devs})
+	if ids := s.visibleDeviceIDs(r); ids != nil {
+		keep := comps[:0]
+		for _, c := range comps {
+			if ids[c.DeviceID] {
+				keep = append(keep, c)
+			}
+		}
+		comps = keep
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"components": comps, "devices": s.visibleDevices(r, devs)})
 }
 
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
@@ -275,6 +284,15 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internal(w, err)
 		return
+	}
+	if ids := s.visibleDeviceIDs(r); ids != nil {
+		keep := js[:0]
+		for _, j := range js {
+			if j.DeviceID != nil && ids[*j.DeviceID] {
+				keep = append(keep, j)
+			}
+		}
+		js = keep
 	}
 	writeJSON(w, http.StatusOK, js)
 }
@@ -286,6 +304,9 @@ func (s *Server) getJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	j, err := s.Store.Job(r.Context(), id)
+	if ids := s.visibleDeviceIDs(r); err == nil && ids != nil && (j.DeviceID == nil || !ids[*j.DeviceID]) {
+		err = store.ErrNotFound
+	}
 	if errors.Is(err, store.ErrNotFound) {
 		fail(w, http.StatusNotFound, "not_found")
 		return

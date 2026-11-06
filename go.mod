@@ -3,12 +3,14 @@ module github.com/KrX3D/Homewarden
 go 1.27
 
 require (
+	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/dop251/goja v0.0.0-20261105002551-2413f2132ac8
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/robfig/cron/v3 v3.0.1
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.62.0
+	golang.org/x/oauth2 v0.37.0
 	modernc.org/sqlite v1.61.1
 )
 
@@ -16,6 +18,7 @@ require (
 	github.com/dlclark/regexp2/v2 v2.11.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/geoffgarside/ber v1.1.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50 // indirect
 	github.com/google/uuid v1.6.0 // indirect

@@ -315,6 +315,7 @@ function RolesTab() {
             <div className="row" style={{ gap: 6 }}>
               {r.permissions.includes('*') ? <span className="chip">{t('perm.*')}</span> : r.permissions.map((p) => <span className="chip" key={p}>{t('perm.' + p)}</span>)}
             </div>
+            {r.groups?.length > 0 && <span className="small muted">{t('roles.onlyGroups', { groups: r.groups.join(', ') })}</span>}
           </div>
         ))}
       </div>
@@ -328,13 +329,16 @@ function RoleModal({ role, onClose, onSaved }: { role: Role | null; onClose: () 
   const { meta } = useSession();
   const [name, setName] = useState(role?.name ?? '');
   const [perms, setPerms] = useState<string[]>(role?.permissions ?? ['devices.view']);
+  const [groups, setGroups] = useState<string[]>(role?.groups ?? []);
+  const [allGroups, setAllGroups] = useState<string[]>([]);
+  useEffect(() => { get<{ groupName: string }[]>('/api/devices?status=all').then((d) => setAllGroups([...new Set(d.map((x) => x.groupName).filter(Boolean))].sort())).catch(() => {}); }, []);
   const { busy, error, run } = useAction();
   const toggle = (p: string) => setPerms((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
   const save = (e: FormEvent) => {
     e.preventDefault();
     run(async () => {
-      if (role) await put(`/api/roles/${role.id}`, { name, permissions: perms });
-      else await post('/api/roles', { name, permissions: perms });
+      if (role) await put(`/api/roles/${role.id}`, { name, permissions: perms, groups });
+      else await post('/api/roles', { name, permissions: perms, groups });
       onSaved();
     });
   };
@@ -352,6 +356,14 @@ function RoleModal({ role, onClose, onSaved }: { role: Role | null; onClose: () 
               <input type="checkbox" checked={perms.includes(p)} onChange={() => toggle(p)} />
               <span>{t('perm.' + p)}<span className="muted small"> · {t('permDesc.' + p)}</span></span>
             </label>
+          ))}
+        </fieldset>
+        <fieldset className="stack" style={{ border: 0, padding: 0, margin: 0, gap: 8 }}>
+          <legend className="small" style={{ fontWeight: 500, marginBottom: 6 }}>{t('roles.groups')}</legend>
+          <span className="small muted">{t('roles.groupsHint')}</span>
+          {allGroups.length === 0 && <span className="small muted">{t('roles.noGroups')}</span>}
+          {allGroups.map((g) => (
+            <label className="check" key={g}><input type="checkbox" checked={groups.includes(g)} onChange={() => setGroups((cur) => cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g])} />{g}</label>
           ))}
         </fieldset>
         <ErrorAlert error={error} />

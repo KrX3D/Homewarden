@@ -49,13 +49,14 @@ export type User = {
   lastLogin: number | null;
 };
 
-export type Role = { id: number; name: string; builtin: boolean; permissions: string[] };
+export type Role = { id: number; name: string; builtin: boolean; permissions: string[]; groups: string[] };
 
 export type Meta = {
   build: { version: string; commit: string; buildDate: string };
   needsSetup: boolean;
   minPassword: number;
   permissions: string[];
+  sso?: { enabled: boolean; label: string };
 };
 
 export type Me = { user: User; role: Role };
