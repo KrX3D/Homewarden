@@ -43,4 +43,37 @@ INSERT INTO roles(name, builtin, permissions) VALUES
 	('Operator', 1, '["devices.view","devices.manage","updates.run","backups.run","jobs.view"]'),
 	('Viewer', 1, '["devices.view","jobs.view"]');
 `,
+	// 2: devices and their presence history.
+	`
+CREATE TABLE devices (
+	id          INTEGER PRIMARY KEY,
+	name        TEXT NOT NULL,
+	kind        TEXT NOT NULL DEFAULT 'generic',
+	host        TEXT NOT NULL DEFAULT '',
+	mac         TEXT NOT NULL DEFAULT '',
+	parent_id   INTEGER REFERENCES devices(id) ON DELETE SET NULL,
+	group_name  TEXT NOT NULL DEFAULT '',
+	status      TEXT NOT NULL DEFAULT 'active',
+	source      TEXT NOT NULL DEFAULT 'manual',
+	external_id TEXT NOT NULL DEFAULT '',
+	presence    TEXT NOT NULL DEFAULT '{}',
+	config      TEXT NOT NULL DEFAULT '{}',
+	state       TEXT NOT NULL DEFAULT 'unknown',
+	state_since INTEGER,
+	last_seen   INTEGER,
+	rtt_ms      REAL,
+	notes       TEXT NOT NULL DEFAULT '',
+	created_at  INTEGER NOT NULL
+);
+CREATE INDEX devices_status ON devices(status);
+CREATE UNIQUE INDEX devices_source_ext ON devices(source, external_id) WHERE external_id <> '';
+
+CREATE TABLE presence_events (
+	id        INTEGER PRIMARY KEY,
+	device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	at        INTEGER NOT NULL,
+	state     TEXT NOT NULL
+);
+CREATE INDEX presence_events_device ON presence_events(device_id, at);
+`,
 }

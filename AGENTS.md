@@ -176,6 +176,20 @@ decision is made or changed, update it in the same PR.
 - `internal/api/` - HTTP API. Every non-GET `/api/` request needs the `X-Homewarden`
   header (CSRF). Errors are `{"error": "<code>"}`; the UI translates `error.<code>`.
   `Server.Authed(perm, h)` and `Server.Handle` let other packages add routes.
+- `internal/presence/` - probes (unprivileged ICMP via x/net/icmp "udp4", TCP, HTTP
+  <500 = up) and the engine. `Next()` is the pure state machine (unit tested):
+  2 missed reach checks = offline; ready needs the ready probe to pass for
+  `settleSeconds`. `OnReady` callbacks fire on the transition to ready (scans hook in
+  there). History in `presence_events`, pruned after 1 year.
+- `internal/discovery/` - ping/port sweep of a CIDR (max 1024 hosts) into the inbox
+  (`status=discovered`, `source=scan`, `external_id=ip`).
+- `internal/events/` - SSE broker at `/api/events` (`device.state`, `device.seen`,
+  `device.changed`, `discovery.*`). Web hook: `web/src/useEvents.ts`.
+- Devices: `status` active|discovered|ignored; `parent_id` builds the host tree;
+  `presence` JSON {reach, ready, settleSeconds, intervalSeconds}; reach `none` = state
+  comes from elsewhere (e.g. container state from its host integration).
+- `web/src/extensions.ts` - `deviceSections` lets later features add cards to the
+  device page.
 - `internal/web/` - embeds `dist/` (Vite output; only `.gitkeep` is tracked)
 - `web/` - React + TypeScript + Vite. `src/i18n/en.json` + `de.json` must always have
   the same keys. Theme/lang/device-view are per-user prefs (`PUT /api/me/prefs`).

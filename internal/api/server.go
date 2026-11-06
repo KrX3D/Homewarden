@@ -43,6 +43,7 @@ type Server struct {
 
 	limiter *auth.Limiter
 	mux     *http.ServeMux
+	dev     DeviceDeps
 
 	setupMu    sync.Mutex
 	setupToken string

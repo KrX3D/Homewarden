@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/api"
+	"github.com/KrX3D/Homewarden/internal/discovery"
+	"github.com/KrX3D/Homewarden/internal/events"
+	"github.com/KrX3D/Homewarden/internal/presence"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
 	"github.com/KrX3D/Homewarden/internal/web"
@@ -53,6 +56,11 @@ func main() {
 	defer stop()
 
 	srv := api.New(st, v, api.BuildInfo{Version: version, Commit: commit, BuildDate: buildDate}, web.Handler())
+
+	broker := events.New()
+	engine := presence.New(st, broker)
+	srv.AttachDevices(api.DeviceDeps{Events: broker, Presence: engine, Scanner: discovery.New(ctx, st, broker)})
+	go engine.Run(ctx)
 
 	token, err := srv.PrepareSetup(ctx)
 	if err != nil {

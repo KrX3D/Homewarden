@@ -59,3 +59,30 @@ export type Meta = {
 };
 
 export type Me = { user: User; role: Role };
+
+export type ProbeMethod = 'none' | 'ping' | 'tcp' | 'http';
+export type Probe = { method: ProbeMethod; port?: number; url?: string };
+export type PresenceConfig = { reach: Probe; ready: Probe; settleSeconds: number; intervalSeconds: number };
+export type DeviceState = 'unknown' | 'offline' | 'reachable' | 'ready' | 'paused';
+export type DeviceStatus = 'active' | 'discovered' | 'ignored';
+
+export type Device = {
+  id: number;
+  name: string;
+  kind: string;
+  host: string;
+  mac: string;
+  parentId: number | null;
+  groupName: string;
+  status: DeviceStatus;
+  source: string;
+  externalId: string;
+  presence: PresenceConfig;
+  config: Record<string, unknown>;
+  state: DeviceState;
+  stateSince: number | null;
+  lastSeen: number | null;
+  rttMs: number | null;
+  notes: string;
+  createdAt: number;
+};

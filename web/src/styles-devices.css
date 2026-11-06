@@ -1,0 +1,28 @@
+/* ---- devices */
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.device-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.device-card { all: unset; box-sizing: border-box; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+.device-card:hover { border-color: var(--accent); }
+.device-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tree { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.tree-group { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px; font-weight: 600; background: var(--sunk); }
+.tree-group svg { width: 16px; height: 16px; }
+.tree-row { display: flex; align-items: center; gap: 10px; padding-block: 8px; padding-right: 12px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.tree-toggle { width: 26px; height: 26px; flex: none; padding: 0 !important; display: inline-grid; place-items: center; }
+.tree-toggle svg { width: 14px; height: 14px; }
+.tree-name { color: var(--fg); text-decoration: none; min-width: 0; }
+.tree-name:hover strong { color: var(--accent); }
+dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; font-size: 14px; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.swatch.ok { background: var(--ok); }
+.swatch.warn { background: var(--warn); }
+.swatch.off { background: var(--off); }
+.timeline { position: relative; height: 28px; background: var(--sunk); border-radius: 6px; overflow: hidden; }
+.timeline span { position: absolute; top: 0; bottom: 0; }
+.timeline .seg-ok { background: var(--ok); }
+.timeline .seg-warn { background: var(--warn); }
+.timeline .seg-off { background: var(--off); opacity: .55; }
+.timeline .seg-none { background: transparent; }
+.timeline-axis { display: flex; justify-content: space-between; margin-top: 4px; font-variant-numeric: tabular-nums; }
