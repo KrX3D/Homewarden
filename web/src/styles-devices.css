@@ -36,3 +36,18 @@ pre.howto { background: var(--accent-soft); border-radius: 8px; padding: 12px; m
 details > summary { color: var(--accent); }
 
 .guard-row { border: 1px solid var(--line); border-radius: 8px; padding: 12px; gap: 10px; }
+
+/* ---- monitors */
+svg.chart { width: 100%; height: auto; display: block; }
+svg.chart .grid { stroke: var(--line); stroke-width: 1; }
+svg.chart .axis { fill: var(--muted); font: 10px var(--mono); }
+svg.chart .line { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+svg.chart .area { fill: var(--accent-soft); }
+svg.chart .fail { fill: var(--crit); opacity: .7; }
+.bars { display: grid; grid-template-columns: repeat(48, 1fr); gap: 2px; height: 26px; }
+.bars span { border-radius: 2px; }
+.bars .bar-ok { background: var(--ok); }
+.bars .bar-crit { background: var(--crit); }
+.bars .bar-none { background: var(--sunk); }
+.status-page { max-width: 760px; margin: 0 auto; padding-block: 32px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
+.status-logo { width: 36px; height: 36px; color: var(--accent); }

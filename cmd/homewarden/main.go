@@ -21,6 +21,7 @@ import (
 	"github.com/KrX3D/Homewarden/internal/events"
 	"github.com/KrX3D/Homewarden/internal/integrations"
 	"github.com/KrX3D/Homewarden/internal/jobs"
+	"github.com/KrX3D/Homewarden/internal/monitor"
 	"github.com/KrX3D/Homewarden/internal/notify"
 	"github.com/KrX3D/Homewarden/internal/presence"
 	"github.com/KrX3D/Homewarden/internal/store"
@@ -99,6 +100,10 @@ func main() {
 	notifier := &notify.Service{St: st, Vault: v, Events: broker}
 	go notifier.Run(ctx)
 	srv.AttachNotify(notifier)
+
+	monRunner := monitor.NewRunner(st, broker)
+	go monRunner.Run(ctx)
+	srv.AttachMonitors(monRunner)
 
 	go engine.Run(ctx)
 

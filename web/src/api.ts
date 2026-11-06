@@ -132,3 +132,12 @@ export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: nu
 
 export type AgentStatus = { enrolled: boolean; online: boolean; pendingEnrollment?: boolean;
   agent?: { hostname: string; os: string; arch: string; version: string; lastSeen: number | null } };
+
+export type MonitorType = 'http' | 'tcp' | 'ping' | 'dns' | 'push';
+export type MonitorConfig = { url?: string; method?: string; expectStatus?: string; keyword?: string; invertKeyword?: boolean; jsonPath?: string; jsonExpect?: string;
+  insecure?: boolean; certDays?: number; host?: string; port?: number; record?: string; server?: string; expect?: string; timeout?: number };
+export type Monitor = { id: number; name: string; type: MonitorType; config: MonitorConfig; deviceId: number | null; interval: number; enabled: boolean; public: boolean;
+  pushToken?: string; status: 'up' | 'down' | 'unknown'; statusSince: number | null; lastCheck: number | null; lastMs: number | null; lastMsg: string;
+  certExpires: number | null; uptime24h: number; uptime30d: number };
+export type MonitorPoint = { at: number; ok: boolean; ms: number | null };
+export type Maintenance = { id: number; title: string; deviceId: number | null; starts: number; ends: number };

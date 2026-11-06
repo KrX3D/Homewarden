@@ -21,10 +21,11 @@ const (
 	EvJobs     = "jobs"     // failed or blocked jobs
 	EvWarnings = "warnings" // device warnings (disks, undervoltage, old backups, end of life)
 	EvOffline  = "offline"  // device offline longer than its limit (per-device opt-in)
+	EvMonitors = "monitors" // a monitor went down or came back up
 )
 
 // Events lists all event names in display order.
-var Events = []string{EvUpdates, EvSecurity, EvJobs, EvWarnings, EvOffline}
+var Events = []string{EvUpdates, EvSecurity, EvJobs, EvWarnings, EvOffline, EvMonitors}
 
 // Service turns server events into notifications.
 type Service struct {
@@ -129,6 +130,16 @@ func (s *Service) Run(ctx context.Context) {
 				}
 			case "device.state":
 				s.onState(ctx, x.ID, x.State)
+			case "monitor.state":
+				var mv struct {
+					Name     string `json:"name"`
+					Status   string `json:"status"`
+					Previous string `json:"previous"`
+					Msg      string `json:"msg"`
+					DeviceID *int64 `json:"deviceId"`
+				}
+				_ = json.Unmarshal(b, &mv)
+				s.onMonitor(ctx, x.ID, mv.Name, mv.Status, mv.Previous, mv.Msg, mv.DeviceID)
 			}
 		}
 	}
@@ -288,7 +299,7 @@ func (s *Service) onState(ctx context.Context, deviceID int64, state string) {
 		}
 		return
 	}
-	if limit <= 0 || d.Status != store.StatusActive {
+	if limit <= 0 || d.Status != store.StatusActive || s.St.InMaintenance(ctx, deviceID) {
 		return
 	}
 	s.mu.Lock()
@@ -303,4 +314,26 @@ func (s *Service) onState(ctx context.Context, deviceID int64, state string) {
 		}
 	})
 	s.mu.Unlock()
+}
+
+// onMonitor reports a monitor going down, and coming back after it was reported down.
+// Nothing is sent during a maintenance window.
+func (s *Service) onMonitor(ctx context.Context, id int64, name, status, previous, msg string, deviceID *int64) {
+	dev := int64(0)
+	if deviceID != nil {
+		dev = *deviceID
+	}
+	if s.St.InMaintenance(ctx, dev) {
+		return
+	}
+	set := LoadSettings(ctx, s.St)
+	link := ""
+	if set.BaseURL != "" {
+		link = strings.TrimRight(set.BaseURL, "/") + "/monitors"
+	}
+	if status == "down" {
+		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is down", "%s ist ausgefallen"), name), Body: msg, Priority: 1, Link: link})
+	} else if status == "up" && previous == "down" {
+		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is up again", "%s ist wieder erreichbar"), name), Body: msg, Link: link})
+	}
 }
