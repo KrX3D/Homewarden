@@ -46,6 +46,7 @@ type Server struct {
 	mux     *http.ServeMux
 	dev     DeviceDeps
 	conn    *conn.Service
+	sw      SoftwareDeps
 
 	setupMu    sync.Mutex
 	setupToken string

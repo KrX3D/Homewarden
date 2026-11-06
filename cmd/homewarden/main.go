@@ -12,7 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	builtin "github.com/KrX3D/Homewarden/integrations"
 	"github.com/KrX3D/Homewarden/internal/api"
+	"github.com/KrX3D/Homewarden/internal/integrations"
+	"github.com/KrX3D/Homewarden/internal/jobs"
 	"github.com/KrX3D/Homewarden/internal/conn"
 	"github.com/KrX3D/Homewarden/internal/discovery"
 	"github.com/KrX3D/Homewarden/internal/events"
@@ -61,7 +64,21 @@ func main() {
 	broker := events.New()
 	engine := presence.New(st, broker)
 	srv.AttachDevices(api.DeviceDeps{Events: broker, Presence: engine, Scanner: discovery.New(ctx, st, broker)})
-	srv.AttachCredentials(&conn.Service{St: st, Vault: v})
+	connSvc := &conn.Service{St: st, Vault: v}
+	srv.AttachCredentials(connSvc)
+
+	reg := integrations.NewRegistry(dataDir, st, builtin.FS)
+	if err := reg.Load(ctx); err != nil {
+		log.Fatalf("integrations: %v", err)
+	}
+	runner := jobs.New(st, broker)
+	sw := &jobs.Software{St: st, Reg: reg, Host: &integrations.Host{St: st, Vault: v, Conn: connSvc}, Runner: runner, Events: broker}
+	sw.Register()
+	runner.Start(ctx, 4)
+	engine.OnReady(sw.OnReady)
+	go sw.AutoScan(ctx)
+	srv.AttachSoftware(api.SoftwareDeps{Registry: reg, Runner: runner, Software: sw})
+
 	go engine.Run(ctx)
 
 	token, err := srv.PrepareSetup(ctx)

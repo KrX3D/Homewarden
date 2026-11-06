@@ -201,6 +201,39 @@ decision is made or changed, update it in the same PR.
 - `internal/conn/` - device `config.connection` {method: ssh, port, credentialId,
   user, sudo}. `Exec(..., privileged)` wraps in `sudo -n sh -c` when sudo is on.
   `InstallKey` logs in once with a password (never stored) and appends the public key.
+- `integrations/` (repo root) - the catalog: `index.json` + one folder per
+  integration. Also a Go package embedding everything as the built-in source. Bump the
+  manifest `version` AND the index entry on every change. Remote sources fetch
+  `<source>/index.json`, then `<source>/<path>/manifest.json` and its `files`.
+- `internal/integrations/` - manifest parsing, registry (install = copy to
+  `/data/integrations/<id>/<version>/`, row in `integrations` table; loaded from disk on
+  start, never re-downloaded), and the goja sandbox (`Host.Call`).
+- `internal/jobs/` - runner (4 workers, one job per device at a time, live log via
+  `job.log`/`job.status` SSE) and `Software` (scan/update handlers, discovery of child
+  devices, auto-scan on presence ready + every 6h, history/job pruning after 1 year).
+
+### Integration contract (main.js)
+
+Plain ES5-ish JS (goja), synchronous. Functions, each `(ctx, arg)`:
+- `detect(ctx)` -> `{facts: {...}, components: [{id, name, group, installed,
+  available, updateAvailable?, security?, updatable?, meta?}]}`. `group`: os, package,
+  container, image, app, plugin, action. `meta.warning`: reboots | restarts-services |
+  restarts-host | restarts-container | self (UI shows a pill). `meta.changelog`: URL.
+  `updatable:false` = notify only.
+- `update(ctx, ids)` - ids are component ids, or `["*"]` for everything. Throw on
+  failure. The core rescans afterwards and writes version history itself.
+- `busy(ctx)` (capability `busy`) -> `{busy, reason}`; blocks updates unless forced.
+- `discover(ctx)` (capability `discover`) -> `[{externalId, name, host, kind, state:
+  running|stopped, group, presence?}]`; new ones land in the inbox as children.
+ctx: `device`, `settings`, `log()`, `sleep(ms)`, `now()`, `secret(settingKey)` ->
+`{username, secret, type}`, `util.compareVersions`, `ssh.exec(cmd, {sudo, timeout,
+stdin})` -> `{stdout, stderr, code}`, `http.request({method, url, headers, body,
+timeout, insecure})` -> `{status, headers, body, json}`, `docker.request(method, path,
+body)`. Permissions in the manifest gate ssh/docker/http; HTTP only to the device host
+(`httpDevice`) or `httpHosts` (`*.suffix` allowed), redirects included.
+`sudo: true` PREFIXES `sudo -n` (no `sh -c`), so a sudoers rule limited to the package
+manager works; pass env vars in front of the command (sudoers needs `SETENV`).
+
 - `internal/web/` - embeds `dist/` (Vite output; only `.gitkeep` is tracked)
 - `web/` - React + TypeScript + Vite. `src/i18n/en.json` + `de.json` must always have
   the same keys. Theme/lang/device-view are per-user prefs (`PUT /api/me/prefs`).

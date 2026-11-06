@@ -11,6 +11,7 @@ import './styles.css';
 import './styles-devices.css';
 import { SessionProvider } from './session';
 import './features/credentials';
+import './features/software';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(

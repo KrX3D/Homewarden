@@ -22,6 +22,7 @@ RUN go mod download
 
 COPY cmd ./cmd
 COPY internal ./internal
+COPY integrations ./integrations
 COPY --from=frontend /internal/web/dist ./internal/web/dist
 
 ARG TARGETOS
