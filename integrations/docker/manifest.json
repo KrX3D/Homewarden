@@ -1,11 +1,14 @@
 {
   "id": "docker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minCore": "0.1.0",
-  "name": { "en": "Docker host", "de": "Docker-Host" },
+  "name": {
+    "en": "Docker host",
+    "de": "Docker-Host"
+  },
   "description": {
-    "en": "Containers on a Docker host (Unraid, a VM, an LXC): new images, newer version tags, update by recreating with the same settings, unused image cleanup. Containers show up in the inbox.",
-    "de": "Container auf einem Docker-Host (Unraid, VM, LXC): neue Images, neuere Versions-Tags, Update durch Neuerstellen mit denselben Einstellungen, Aufräumen ungenutzter Images. Container erscheinen im Posteingang."
+    "en": "Containers on a Docker host (Unraid, a VM, an LXC): new images, newer version tags, update like Unraid (recreate with the same settings), optional safety net with rollback, unused image cleanup. Containers show up in the inbox.",
+    "de": "Container auf einem Docker-Host (Unraid, VM, LXC): neue Images, neuere Versions-Tags, Update wie bei Unraid (Neuerstellen mit denselben Einstellungen), optional mit Sicherheitsnetz und Rollback, Aufräumen ungenutzter Images. Container erscheinen im Posteingang."
   },
   "howto": {
     "en": "Local host (where Homewarden runs, e.g. Unraid):\n1. Map /var/run/docker.sock into the Homewarden container (the Unraid template does this).\n2. Leave Docker endpoint at unix:///var/run/docker.sock.\n\nOther hosts:\n1. Expose the Docker API on the host, for example with a socket proxy container (tecnativa/docker-socket-proxy with CONTAINERS=1 IMAGES=1 POST=1 NETWORKS=1) listening on port 2375. Never expose the plain Docker port to your network without such a proxy.\n2. Set Docker endpoint to tcp://<host>:2375.\n\nPrivate registries (e.g. your Gitea): add their host names under Extra registries.\nHomewarden never updates its own container: update it from the host.",
@@ -17,10 +20,20 @@
     "docker": true,
     "httpDevice": false,
     "httpHosts": [
-      "registry-1.docker.io", "auth.docker.io", "production.cloudflare.docker.com",
-      "ghcr.io", "pkg-containers.githubusercontent.com", "lscr.io",
-      "quay.io", "*.quay.io", "cdn01.quay.io", "gcr.io", "mcr.microsoft.com", "*.data.mcr.microsoft.com",
-      "registry.gitlab.com", "public.ecr.aws"
+      "registry-1.docker.io",
+      "auth.docker.io",
+      "production.cloudflare.docker.com",
+      "ghcr.io",
+      "pkg-containers.githubusercontent.com",
+      "lscr.io",
+      "quay.io",
+      "*.quay.io",
+      "cdn01.quay.io",
+      "gcr.io",
+      "mcr.microsoft.com",
+      "*.data.mcr.microsoft.com",
+      "registry.gitlab.com",
+      "public.ecr.aws"
     ],
     "httpHostsSetting": "extraRegistries"
   },
@@ -30,40 +43,87 @@
       "type": "string",
       "default": "unix:///var/run/docker.sock",
       "placeholder": "tcp://192.168.90.20:2375",
-      "label": { "en": "Docker endpoint", "de": "Docker-Endpunkt" },
-      "help": { "en": "unix:///var/run/docker.sock for this host, tcp://host:2375 for a socket proxy on another host.", "de": "unix:///var/run/docker.sock für diesen Host, tcp://host:2375 für einen Socket-Proxy auf einem anderen Host." }
+      "label": {
+        "en": "Docker endpoint",
+        "de": "Docker-Endpunkt"
+      },
+      "help": {
+        "en": "unix:///var/run/docker.sock for this host, tcp://host:2375 for a socket proxy on another host.",
+        "de": "unix:///var/run/docker.sock für diesen Host, tcp://host:2375 für einen Socket-Proxy auf einem anderen Host."
+      }
     },
     {
       "key": "checkTags",
       "type": "bool",
       "default": true,
-      "label": { "en": "Look for newer version tags", "de": "Nach neueren Versions-Tags suchen" },
-      "help": { "en": "For containers pinned to a version (e.g. 1.25.3), report newer versions of the same major release. Switching tags is shown as a hint only.", "de": "Bei Containern mit fester Version (z. B. 1.25.3) neuere Versionen derselben Hauptversion melden. Ein Tag-Wechsel wird nur als Hinweis gezeigt." }
+      "label": {
+        "en": "Look for newer version tags",
+        "de": "Nach neueren Versions-Tags suchen"
+      },
+      "help": {
+        "en": "For containers pinned to a version (e.g. 1.25.3), report newer versions of the same major release. Switching tags is shown as a hint only.",
+        "de": "Bei Containern mit fester Version (z. B. 1.25.3) neuere Versionen derselben Hauptversion melden. Ein Tag-Wechsel wird nur als Hinweis gezeigt."
+      }
     },
     {
       "key": "extraRegistries",
       "type": "string",
       "default": "",
       "placeholder": "gitea.krx3d.de",
-      "label": { "en": "Extra registries", "de": "Zusätzliche Registries" },
-      "help": { "en": "Comma-separated host names of private registries Homewarden may query. Anonymous access only for now.", "de": "Kommagetrennte Hostnamen privater Registries, die Homewarden abfragen darf. Vorerst nur anonymer Zugriff." }
+      "label": {
+        "en": "Extra registries",
+        "de": "Zusätzliche Registries"
+      },
+      "help": {
+        "en": "Comma-separated host names of private registries Homewarden may query. Anonymous access only for now.",
+        "de": "Kommagetrennte Hostnamen privater Registries, die Homewarden abfragen darf. Vorerst nur anonymer Zugriff."
+      }
+    },
+    {
+      "key": "safetyNet",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Safety net: keep the old container until the new one runs",
+        "de": "Sicherheitsnetz: alten Container behalten, bis der neue läuft"
+      },
+      "help": {
+        "en": "Off: like Unraid's own update (stop, remove, recreate). On: the old container is only renamed and is restored automatically if the new one does not start.",
+        "de": "Aus: wie das Update von Unraid selbst (stoppen, entfernen, neu erstellen). An: Der alte Container wird nur umbenannt und automatisch wiederhergestellt, wenn der neue nicht startet."
+      }
     },
     {
       "key": "removeOld",
       "type": "bool",
       "default": true,
-      "label": { "en": "Remove the old container after a successful update", "de": "Alten Container nach erfolgreichem Update entfernen" },
-      "help": { "en": "The old image stays, so a rollback is possible until it is cleaned up.", "de": "Das alte Image bleibt erhalten, ein Zurückrollen ist möglich, bis es aufgeräumt wird." }
+      "label": {
+        "en": "With the safety net: delete the old container once the new one runs",
+        "de": "Mit Sicherheitsnetz: alten Container löschen, sobald der neue läuft"
+      },
+      "help": {
+        "en": "Off keeps it stopped as <name>-hw-old. The old image is kept in both cases until cleaned up.",
+        "de": "Aus behält ihn gestoppt als <name>-hw-old. Das alte Image bleibt in beiden Fällen, bis es aufgeräumt wird."
+      }
     }
   ],
   "presence": {
-    "reach": { "method": "none" },
-    "ready": { "method": "none" },
+    "reach": {
+      "method": "none"
+    },
+    "ready": {
+      "method": "none"
+    },
     "settleSeconds": 0,
     "intervalSeconds": 60
   },
-  "capabilities": ["detect", "update", "discover"],
+  "capabilities": [
+    "detect",
+    "update",
+    "discover"
+  ],
   "entry": "main.js",
-  "files": ["main.js"],
+  "files": [
+    "main.js"
+  ],
   "icon": "icon.svg"
 }
