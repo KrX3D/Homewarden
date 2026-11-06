@@ -292,6 +292,7 @@ function SoftwareCard({ device }: { device: Device }) {
       {sw.facts.error && <div className="alert error">{t('sw.scanFailed')}: {sw.facts.error}</div>}
       {facts.eolPassed && <div className="alert warn">{t('sw.eol', { date: facts.eol })}</div>}
       {facts.rebootRequired && <div className="alert warn">{t('sw.rebootRequired')}</div>}
+      {Array.isArray(facts.warnings) && facts.warnings.map((w: string) => <div key={w} className="alert warn">{t('factWarn.' + w) !== 'factWarn.' + w ? t('factWarn.' + w) : w}</div>)}
       {sw.facts.scannedAt === 0 && !running && !sw.facts.error && <p className="muted small">{t('sw.neverScanned')}</p>}
       <ErrorAlert error={error} />
 
