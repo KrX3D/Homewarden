@@ -1,6 +1,7 @@
 {
   "integrations": [
     { "id": "linux-apt", "version": "1.0.0", "path": "linux-apt" },
-    { "id": "docker", "version": "1.0.0", "path": "docker" }
+    { "id": "docker", "version": "1.0.0", "path": "docker" },
+    { "id": "octoprint", "version": "1.0.0", "path": "octoprint" }
   ]
 }

@@ -417,5 +417,6 @@
  "error.integration_in_use": "Geräte verwenden diese Integration noch. Stelle sie zuerst auf einen anderen Typ um.",
  "error.unknown_integration": "Diese Integration ist nicht installiert.",
  "error.no_integration": "Wähle zuerst eine Integration für dieses Gerät.",
- "error.nothing_selected": "Wähle mindestens eine Komponente."
+ "error.nothing_selected": "Wähle mindestens eine Komponente.",
+ "factWarn.undervoltage": "Der Pi hat Unterspannung gemeldet. Ein schwaches Netzteil führt zu abgebrochenen Drucken und defekten SD-Karten."
 }

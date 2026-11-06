@@ -417,5 +417,6 @@
  "error.integration_in_use": "Devices still use this integration. Switch them to another type first.",
  "error.unknown_integration": "This integration is not installed.",
  "error.no_integration": "Pick an integration for this device first.",
- "error.nothing_selected": "Select at least one component."
+ "error.nothing_selected": "Select at least one component.",
+ "factWarn.undervoltage": "The Pi reported undervoltage. A weak power supply causes failed prints and corrupted SD cards."
 }
