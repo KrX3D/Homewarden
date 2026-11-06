@@ -39,6 +39,16 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
             -X main.buildDate=${BUILD_DATE}" \
         -o /out/homewarden ./cmd/homewarden
 
+# Agent binaries for every supported target, served by Homewarden at
+# /agent/download/<os>-<arch>. Pure Go, so cross-compiling needs nothing extra.
+COPY cmd/homewarden-agent ./cmd/homewarden-agent
+RUN for t in linux/amd64 linux/arm64 linux/arm windows/amd64; do \
+        os=${t%/*}; arch=${t#*/}; ext=""; [ "$os" = windows ] && ext=.exe; \
+        CGO_ENABLED=0 GOOS=$os GOARCH=$arch GOARM=7 go build -trimpath \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o /out/agent/homewarden-agent-$os-$arch$ext ./cmd/homewarden-agent || exit 1; \
+    done
+
 
 FROM alpine:3.22
 
@@ -48,6 +58,7 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata su-exec
 
 COPY --from=build /out/homewarden /usr/local/bin/homewarden
+COPY --from=build /out/agent /usr/local/share/homewarden/agent
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

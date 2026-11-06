@@ -521,5 +521,20 @@
  "factWarn.datastore_full": "A datastore is almost full. Prune or add space before backups start failing.",
  "factWarn.backup_old": "The newest backup in a datastore is older than the limit set for this device.",
  "factWarn.backup_errors": "Backup, verify or sync tasks failed in the last 7 days. The job log lists them.",
- "factWarn.disk_problems": "A disk reports errors, is disabled or runs hot. Check the Main page in Unraid."
+ "factWarn.disk_problems": "A disk reports errors, is disabled or runs hot. Check the Main page in Unraid.",
+ "probe.agent": "Agent heartbeat",
+ "conn.needHost": "Set an address for this device to use SSH, or use the agent.",
+ "agent.name": "Agent",
+ "agent.intro": "A small program on the device that connects out to Homewarden. Use it when Homewarden cannot reach the device directly (other network, firewall) or you prefer it to SSH. Everything that works over SSH works over the agent; it runs as root (Windows: SYSTEM).",
+ "agent.connected": "Connected",
+ "agent.disconnected": "Not connected",
+ "agent.notInstalled": "Not installed",
+ "agent.install": "Create install command",
+ "agent.reinstall": "Create new install command",
+ "agent.revoke": "Remove agent",
+ "agent.usePresence": "Use the agent for online detection",
+ "agent.commandIntro": "Run this once on the device. It downloads the agent from Homewarden, connects it to this device and installs it as a service.",
+ "agent.insecure": "Homewarden uses a self-signed HTTPS certificate",
+ "agent.adminPs": "PowerShell as administrator",
+ "agent.tokenHint": "The command contains a one-time token, valid for 24 hours. Creating a new one replaces it."
 }

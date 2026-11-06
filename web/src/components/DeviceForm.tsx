@@ -43,6 +43,7 @@ function ProbeFields({ id, value, onChange, allowNone, noneLabel }: {
           <option value="ping">{t('probe.ping')}</option>
           <option value="tcp">{t('probe.tcp')}</option>
           <option value="http">{t('probe.http')}</option>
+          {id === 'reach' && <option value="agent">{t('probe.agent')}</option>}
         </select>
       </label>
       {value.method === 'tcp' && (

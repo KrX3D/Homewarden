@@ -225,6 +225,17 @@ func (c *call) sshExec(cmd string, opts *execOpts) map[string]any {
 	if opts == nil {
 		opts = &execOpts{}
 	}
+	if conn.UsesAgent(c.dev) {
+		timeout := time.Duration(opts.Timeout) * time.Second
+		if timeout <= 0 {
+			timeout = 2 * time.Minute
+		}
+		res, err := c.host.Conn.AgentExec(c.ctx, c.dev, cmd, opts.Stdin, timeout)
+		if err != nil && res.ExitCode == -1 || err != nil && res.Stdout == "" && res.Stderr == "" {
+			c.throw("agent: %v", err)
+		}
+		return map[string]any{"stdout": res.Stdout, "stderr": res.Stderr, "code": res.ExitCode}
+	}
 	c.sshMu.Lock()
 	if c.client == nil {
 		cl, set, err := c.host.Conn.Dial(c.ctx, c.dev)
