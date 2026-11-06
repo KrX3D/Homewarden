@@ -130,6 +130,12 @@ func (s *Service) Run(ctx context.Context) {
 				}
 			case "device.state":
 				s.onState(ctx, x.ID, x.State)
+			case "device.metrics":
+				var mv struct {
+					Warnings []string `json:"warnings"`
+				}
+				_ = json.Unmarshal(b, &mv)
+				s.onMetricWarnings(ctx, x.ID, mv.Warnings)
 			case "monitor.state":
 				var mv struct {
 					Name     string `json:"name"`
@@ -229,13 +235,17 @@ func warningText(lang, w string) string {
 		"undervoltage": "The Pi reported undervoltage.", "disk_problems": "A disk reports errors, is disabled or runs hot.",
 		"datastore_full": "A backup datastore is almost full.", "backup_old": "The newest backup is older than the limit.",
 		"backup_errors": "Backup tasks failed in the last 7 days.", "unifi_offline": "UniFi devices are offline.",
-		"eol": "The operating system no longer receives updates.",
+		"eol":       "The operating system no longer receives updates.",
+		"disk_full": "A file system is more than 90% full.", "hot": "A temperature sensor reports 80 °C or more.",
+		"smart_failing": "A disk's SMART self-assessment failed. Replace it soon.",
 	}
 	de := map[string]string{
 		"undervoltage": "Der Pi hat Unterspannung gemeldet.", "disk_problems": "Eine Platte meldet Fehler, ist deaktiviert oder zu heiß.",
 		"datastore_full": "Ein Backup-Datastore ist fast voll.", "backup_old": "Das neueste Backup ist älter als die Grenze.",
 		"backup_errors": "Backup-Tasks sind in den letzten 7 Tagen fehlgeschlagen.", "unifi_offline": "UniFi-Geräte sind offline.",
-		"eol": "Das Betriebssystem bekommt keine Updates mehr.",
+		"eol":       "Das Betriebssystem bekommt keine Updates mehr.",
+		"disk_full": "Ein Dateisystem ist zu mehr als 90 % voll.", "hot": "Ein Temperatursensor meldet 80 °C oder mehr.",
+		"smart_failing": "Die SMART-Selbstbewertung einer Platte ist fehlgeschlagen. Bald ersetzen.",
 	}
 	m := en
 	if lang == "de" {
@@ -335,5 +345,27 @@ func (s *Service) onMonitor(ctx context.Context, id int64, name, status, previou
 		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is down", "%s ist ausgefallen"), name), Body: msg, Priority: 1, Link: link})
 	} else if status == "up" && previous == "down" {
 		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is up again", "%s ist wieder erreichbar"), name), Body: msg, Link: link})
+	}
+}
+
+// onMetricWarnings reports warnings from resource samples once while they last.
+func (s *Service) onMetricWarnings(ctx context.Context, deviceID int64, warnings []string) {
+	d, err := s.St.Device(ctx, deviceID)
+	if err != nil || d.Status != store.StatusActive || s.St.InMaintenance(ctx, deviceID) {
+		return
+	}
+	set := LoadSettings(ctx, s.St)
+	present := map[string]bool{}
+	for _, w := range warnings {
+		present[w] = true
+		if ok, _ := s.St.MarkSent(ctx, fmt.Sprintf("mwarn:%d:%s:", deviceID, w)); ok {
+			s.Dispatch(ctx, EvWarnings, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s: warning", "%s: Warnung"), d.Name),
+				Body: warningText(set.Lang, w), Priority: 1, Link: s.link(set, d.ID)})
+		}
+	}
+	for _, w := range []string{"disk_full", "hot", "smart_failing"} {
+		if !present[w] {
+			_ = s.St.ClearSent(ctx, fmt.Sprintf("mwarn:%d:%s:", deviceID, w))
+		}
 	}
 }

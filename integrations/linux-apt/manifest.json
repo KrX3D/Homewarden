@@ -1,6 +1,6 @@
 {
   "id": "linux-apt",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minCore": "0.1.0",
   "name": {
     "en": "Linux (apt)",
@@ -62,12 +62,13 @@
   },
   "capabilities": [
     "detect",
-    "update"
+    "update",
+    "metrics"
   ],
   "entry": "main.js",
   "files": [
     "main.js"
   ],
   "icon": "icon.svg",
-  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot"
+  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot, /usr/sbin/smartctl"
 }

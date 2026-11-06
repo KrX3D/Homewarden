@@ -51,3 +51,14 @@ svg.chart .fail { fill: var(--crit); opacity: .7; }
 .bars .bar-none { background: var(--sunk); }
 .status-page { max-width: 760px; margin: 0 auto; padding-block: 32px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 16px; }
 .status-logo { width: 36px; height: 36px; color: var(--accent); }
+
+/* ---- resources */
+svg.chart .line-2 { fill: none; stroke: var(--ok); stroke-width: 1.4; opacity: .85; }
+.swatch.accent { background: var(--accent); }
+.tiles-row { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+.tile { background: var(--sunk); border-radius: 8px; padding: 8px 12px; }
+.tile .v { font-family: var(--display); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tile .l { color: var(--muted); font-size: 12px; }
+.meter { flex: 1; height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; min-width: 60px; }
+.meter span { display: block; height: 100%; }
+.meter-ok { background: var(--ok); } .meter-warn { background: var(--warn); } .meter-crit { background: var(--crit); }

@@ -86,6 +86,7 @@ func main() {
 	runner.Start(ctx, 4)
 	engine.OnReady(sw.OnReady)
 	go sw.AutoScan(ctx)
+	go sw.MetricsLoop(ctx)
 	srv.AttachSoftware(api.SoftwareDeps{Registry: reg, Runner: runner, Software: sw})
 	srv.AttachBackups()
 

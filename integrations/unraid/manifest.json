@@ -1,8 +1,11 @@
 {
   "id": "unraid",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "minCore": "0.1.0",
-  "name": { "en": "Unraid", "de": "Unraid" },
+  "name": {
+    "en": "Unraid",
+    "de": "Unraid"
+  },
   "description": {
     "en": "Beta. Unraid over SSH: OS version (notify only), every plugin individually through Unraid's own plugin manager, array and disk health. Updates wait during a parity check or rebuild and while the mover runs. Containers: add a second device of type Docker host that runs on this one.",
     "de": "Beta. Unraid per SSH: OS-Version (nur Hinweis), jedes Plugin einzeln über Unraids eigenen Plugin-Manager, Zustand von Array und Platten. Updates warten während Paritätsprüfung oder Rebuild und solange der Mover läuft. Container: ein zweites Gerät vom Typ Docker-Host anlegen, das auf diesem läuft."
@@ -12,23 +15,60 @@
     "de": "1. Unraid: Settings, Management Access: SSH aktiviert.\n2. In der Karte Verbindung Schlüssel installieren mit Benutzer root und einmal dem root-Passwort. Unraid baut /root bei jedem Start neu auf; diese Integration schreibt den Schlüssel deshalb beim ersten Scan zusätzlich nach /boot/config/ssh/root/authorized_keys, das Unraid beim Start wiederherstellt.\n3. OS-Updates werden nur angezeigt, nie installiert: Homewarden läuft normalerweise auf diesem Server, und ein OS-Update braucht einen Neustart. Nutze in Unraid Tools, Update OS.\n4. Für die Container: ein Gerät Unraid Docker anlegen, Typ Docker-Host, Läuft auf diesem Unraid, Endpunkt unix:///var/run/docker.sock."
   },
   "connection": "ssh",
-  "permissions": { "ssh": true, "docker": false, "httpDevice": false, "httpHosts": [] },
+  "permissions": {
+    "ssh": true,
+    "docker": false,
+    "httpDevice": false,
+    "httpHosts": []
+  },
   "settings": [
-    { "key": "checkPlugins", "type": "bool", "default": true,
-      "label": { "en": "Check plugins for updates", "de": "Plugins auf Updates prüfen" },
-      "help": { "en": "Downloads each plugin's .plg file to compare versions, as Unraid's Plugins page does.", "de": "Lädt die .plg-Datei jedes Plugins, um Versionen zu vergleichen, wie Unraids Plugin-Seite." } },
-    { "key": "persistKey", "type": "bool", "default": true,
-      "label": { "en": "Keep the SSH key across reboots", "de": "SSH-Schlüssel über Neustarts behalten" },
-      "help": { "en": "Copies /root/.ssh/authorized_keys to /boot/config/ssh/root/ (Unraid 6.9+).", "de": "Kopiert /root/.ssh/authorized_keys nach /boot/config/ssh/root/ (Unraid 6.9+)." } }
+    {
+      "key": "checkPlugins",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Check plugins for updates",
+        "de": "Plugins auf Updates prüfen"
+      },
+      "help": {
+        "en": "Downloads each plugin's .plg file to compare versions, as Unraid's Plugins page does.",
+        "de": "Lädt die .plg-Datei jedes Plugins, um Versionen zu vergleichen, wie Unraids Plugin-Seite."
+      }
+    },
+    {
+      "key": "persistKey",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Keep the SSH key across reboots",
+        "de": "SSH-Schlüssel über Neustarts behalten"
+      },
+      "help": {
+        "en": "Copies /root/.ssh/authorized_keys to /boot/config/ssh/root/ (Unraid 6.9+).",
+        "de": "Kopiert /root/.ssh/authorized_keys nach /boot/config/ssh/root/ (Unraid 6.9+)."
+      }
+    }
   ],
   "presence": {
-    "reach": { "method": "ping" },
-    "ready": { "method": "tcp", "port": 22 },
+    "reach": {
+      "method": "ping"
+    },
+    "ready": {
+      "method": "tcp",
+      "port": 22
+    },
     "settleSeconds": 120,
     "intervalSeconds": 30
   },
-  "capabilities": ["detect", "update", "busy"],
+  "capabilities": [
+    "detect",
+    "update",
+    "busy",
+    "metrics"
+  ],
   "entry": "main.js",
-  "files": ["main.js"],
+  "files": [
+    "main.js"
+  ],
   "icon": "icon.svg"
 }

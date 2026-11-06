@@ -328,3 +328,22 @@ function update(ctx, ids) {
   if (failed.length) throw new Error('Not updated: ' + failed.join(', '));
   return { updated: targets.length - failed.length };
 }
+
+// metrics(ctx): CPU and memory of every running container. stream=false makes Docker
+// take two samples one second apart, so the CPU share is real.
+function metrics(ctx) {
+  var out = { containers: [] };
+  containers(ctx).filter(function (c) { return c.State === 'running'; }).forEach(function (c) {
+    try {
+      var st = dock(ctx, 'GET', '/containers/' + c.Id + '/stats?stream=false').json;
+      var cpuD = st.cpu_stats.cpu_usage.total_usage - st.precpu_stats.cpu_usage.total_usage;
+      var sysD = (st.cpu_stats.system_cpu_usage || 0) - (st.precpu_stats.system_cpu_usage || 0);
+      var cpus = st.cpu_stats.online_cpus || (st.cpu_stats.cpu_usage.percpu_usage || []).length || 1;
+      var cache = st.memory_stats.stats ? (st.memory_stats.stats.inactive_file || st.memory_stats.stats.cache || 0) : 0;
+      out.containers.push({ name: (c.Names[0] || c.Id).replace(/^\//, ''),
+        cpu: sysD > 0 ? Math.round(1000 * cpuD / sysD * cpus) / 10 : 0,
+        memMB: Math.round(((st.memory_stats.usage || 0) - cache) / 1048576) });
+    } catch (e) {}
+  });
+  return out;
+}

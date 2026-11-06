@@ -307,6 +307,13 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   results kept 30 days. Maintenance windows (global or per device) mute monitor and
   offline notifications. Public status page `/status` (SPA route, data from
   `/api/public/status`: names, state, bars only) for monitors marked public.
+- Metrics: capability `metrics(ctx, {smart})` returns {cpu, memPct, memUsedMB,
+  memTotalMB, load1, disks[{mount, usedPct, sizeGB}], temps[{name, c}], smart[{dev,
+  model, healthy, tempC, hours, reallocated, pending, wearPct, mediaErrors}],
+  containers[{name, cpu, memMB}]}. `jobs.MetricsLoop` samples ready devices every 5 min
+  (SMART every 12th sample), kept 30 days; warnings disk_full (>=90%), hot (>=80 C),
+  smart_failing go to notifications. The Linux snippet is duplicated in linux-apt and
+  unraid main.js; keep them in sync.
 - `web/src/useEvents.ts` - ONE shared EventSource for the whole app. Never open more:
   each SSE stream holds one of the browser's six HTTP/1.1 connections per host, and the
   device page hung once that ran out.

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/KrX3D/Homewarden/internal/auth"
 	"github.com/KrX3D/Homewarden/internal/integrations"
@@ -37,6 +38,8 @@ func (s *Server) AttachSoftware(d SoftwareDeps) {
 	m.Handle("POST /api/devices/{id}/scan", s.authed(auth.PermDevicesView, s.scanDevice))
 	m.Handle("POST /api/devices/{id}/update", s.authed(auth.PermUpdatesRun, s.updateDevice2))
 	m.Handle("GET /api/updates", s.authed(auth.PermDevicesView, s.pendingUpdates))
+	m.Handle("GET /api/devices/{id}/metrics", s.authed(auth.PermDevicesView, s.deviceMetrics))
+	m.Handle("POST /api/devices/{id}/metrics", s.authed(auth.PermDevicesView, s.sampleMetrics))
 
 	m.Handle("GET /api/jobs", s.authed(auth.PermJobsView, s.listJobs))
 	m.Handle("GET /api/jobs/{id}", s.authed(auth.PermJobsView, s.getJob))
@@ -298,4 +301,35 @@ func (s *Server) cancelJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"cancelled": s.sw.Runner.Cancel(id)})
+}
+
+func (s *Server) deviceMetrics(w http.ResponseWriter, r *http.Request) {
+	d, ok := s.loadDevice(w, r)
+	if !ok {
+		return
+	}
+	hours, _ := strconv.Atoi(r.URL.Query().Get("hours"))
+	if hours <= 0 || hours > 24*30 {
+		hours = 24
+	}
+	pts, err := s.Store.Metrics(r.Context(), d.ID, time.Now().Add(-time.Duration(hours)*time.Hour).Unix())
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, pts)
+}
+
+// sampleMetrics takes a sample now, including SMART.
+func (s *Server) sampleMetrics(w http.ResponseWriter, r *http.Request) {
+	d, ok := s.loadDevice(w, r)
+	if !ok {
+		return
+	}
+	if err := s.sw.Software.SampleDevice(r.Context(), d, true); err != nil {
+		FailMsg(w, http.StatusBadGateway, "metrics_failed", err.Error())
+		return
+	}
+	p, _ := s.Store.LatestMetrics(r.Context(), d.ID)
+	writeJSON(w, http.StatusOK, p)
 }

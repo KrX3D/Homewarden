@@ -1,8 +1,11 @@
 {
   "id": "windows",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "minCore": "0.1.0",
-  "name": { "en": "Windows (agent)", "de": "Windows (Agent)" },
+  "name": {
+    "en": "Windows (agent)",
+    "de": "Windows (Agent)"
+  },
   "description": {
     "en": "Beta. Windows PCs and servers through the Homewarden agent: pending Windows Updates (security updates marked) and winget app updates, each installable on its own. Reboot required is shown.",
     "de": "Beta. Windows-PCs und -Server über den Homewarden-Agent: ausstehende Windows-Updates (Sicherheitsupdates markiert) und winget-App-Updates, jeweils einzeln installierbar. Neustart nötig wird angezeigt."
@@ -12,15 +15,59 @@
     "de": "1. In der Karte Verbindung auf Agent umstellen, den Installationsbefehl erstellen und die Windows-Zeile in einer Administrator-PowerShell auf dem PC ausführen.\n2. Online-Erkennung auf Agent-Lebenszeichen stellen.\n3. winget muss installiert sein (App-Installer aus dem Microsoft Store; in Windows 11 enthalten). Nur für einen Benutzer installierte Apps sieht der Agent, der als SYSTEM läuft, eventuell nicht."
   },
   "connection": "agent",
-  "permissions": { "ssh": true, "docker": false, "httpDevice": false, "httpHosts": [] },
+  "permissions": {
+    "ssh": true,
+    "docker": false,
+    "httpDevice": false,
+    "httpHosts": []
+  },
   "settings": [
-    { "key": "windowsUpdate", "type": "bool", "default": true, "label": { "en": "Windows Update", "de": "Windows Update" } },
-    { "key": "includeDrivers", "type": "bool", "default": false, "label": { "en": "Include driver updates", "de": "Treiber-Updates einbeziehen" } },
-    { "key": "winget", "type": "bool", "default": true, "label": { "en": "winget app updates", "de": "winget-App-Updates" } }
+    {
+      "key": "windowsUpdate",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Windows Update",
+        "de": "Windows Update"
+      }
+    },
+    {
+      "key": "includeDrivers",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Include driver updates",
+        "de": "Treiber-Updates einbeziehen"
+      }
+    },
+    {
+      "key": "winget",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "winget app updates",
+        "de": "winget-App-Updates"
+      }
+    }
   ],
-  "presence": { "reach": { "method": "agent" }, "ready": { "method": "none" }, "settleSeconds": 120, "intervalSeconds": 30 },
-  "capabilities": ["detect", "update"],
+  "presence": {
+    "reach": {
+      "method": "agent"
+    },
+    "ready": {
+      "method": "none"
+    },
+    "settleSeconds": 120,
+    "intervalSeconds": 30
+  },
+  "capabilities": [
+    "detect",
+    "update",
+    "metrics"
+  ],
   "entry": "main.js",
-  "files": ["main.js"],
+  "files": [
+    "main.js"
+  ],
   "icon": "icon.svg"
 }
