@@ -68,6 +68,7 @@ type Device struct {
 	Kind       string          `json:"kind"`
 	Host       string          `json:"host"`
 	MAC        string          `json:"mac"`
+	Vendor     string          `json:"vendor,omitempty"` // filled from the MAC by the API
 	ParentID   *int64          `json:"parentId"`
 	GroupName  string          `json:"groupName"`
 	Status     string          `json:"status"`

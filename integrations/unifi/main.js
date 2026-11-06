@@ -79,12 +79,12 @@ function detect(ctx) {
 
 function discover(ctx) {
   var out = call(ctx, 'GET', '/stat/device').map(function (d) {
-    return { externalId: 'dev:' + d.mac, name: d.name || d.model || d.mac, host: d.ip || '', kind: 'generic',
+    return { externalId: 'dev:' + d.mac, name: d.name || d.model || d.mac, host: d.ip || '', mac: d.mac, kind: 'generic',
       state: d.state === 1 ? 'running' : 'stopped', group: 'UniFi' };
   });
   if (setting(ctx, 'importClients', false)) {
     call(ctx, 'GET', '/stat/sta').forEach(function (c) {
-      out.push({ externalId: 'client:' + c.mac, name: c.name || c.hostname || c.oui || c.mac, host: c.ip || '', kind: 'generic',
+      out.push({ externalId: 'client:' + c.mac, name: c.name || c.hostname || c.oui || c.mac, host: c.ip || '', mac: c.mac, kind: 'generic',
         state: 'running', group: 'Clients',
         presence: c.ip ? { reach: { method: 'ping' }, ready: { method: 'none' }, settleSeconds: 0, intervalSeconds: 60 } : null });
     });
