@@ -1,10 +1,11 @@
 name: Build
 
 on:
+  # Only main and release tags build. Branches and pull requests do not, because the
+  # multi-arch image build takes several minutes.
   push:
     branches: [main]
     tags: ['v*']
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -47,7 +48,6 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
-        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -61,15 +61,13 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=${{ steps.v.outputs.version }},enable={{is_default_branch}}
             type=semver,pattern={{version}}
-            type=ref,event=pr
             type=sha
 
-      # Pull requests build the image to prove it builds, but do not push it.
       - uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
