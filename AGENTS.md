@@ -212,6 +212,19 @@ decision is made or changed, update it in the same PR.
   `job.log`/`job.status` SSE) and `Software` (scan/update handlers, discovery of child
   devices, auto-scan on presence ready + every 6h, history/job pruning after 1 year).
 
+Integrations at 0.9.x are beta: written from documentation and tested only against
+fakes (proxmox, proxmox-backup, unraid). Bump to 1.0.0 once confirmed on real systems.
+- Proxmox VE: reads via API (`PVEAPIToken=<tokenid>=<secret>`), installs via SSH
+  (`apt-get`, LXCs with `pct exec`), snapshots LXCs before updating (keeps newest 3
+  `homewarden-*`).
+- PBS: API (`PBSAPIToken=<tokenid>:<secret>`, colon!), datastore usage, newest backup,
+  failed tasks; package updates optional (off for PBS in Docker).
+- Unraid: SSH as root; plugins via `/usr/local/sbin/plugin check|update <file>.plg`;
+  OS is notify-only (`warning: self`); busy during parity check/rebuild and mover.
+- `ssh.exec` with `sudo: true` adds no sudo when the SSH user is root. The sudo prefix
+  only covers the first command of a compound shell line, so scripts that may run as
+  non-root must keep privileged calls to single commands.
+
 ### Integration contract (main.js)
 
 Plain ES5-ish JS (goja), synchronous. Functions, each `(ctx, arg)`:

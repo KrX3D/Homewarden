@@ -517,5 +517,9 @@
  "mqtt.status.off": "Aus",
  "mqtt.status.lost": "Verbindung verloren",
  "error.invalid_cron": "Das ist kein gültiger Zeitplan. Nutze fünf Felder, zum Beispiel 0 3 * * 0 für sonntags um 03:00.",
- "error.invalid_broker": "Der Broker muss mit tcp://, ssl:// oder ws:// beginnen."
+ "error.invalid_broker": "Der Broker muss mit tcp://, ssl:// oder ws:// beginnen.",
+ "factWarn.datastore_full": "Ein Datastore ist fast voll. Räume auf oder erweitere den Platz, bevor Backups fehlschlagen.",
+ "factWarn.backup_old": "Das neueste Backup in einem Datastore ist älter als die für dieses Gerät eingestellte Grenze.",
+ "factWarn.backup_errors": "Backup-, Verify- oder Sync-Tasks sind in den letzten 7 Tagen fehlgeschlagen. Das Job-Log listet sie auf.",
+ "factWarn.disk_problems": "Eine Platte meldet Fehler, ist deaktiviert oder wird zu heiß. Prüfe die Seite Main in Unraid."
 }

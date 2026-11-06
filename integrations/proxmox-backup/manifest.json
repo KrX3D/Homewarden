@@ -1,0 +1,40 @@
+{
+  "id": "proxmox-backup",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": { "en": "Proxmox Backup Server", "de": "Proxmox Backup Server" },
+  "description": {
+    "en": "Beta. Datastore usage, age of the newest backup per datastore, failed tasks in the last 7 days, and package updates for an installed PBS. Updates wait while backups, verify or garbage collection run.",
+    "de": "Beta. Belegung der Datastores, Alter des neuesten Backups je Datastore, fehlgeschlagene Tasks der letzten 7 Tage und Paketupdates bei installiertem PBS. Updates warten, solange Backups, Verify oder Garbage Collection laufen."
+  },
+  "howto": {
+    "en": "1. In PBS: Configuration, Access Control, API Token, Add. User root@pam, Token name homewarden. Then Permissions: give the token Audit on / (and Datastore.Audit on /datastore).\n2. In Homewarden: Settings, Credentials, API token. Username = the token id, e.g. root@pam!homewarden. Token = the secret shown once.\n3. Pick it under API token here.\n4. PBS running as a Docker container (e.g. on Unraid): turn off Show package updates; the image is updated by the Docker host integration.\n5. Installed PBS: for package updates set up the Connection card with SSH as root.\n6. Suggested online detection: ping, ready when TCP 8007 answers.",
+    "de": "1. In PBS: Configuration, Access Control, API Token, Add. Benutzer root@pam, Token-Name homewarden. Dann Permissions: dem Token Audit auf / geben (und Datastore.Audit auf /datastore).\n2. In Homewarden: Einstellungen, Zugangsdaten, API-Token. Benutzername = Token-ID, z. B. root@pam!homewarden. Token = das einmal angezeigte Geheimnis.\n3. Hier unter API-Token auswählen.\n4. PBS als Docker-Container (z. B. auf Unraid): Paketupdates anzeigen ausschalten; das Image aktualisiert die Docker-Host-Integration.\n5. Installierter PBS: für Paketupdates die Karte Verbindung mit SSH als root einrichten.\n6. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 8007 antwortet."
+  },
+  "connection": "http",
+  "permissions": { "ssh": true, "docker": false, "httpDevice": true, "httpHosts": [] },
+  "settings": [
+    { "key": "apiToken", "type": "credential", "credentialTypes": ["token"], "required": true,
+      "label": { "en": "API token", "de": "API-Token" },
+      "help": { "en": "Credential username = token id (root@pam!homewarden), secret = token value.", "de": "Benutzername der Zugangsdaten = Token-ID (root@pam!homewarden), Geheimnis = Token-Wert." } },
+    { "key": "port", "type": "number", "default": 8007, "label": { "en": "API port", "de": "API-Port" } },
+    { "key": "insecure", "type": "bool", "default": true, "label": { "en": "Accept the self-signed certificate", "de": "Selbstsigniertes Zertifikat akzeptieren" } },
+    { "key": "packages", "type": "bool", "default": true,
+      "label": { "en": "Show package updates", "de": "Paketupdates anzeigen" },
+      "help": { "en": "Turn off when PBS runs in Docker.", "de": "Ausschalten, wenn PBS in Docker läuft." } },
+    { "key": "fullPercent", "type": "number", "default": 85,
+      "label": { "en": "Warn when a datastore is fuller than (%)", "de": "Warnen, wenn ein Datastore voller ist als (%)" } },
+    { "key": "maxAgeHours", "type": "number", "default": 48,
+      "label": { "en": "Warn when the newest backup is older than (hours)", "de": "Warnen, wenn das neueste Backup älter ist als (Stunden)" } }
+  ],
+  "presence": {
+    "reach": { "method": "ping" },
+    "ready": { "method": "tcp", "port": 8007 },
+    "settleSeconds": 30,
+    "intervalSeconds": 30
+  },
+  "capabilities": ["detect", "update", "busy"],
+  "entry": "main.js",
+  "files": ["main.js"],
+  "icon": "icon.svg"
+}
