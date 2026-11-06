@@ -269,4 +269,13 @@ CREATE TABLE maintenance (
 	ends      INTEGER NOT NULL
 );
 `,
+	// 10: resource metrics.
+	`
+CREATE TABLE metrics (
+	device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	at        INTEGER NOT NULL,
+	data      TEXT NOT NULL
+);
+CREATE INDEX metrics_device ON metrics(device_id, at);
+`,
 }

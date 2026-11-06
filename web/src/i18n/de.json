@@ -662,5 +662,19 @@
  "notifyEv.monitors": "Monitor aus- / wieder erreichbar",
  "notifyEvHint.monitors": "nicht während Wartungsfenstern",
  "error.monitor_incomplete": "Gib das Ziel für diesen Monitortyp an (URL mit http:// oder https://, Host, Port).",
- "error.invalid_window": "Gib einen Titel und ein Ende nach dem Beginn an."
+ "error.invalid_window": "Gib einen Titel und ein Ende nach dem Beginn an.",
+ "res.title": "Ressourcen",
+ "res.memory": "Arbeitsspeicher",
+ "res.load": "Last (1 min)",
+ "res.disks": "Dateisysteme",
+ "res.health": "Zustand",
+ "res.hours": "Stunden",
+ "res.realloc": "Umgelagert / ausstehend",
+ "res.wear": "Verschleiß",
+ "res.passed": "OK",
+ "res.failed": "Fehlerhaft",
+ "res.container": "Container / Gast",
+ "factWarn.disk_full": "Ein Dateisystem ist zu mehr als 90 % voll.",
+ "factWarn.hot": "Ein Temperatursensor meldet 80 °C oder mehr.",
+ "factWarn.smart_failing": "Die SMART-Selbstbewertung einer Platte ist fehlgeschlagen. Bald ersetzen."
 }

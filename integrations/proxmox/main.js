@@ -173,3 +173,32 @@ function update(ctx, ids) {
   if (failed.length) throw new Error('Failed: ' + failed.join(', '));
   return { lxc: lxcs.length, host: host || pkgs.length > 0 };
 }
+
+// metrics(ctx, opts): host values and every guest's CPU/RAM from the API; SMART health
+// of the host's disks from /disks/list (Proxmox runs smartctl itself).
+function metrics(ctx, opts) {
+  var n = node(ctx);
+  var st = pve(ctx, 'GET', '/nodes/' + n + '/status') || {};
+  var m = { cpu: st.cpu != null ? Math.round(st.cpu * 1000) / 10 : null, load1: st.loadavg ? Number(st.loadavg[0]) : null,
+    memUsedMB: st.memory ? Math.round(st.memory.used / 1048576) : null, memTotalMB: st.memory ? Math.round(st.memory.total / 1048576) : null,
+    disks: [], temps: [], smart: [], containers: [] };
+  m.memPct = m.memTotalMB ? Math.round(100 * m.memUsedMB / m.memTotalMB) : null;
+  if (st.rootfs && st.rootfs.total) m.disks.push({ mount: '/', usedPct: Math.round(100 * st.rootfs.used / st.rootfs.total), sizeGB: Math.round(st.rootfs.total / 1073741824) });
+  try {
+    (pve(ctx, 'GET', '/nodes/' + n + '/storage') || []).forEach(function (s) {
+      if (s.active && s.total) m.disks.push({ mount: 'storage ' + s.storage, usedPct: Math.round(100 * s.used / s.total), sizeGB: Math.round(s.total / 1073741824) });
+    });
+  } catch (e) {}
+  if (opts && opts.smart) {
+    try {
+      (pve(ctx, 'GET', '/nodes/' + n + '/disks/list') || []).forEach(function (d) {
+        m.smart.push({ dev: d.devpath, model: d.model || '', healthy: d.health ? /PASSED|OK/i.test(d.health) : null, wearPct: d.wearout != null && d.wearout !== 'N/A' ? 100 - Number(d.wearout) : null });
+      });
+    } catch (e) {}
+  }
+  guests(ctx, n).forEach(function (g) {
+    if (g.status !== 'running') return;
+    m.containers.push({ name: (g.name || g.vmid) + ' (' + g.vmid + ')', cpu: g.cpu != null ? Math.round(g.cpu * 1000) / 10 : null, memMB: g.mem ? Math.round(g.mem / 1048576) : null });
+  });
+  return m;
+}

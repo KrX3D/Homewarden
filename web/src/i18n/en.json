@@ -662,5 +662,19 @@
  "notifyEv.monitors": "Monitors down / up",
  "notifyEvHint.monitors": "not during maintenance windows",
  "error.monitor_incomplete": "Fill in the target for this monitor type (http:// or https:// URL, host, port).",
- "error.invalid_window": "Enter a title and an end after the start."
+ "error.invalid_window": "Enter a title and an end after the start.",
+ "res.title": "Resources",
+ "res.memory": "Memory",
+ "res.load": "Load (1 min)",
+ "res.disks": "File systems",
+ "res.health": "Health",
+ "res.hours": "Hours",
+ "res.realloc": "Reallocated / pending",
+ "res.wear": "Wear",
+ "res.passed": "Passed",
+ "res.failed": "Failed",
+ "res.container": "Container / guest",
+ "factWarn.disk_full": "A file system is more than 90% full.",
+ "factWarn.hot": "A temperature sensor reports 80 °C or more.",
+ "factWarn.smart_failing": "A disk failed its SMART self-assessment. Replace it soon."
 }

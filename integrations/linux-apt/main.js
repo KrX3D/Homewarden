@@ -150,3 +150,66 @@ function update(ctx, ids) {
   }
   return { packages: all ? 'all' : names.length, rebooted: reboot };
 }
+
+// ---- metrics (shared Linux snippet; keep in sync between linux-apt and unraid)
+
+var METRICS_SH = 'read -r _ u n s i w q sq st _ < /proc/stat; sleep 1; read -r _ u2 n2 s2 i2 w2 q2 sq2 st2 _ < /proc/stat; ' +
+  't1=$((u+n+s+i+w+q+sq+st)); t2=$((u2+n2+s2+i2+w2+q2+sq2+st2)); d=$((t2-t1)); [ $d -gt 0 ] || d=1; ' +
+  'echo "cpu=$(( 100*(d-((i2+w2)-(i+w)))/d ))"; ' +
+  "awk '/^MemTotal:/{t=$2}/^MemAvailable:/{a=$2}END{print \"mem=\" int((t-a)/1024) \" \" int(t/1024)}' /proc/meminfo; " +
+  'echo "load=$(cut -d" " -f1 /proc/loadavg)"; ' +
+  "df -P -T -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs -x nsfs 2>/dev/null | awk 'NR>1{gsub(\"%\",\"\",$6); print \"disk=\" $7 \" \" $6 \" \" int($3/1048576)}'; " +
+  'for z in /sys/class/thermal/thermal_zone*; do [ -r "$z/temp" ] && echo "temp=$(cat $z/type 2>/dev/null) $(cat $z/temp)"; done; true';
+
+function parseMetrics(out) {
+  var m = { cpu: null, memUsedMB: null, memTotalMB: null, memPct: null, load1: null, disks: [], temps: [], smart: [] };
+  out.split('\n').forEach(function (l) {
+    var i = l.indexOf('=');
+    if (i < 0) return;
+    var k = l.slice(0, i), v = l.slice(i + 1).trim().split(/\s+/);
+    if (k === 'cpu') m.cpu = Math.max(0, Math.min(100, Number(v[0])));
+    if (k === 'mem') { m.memUsedMB = Number(v[0]); m.memTotalMB = Number(v[1]); m.memPct = m.memTotalMB ? Math.round(100 * m.memUsedMB / m.memTotalMB) : null; }
+    if (k === 'load') m.load1 = Number(v[0]);
+    if (k === 'disk' && v[0] && !/^\/(boot\/efi|snap)/.test(v[0])) m.disks.push({ mount: v[0], usedPct: Number(v[1]), sizeGB: Number(v[2]) });
+    if (k === 'temp' && v.length >= 2) m.temps.push({ name: v[0], c: Math.round(Number(v[v.length - 1]) / 100) / 10 });
+  });
+  return m;
+}
+
+// SMART through smartctl (needs root or sudo for smartctl). -n standby leaves sleeping
+// disks asleep; they simply report nothing this round.
+function readSmart(ctx) {
+  var out = [];
+  var scan;
+  try { scan = ctx.ssh.exec('smartctl --scan', { sudo: true, timeout: 30 }); } catch (e) { return out; }
+  if (scan.code !== 0) return out;
+  scan.stdout.split('\n').forEach(function (l) {
+    var dev = (l.split(/\s+/)[0] || '').trim();
+    if (!/^\/dev\/[a-z0-9]+$/.test(dev)) return;
+    var r;
+    try { r = ctx.ssh.exec('smartctl -j -H -A -i -n standby ' + dev, { sudo: true, timeout: 60 }); } catch (e) { return; }
+    var j;
+    try { j = JSON.parse(r.stdout); } catch (e) { return; }
+    if (!j || (j.smartctl && j.smartctl.exit_status & 2)) return; // asleep or no access
+    var attr = function (id) {
+      var t = (j.ata_smart_attributes && j.ata_smart_attributes.table) || [];
+      for (var i = 0; i < t.length; i++) if (t[i].id === id) return t[i].raw ? t[i].raw.value : null;
+      return null;
+    };
+    var nv = j.nvme_smart_health_information_log || {};
+    out.push({
+      dev: dev, model: j.model_name || '', healthy: j.smart_status ? !!j.smart_status.passed : null,
+      tempC: j.temperature ? j.temperature.current : null, hours: j.power_on_time ? j.power_on_time.hours : null,
+      reallocated: attr(5), pending: attr(197), wearPct: nv.percentage_used != null ? nv.percentage_used : null,
+      mediaErrors: nv.media_errors != null ? nv.media_errors : null
+    });
+  });
+  return out;
+}
+
+function metrics(ctx, opts) {
+  var r = ctx.ssh.exec(METRICS_SH, { timeout: 60 });
+  var m = parseMetrics(r.stdout);
+  if (opts && opts.smart) m.smart = readSmart(ctx);
+  return m;
+}

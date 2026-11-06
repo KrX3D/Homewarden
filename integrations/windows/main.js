@@ -106,3 +106,14 @@ function update(ctx, ids) {
   if (failed.length) throw new Error('Not updated: ' + failed.join(', '));
   return { windowsUpdate: wu.length, winget: wg.length };
 }
+
+function metrics(ctx, opts) {
+  var j = json(ps(ctx, "$c = (Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average; " +
+    "$o = Get-CimInstance Win32_OperatingSystem; " +
+    "$d = Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | ForEach-Object { @{ mount = $_.DeviceID; usedPct = [math]::Round(100 - 100 * $_.FreeSpace / $_.Size); sizeGB = [math]::Round($_.Size / 1GB) } }; " +
+    "$h = @(); if (" + (opts && opts.smart ? '$true' : '$false') + ") { $h = Get-PhysicalDisk | ForEach-Object { @{ dev = $_.FriendlyName; model = $_.Model; healthy = ($_.HealthStatus -eq 'Healthy') } } }; " +
+    "[pscustomobject]@{ cpu = $c; memTotalMB = [math]::Round($o.TotalVisibleMemorySize / 1024); memUsedMB = [math]::Round(($o.TotalVisibleMemorySize - $o.FreePhysicalMemory) / 1024); disks = @($d); smart = @($h) } | ConvertTo-Json -Depth 4 -Compress", 120))[0] || {};
+  j.memPct = j.memTotalMB ? Math.round(100 * j.memUsedMB / j.memTotalMB) : null;
+  j.temps = [];
+  return j;
+}
