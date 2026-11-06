@@ -14,11 +14,11 @@ import (
 
 	builtin "github.com/KrX3D/Homewarden/integrations"
 	"github.com/KrX3D/Homewarden/internal/api"
-	"github.com/KrX3D/Homewarden/internal/integrations"
-	"github.com/KrX3D/Homewarden/internal/jobs"
 	"github.com/KrX3D/Homewarden/internal/conn"
 	"github.com/KrX3D/Homewarden/internal/discovery"
 	"github.com/KrX3D/Homewarden/internal/events"
+	"github.com/KrX3D/Homewarden/internal/integrations"
+	"github.com/KrX3D/Homewarden/internal/jobs"
 	"github.com/KrX3D/Homewarden/internal/presence"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
@@ -74,10 +74,12 @@ func main() {
 	runner := jobs.New(st, broker)
 	sw := &jobs.Software{St: st, Reg: reg, Host: &integrations.Host{St: st, Vault: v, Conn: connSvc}, Runner: runner, Events: broker}
 	sw.Register()
+	sw.RegisterBackup()
 	runner.Start(ctx, 4)
 	engine.OnReady(sw.OnReady)
 	go sw.AutoScan(ctx)
 	srv.AttachSoftware(api.SoftwareDeps{Registry: reg, Runner: runner, Software: sw})
+	srv.AttachBackups()
 
 	go engine.Run(ctx)
 

@@ -259,6 +259,13 @@ func (s *Software) update(ctx context.Context, run *Run) (string, any, error) {
 	if !in.Has("update") {
 		return store.JobFailed, nil, errors.New("this integration cannot run updates")
 	}
+	if reason := s.checkGuards(ctx, run, d); reason != "" {
+		if !p.Force {
+			run.Log("Not updating: %s", reason)
+			return store.JobBlocked, map[string]string{"reason": reason}, nil
+		}
+		run.Log("%s, updating anyway because it was forced.", reason)
+	}
 	if in.Has("busy") {
 		raw, err := s.Host.Call(ctx, in, d, "busy", nil, func(l string) { run.Log("%s", l) })
 		if err != nil {
@@ -279,6 +286,15 @@ func (s *Software) update(ctx context.Context, run *Run) (string, any, error) {
 			if b.Busy {
 				run.Log("Device is busy (%s), updating anyway because it was forced.", b.Reason)
 			}
+		}
+	}
+	if ex := extras(d); ex.Backup.BeforeUpdate && ex.Backup.TargetID != 0 && in.Has("backup") {
+		run.Log("Backing up before the update.")
+		if _, err := s.runBackup(ctx, run, d); err != nil {
+			if !p.Force {
+				return store.JobFailed, nil, fmt.Errorf("backup before update failed, update not started: %w", err)
+			}
+			run.Log("Backup failed (%v), updating anyway because it was forced.", err)
 		}
 	}
 	before, _ := s.St.Components(ctx, d.ID)

@@ -144,7 +144,7 @@ decision is made or changed, update it in the same PR.
 
 ## Scope / roadmap
 
-- v1: core + Linux/apt via SSH + Docker + OctoPrint. Manual updates, busy guards,
+- v1 (done, PRs #1-#9): core + Linux/apt via SSH + Docker + OctoPrint. Manual updates, busy guards,
   OctoPrint backup to SMB before update.
 - v2: Unraid, Proxmox/LXC, PBS, schedules, API/MQTT triggers, agent.
 - v3: UniFi, Windows (DeployDeck integration), provisioning.
@@ -234,6 +234,20 @@ body)`. Permissions in the manifest gate ssh/docker/http; HTTP only to the devic
 `sudo: true` PREFIXES `sudo -n` (no `sh -c`), so a sudoers rule limited to the package
 manager works; pass env vars in front of the command (sudoers needs `SETENV`).
 
+- `internal/backup/` - backup targets: `smb` (go-smb2, credential of type password) or
+  `local` (absolute path in the container, e.g. `/backups` from the Unraid template).
+  Writes go to `<file>.part` then rename. Paths are clamped inside the target.
+- `internal/jobs/backup.go` - `backup` job: integration `backup()` returns
+  `{name, download: {url, headers}}`; the core checks the URL against the
+  integration's allowed hosts, streams it to the target as `<device>/<date>_<name>`,
+  keeps the newest `keep` per device and target. Device config `backup`
+  {targetId, beforeUpdate, keep}; `beforeUpdate` runs it inside update jobs (a failed
+  backup stops the update unless forced). Device config `guards`: [{name, type ssh|http,
+  command|url, contains, mode block|warn}] run before every update (ssh: exit 0 = busy;
+  http: body contains text = busy).
+- `web/src/useEvents.ts` - ONE shared EventSource for the whole app. Never open more:
+  each SSE stream holds one of the browser's six HTTP/1.1 connections per host, and the
+  device page hung once that ran out.
 - `internal/web/` - embeds `dist/` (Vite output; only `.gitkeep` is tracked)
 - `web/` - React + TypeScript + Vite. `src/i18n/en.json` + `de.json` must always have
   the same keys. Theme/lang/device-view are per-user prefs (`PUT /api/me/prefs`).

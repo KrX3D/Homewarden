@@ -135,10 +135,10 @@ func (s *Server) meta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"build":         s.Build,
-		"needsSetup":    n == 0,
-		"minPassword":   auth.MinPasswordLength,
-		"permissions":   auth.Permissions,
+		"build":       s.Build,
+		"needsSetup":  n == 0,
+		"minPassword": auth.MinPasswordLength,
+		"permissions": auth.Permissions,
 	})
 }
 

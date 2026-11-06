@@ -158,4 +158,26 @@ CREATE TABLE jobs (
 CREATE INDEX jobs_created ON jobs(created_at);
 CREATE INDEX jobs_device ON jobs(device_id, created_at);
 `,
+	// 5: backup targets and the backups stored on them.
+	`
+CREATE TABLE backup_targets (
+	id         INTEGER PRIMARY KEY,
+	name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+	type       TEXT NOT NULL,
+	config     TEXT NOT NULL DEFAULT '{}',
+	created_at INTEGER NOT NULL
+);
+
+CREATE TABLE backups (
+	id        INTEGER PRIMARY KEY,
+	device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	target_id INTEGER REFERENCES backup_targets(id) ON DELETE SET NULL,
+	name      TEXT NOT NULL,
+	path      TEXT NOT NULL,
+	size      INTEGER NOT NULL DEFAULT 0,
+	at        INTEGER NOT NULL,
+	job_id    INTEGER
+);
+CREATE INDEX backups_device ON backups(device_id, at);
+`,
 }

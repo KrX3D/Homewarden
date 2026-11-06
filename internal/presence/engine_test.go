@@ -22,12 +22,12 @@ func TestBootSequence(t *testing.T) {
 	}
 
 	step(false, false, 0, store.StateOffline)
-	step(true, false, 30*time.Second, store.StateReachable)  // pings, SSH not up yet
-	step(true, true, 40*time.Second, store.StateReachable)   // SSH up, settling starts
-	step(true, true, 90*time.Second, store.StateReachable)   // 50 s settled
-	step(true, true, 101*time.Second, store.StateReady)      // 61 s settled
-	step(false, false, 130*time.Second, store.StateReady)    // one lost ping: no flap
-	step(false, false, 160*time.Second, store.StateOffline)  // second miss: offline
+	step(true, false, 30*time.Second, store.StateReachable) // pings, SSH not up yet
+	step(true, true, 40*time.Second, store.StateReachable)  // SSH up, settling starts
+	step(true, true, 90*time.Second, store.StateReachable)  // 50 s settled
+	step(true, true, 101*time.Second, store.StateReady)     // 61 s settled
+	step(false, false, 130*time.Second, store.StateReady)   // one lost ping: no flap
+	step(false, false, 160*time.Second, store.StateOffline) // second miss: offline
 }
 
 func TestReadyDropResetsSettle(t *testing.T) {
