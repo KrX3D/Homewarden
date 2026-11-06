@@ -1,0 +1,41 @@
+{
+  "id": "unifi",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": { "en": "UniFi Network", "de": "UniFi Network" },
+  "description": {
+    "en": "Beta. UniFi controller (UDM, UCG, Cloud Key or the self-hosted app): firmware of every access point, switch and gateway, upgraded through the controller; the Network application version (notify only). UniFi devices, and optionally all clients, show up in the inbox, so new devices on the network get noticed.",
+    "de": "Beta. UniFi-Controller (UDM, UCG, Cloud Key oder die selbst gehostete App): Firmware jedes Access Points, Switches und Gateways, aktualisiert über den Controller; Version der Network-Anwendung (nur Hinweis). UniFi-Geräte und optional alle Clients erscheinen im Posteingang, so fallen neue Geräte im Netz auf."
+  },
+  "howto": {
+    "en": "Option A, API key (UniFi Network 9.0 or newer): UniFi, Settings, Control Plane, Integrations, Create API Key. In Homewarden add it as an API token credential and pick it under API key.\nOption B, local account: create a local admin in UniFi OS (not a ui.com cloud account, 2FA off for that user). Add it as a Password credential and pick it under Login.\nAddress: the device address of this Homewarden device is the console (e.g. 192.168.90.1). Self-hosted controller: turn off UniFi OS console and set the port (usually 8443).\nSuggested online detection: ping, ready when TCP 443 (or 8443) answers.",
+    "de": "Variante A, API-Schlüssel (UniFi Network 9.0 oder neuer): UniFi, Settings, Control Plane, Integrations, Create API Key. In Homewarden als Zugangsdaten vom Typ API-Token anlegen und unter API-Schlüssel auswählen.\nVariante B, lokales Konto: in UniFi OS einen lokalen Admin anlegen (kein ui.com-Cloudkonto, 2FA für diesen Benutzer aus). Als Zugangsdaten vom Typ Passwort anlegen und unter Anmeldung auswählen.\nAdresse: Die Adresse dieses Homewarden-Geräts ist die Konsole (z. B. 192.168.90.1). Selbst gehosteter Controller: UniFi-OS-Konsole ausschalten und den Port setzen (meist 8443).\nEmpfohlene Online-Erkennung: Ping, bereit wenn TCP 443 (oder 8443) antwortet."
+  },
+  "connection": "http",
+  "permissions": { "ssh": false, "docker": false, "httpDevice": true, "httpHosts": [] },
+  "settings": [
+    { "key": "apiKey", "type": "credential", "credentialTypes": ["token"],
+      "label": { "en": "API key", "de": "API-Schlüssel" } },
+    { "key": "login", "type": "credential", "credentialTypes": ["password"],
+      "label": { "en": "Login (if no API key)", "de": "Anmeldung (falls kein API-Schlüssel)" } },
+    { "key": "unifiOS", "type": "bool", "default": true,
+      "label": { "en": "UniFi OS console (UDM, UCG, Cloud Key Gen2+)", "de": "UniFi-OS-Konsole (UDM, UCG, Cloud Key Gen2+)" } },
+    { "key": "port", "type": "number", "default": 443, "label": { "en": "Port", "de": "Port" } },
+    { "key": "site", "type": "string", "default": "default", "label": { "en": "Site", "de": "Site" },
+      "help": { "en": "The site id from the controller URL, usually default.", "de": "Die Site-ID aus der Controller-URL, meist default." } },
+    { "key": "insecure", "type": "bool", "default": true, "label": { "en": "Accept the self-signed certificate", "de": "Selbstsigniertes Zertifikat akzeptieren" } },
+    { "key": "importClients", "type": "bool", "default": false,
+      "label": { "en": "Put network clients in the inbox too", "de": "Auch Netzwerk-Clients in den Posteingang legen" },
+      "help": { "en": "Every phone, laptop and IoT device the controller knows. New ones appear in the inbox; ignore what you do not want to see.", "de": "Jedes Handy, jeder Laptop und jedes IoT-Gerät, das der Controller kennt. Neue erscheinen im Posteingang; ignoriere, was du nicht sehen willst." } }
+  ],
+  "presence": {
+    "reach": { "method": "ping" },
+    "ready": { "method": "tcp", "port": 443 },
+    "settleSeconds": 60,
+    "intervalSeconds": 30
+  },
+  "capabilities": ["detect", "update", "discover"],
+  "entry": "main.js",
+  "files": ["main.js"],
+  "icon": "icon.svg"
+}

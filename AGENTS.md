@@ -219,6 +219,7 @@ fakes (proxmox, proxmox-backup, unraid). Bump to 1.0.0 once confirmed on real sy
   `homewarden-*`).
 - PBS: API (`PBSAPIToken=<tokenid>:<secret>`, colon!), datastore usage, newest backup,
   failed tasks; package updates optional (off for PBS in Docker).
+- UniFi: classic API (/proxy/network on UniFi OS), X-API-KEY or local login (TOKEN cookie + X-CSRF-Token); firmware via `cmd/devmgr upgrade`, gateways last.
 - Unraid: SSH as root; plugins via `/usr/local/sbin/plugin check|update <file>.plg`;
   OS is notify-only (`warning: self`); busy during parity check/rebuild and mover.
 - `ssh.exec` with `sudo: true` adds no sudo when the SSH user is root. The sudo prefix

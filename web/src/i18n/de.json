@@ -536,5 +536,6 @@
  "agent.commandIntro": "Führe das einmal auf dem Gerät aus. Es lädt den Agent von Homewarden, verbindet ihn mit diesem Gerät und richtet ihn als Dienst ein.",
  "agent.insecure": "Homewarden nutzt ein selbstsigniertes HTTPS-Zertifikat",
  "agent.adminPs": "PowerShell als Administrator",
- "agent.tokenHint": "Der Befehl enthält einen Einmal-Token, 24 Stunden gültig. Ein neuer Befehl ersetzt ihn."
+ "agent.tokenHint": "Der Befehl enthält einen Einmal-Token, 24 Stunden gültig. Ein neuer Befehl ersetzt ihn.",
+ "factWarn.unifi_offline": "Ein oder mehrere UniFi-Geräte sind offline oder nicht adoptiert."
 }

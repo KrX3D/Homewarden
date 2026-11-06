@@ -5,6 +5,7 @@
     { "id": "octoprint", "version": "1.0.0", "path": "octoprint" },
     { "id": "proxmox", "version": "0.9.0", "path": "proxmox" },
     { "id": "proxmox-backup", "version": "0.9.0", "path": "proxmox-backup" },
-    { "id": "unraid", "version": "0.9.0", "path": "unraid" }
+    { "id": "unraid", "version": "0.9.0", "path": "unraid" },
+    { "id": "unifi", "version": "0.9.0", "path": "unifi" }
   ]
 }
