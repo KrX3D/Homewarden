@@ -31,12 +31,25 @@ No playbooks or config files to write.
 
 ## Running
 
+### Unraid
+
+Copy [`unraid/homewarden.xml`](unraid/homewarden.xml) to
+`/boot/config/plugins/dockerMan/templates-user/my-homewarden.xml` on the flash drive,
+then use Docker, Add Container, and pick "homewarden" from the template list.
+
+### Docker
+
 ```sh
 docker run -d --name homewarden \
   -p 8080:8080 \
   -v /mnt/user/appdata/homewarden:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e PUID=99 -e PGID=100 -e TZ=Europe/Berlin \
   ghcr.io/krx3d/homewarden:latest
 ```
+
+`PUID`/`PGID` set the user Homewarden runs as (default 99:100). The Docker socket is
+optional and only needed to see and update containers on that host.
 
 Homewarden is meant for the local network only. Put it behind your reverse proxy, but
 do not expose it to the internet.

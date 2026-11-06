@@ -129,7 +129,18 @@ decision is made or changed, update it in the same PR.
 - Device view default: card grid (A), switchable to fleet table (B) and host tree (C)
   via small icons top right. Remembered per user. An "Overview" summary page (counts,
   needs attention, recent jobs) may come later.
-- Icon: "Pulse house" (house with a heartbeat line). Exact variant not picked yet.
+- Icon: "Pulse house" variant 6 "Chimney" (house with chimney and a heartbeat line).
+  `assets/mark.svg` is the line mark (currentColor), `assets/icon.svg`/`icon.png` the
+  app icon (white mark on accent #2f56c9, rounded square). Unraid template points at
+  the raw `assets/icon.png` on main.
+
+### Container
+
+- Runs as PUID:PGID, default 99:100 (Unraid nobody:users). Nothing needs root:
+  ping works unprivileged in Docker, the Docker socket only needs its group. The
+  entrypoint (`docker/entrypoint.sh`) creates the user, adds it to the socket's group,
+  chowns `/data` if needed, then drops privileges with su-exec. PUID=0 = run as root.
+- Unraid template: `unraid/homewarden.xml`.
 
 ## Scope / roadmap
 
@@ -142,9 +153,7 @@ decision is made or changed, update it in the same PR.
 
 ## Open questions
 
-- Exact pulse-house icon variant.
-- Container user: currently runs as root. Decide PUID/PGID (Unraid: 99/100) once the
-  Docker socket is mounted, since socket access needs the right group.
+- (none right now)
 
 ## Workflow
 
@@ -159,4 +168,7 @@ decision is made or changed, update it in the same PR.
 
 - `cmd/homewarden/` - entry point (currently a placeholder server: `/` and `/healthz`)
 - `Dockerfile` - multi-stage, Go cross-compiled per target arch
+- `docker/entrypoint.sh` - PUID/PGID handling
+- `unraid/homewarden.xml` - Unraid container template
+- `assets/` - icon sources and PNGs
 - `.github/workflows/docker.yml` - vet/test, then multi-arch image build and push
