@@ -13,6 +13,8 @@ type Role struct {
 	Name        string   `json:"name"`
 	Builtin     bool     `json:"builtin"`
 	Permissions []string `json:"permissions"`
+	// Groups limits the role to devices in these groups; empty = all devices.
+	Groups []string `json:"groups"`
 }
 
 // User is an account. Secrets are never serialised.
@@ -33,19 +35,23 @@ type User struct {
 
 func scanRole(row interface{ Scan(...any) error }) (Role, error) {
 	var r Role
-	var perms string
-	if err := row.Scan(&r.ID, &r.Name, &r.Builtin, &perms); err != nil {
+	var perms, groups string
+	if err := row.Scan(&r.ID, &r.Name, &r.Builtin, &perms, &groups); err != nil {
 		return r, err
 	}
 	if err := json.Unmarshal([]byte(perms), &r.Permissions); err != nil {
 		return r, err
+	}
+	_ = json.Unmarshal([]byte(groups), &r.Groups)
+	if r.Groups == nil {
+		r.Groups = []string{}
 	}
 	return r, nil
 }
 
 // Roles lists all roles.
 func (s *Store) Roles(ctx context.Context) ([]Role, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id, name, builtin, permissions FROM roles ORDER BY builtin DESC, id")
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, name, builtin, permissions, device_groups FROM roles ORDER BY builtin DESC, id")
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +69,7 @@ func (s *Store) Roles(ctx context.Context) ([]Role, error) {
 
 // Role returns one role.
 func (s *Store) Role(ctx context.Context, id int64) (Role, error) {
-	r, err := scanRole(s.DB.QueryRowContext(ctx, "SELECT id, name, builtin, permissions FROM roles WHERE id = ?", id))
+	r, err := scanRole(s.DB.QueryRowContext(ctx, "SELECT id, name, builtin, permissions, device_groups FROM roles WHERE id = ?", id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return r, ErrNotFound
 	}
@@ -72,7 +78,7 @@ func (s *Store) Role(ctx context.Context, id int64) (Role, error) {
 
 // RoleByName returns a role by name.
 func (s *Store) RoleByName(ctx context.Context, name string) (Role, error) {
-	r, err := scanRole(s.DB.QueryRowContext(ctx, "SELECT id, name, builtin, permissions FROM roles WHERE name = ?", name))
+	r, err := scanRole(s.DB.QueryRowContext(ctx, "SELECT id, name, builtin, permissions, device_groups FROM roles WHERE name = ?", name))
 	if errors.Is(err, sql.ErrNoRows) {
 		return r, ErrNotFound
 	}
@@ -80,9 +86,13 @@ func (s *Store) RoleByName(ctx context.Context, name string) (Role, error) {
 }
 
 // CreateRole adds a custom role.
-func (s *Store) CreateRole(ctx context.Context, name string, perms []string) (Role, error) {
+func (s *Store) CreateRole(ctx context.Context, name string, perms, groups []string) (Role, error) {
 	b, _ := json.Marshal(perms)
-	res, err := s.DB.ExecContext(ctx, "INSERT INTO roles(name, builtin, permissions) VALUES(?, 0, ?)", name, string(b))
+	if groups == nil {
+		groups = []string{}
+	}
+	g, _ := json.Marshal(groups)
+	res, err := s.DB.ExecContext(ctx, "INSERT INTO roles(name, builtin, permissions, device_groups) VALUES(?, 0, ?, ?)", name, string(b), string(g))
 	if err != nil {
 		return Role{}, err
 	}
@@ -91,9 +101,13 @@ func (s *Store) CreateRole(ctx context.Context, name string, perms []string) (Ro
 }
 
 // UpdateRole renames a custom role and replaces its permissions.
-func (s *Store) UpdateRole(ctx context.Context, id int64, name string, perms []string) error {
+func (s *Store) UpdateRole(ctx context.Context, id int64, name string, perms, groups []string) error {
 	b, _ := json.Marshal(perms)
-	_, err := s.DB.ExecContext(ctx, "UPDATE roles SET name = ?, permissions = ? WHERE id = ? AND builtin = 0", name, string(b), id)
+	if groups == nil {
+		groups = []string{}
+	}
+	g, _ := json.Marshal(groups)
+	_, err := s.DB.ExecContext(ctx, "UPDATE roles SET name = ?, permissions = ?, device_groups = ? WHERE id = ? AND builtin = 0", name, string(b), string(g), id)
 	return err
 }
 

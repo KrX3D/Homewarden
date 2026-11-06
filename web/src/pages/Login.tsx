@@ -7,7 +7,8 @@ import { Logo } from '../components/icons';
 
 export default function LoginPage() {
   const t = useT();
-  const { refresh } = useSession();
+  const { refresh, meta } = useSession();
+  const ssoError = new URLSearchParams(location.search).get('sso_error');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -53,8 +54,10 @@ export default function LoginPage() {
             <span className="hint">{t('login.codeHint')}</span>
           </label>
         )}
+        {ssoError && <div className="alert error">{t('sso.failed')}: {ssoError}</div>}
         <ErrorAlert error={error} />
         <button className="btn" type="submit" disabled={busy}>{t('login.submit')}</button>
+        {meta?.sso?.enabled && !needCode && <a className="btn ghost" href="/api/auth/oidc/start">{t('sso.signIn', { label: meta.sso.label })}</a>}
         {needCode && <button type="button" className="btn subtle sm" onClick={() => { setNeedCode(false); setCode(''); }}>{t('common.back')}</button>}
       </form>
     </div>

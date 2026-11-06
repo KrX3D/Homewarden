@@ -319,6 +319,12 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   (SMART every 12th sample), kept 30 days; warnings disk_full (>=90%), hot (>=80 C),
   smart_failing go to notifications. The Linux snippet is duplicated in linux-apt and
   unraid main.js; keep them in sync.
+- SSO: `internal/api/oidc.go` (go-oidc + x/oauth2, PKCE via oauth2.GenerateVerifier,
+  state kept in memory 10 min). Settings key `oidc` (client secret vault-encrypted),
+  group->role map applied on every login, optional auto-create, local login always
+  stays. Redirect URI `/api/auth/oidc/callback` (honours X-Forwarded-Proto/Host).
+- Roles may be limited to device groups (`roles.device_groups`, empty = all).
+  `Principal.SeesDevice`; enforced in loadDevice (404), device lists, updates, jobs.
 - `web/src/useEvents.ts` - ONE shared EventSource for the whole app. Never open more:
   each SSE stream holds one of the browser's six HTTP/1.1 connections per host, and the
   device page hung once that ran out.

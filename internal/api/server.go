@@ -60,11 +60,14 @@ type Server struct {
 
 	setupMu    sync.Mutex
 	setupToken string
+
+	oidc oidcState
 }
 
 // New builds the server and its routes.
 func New(st *store.Store, v *vault.Vault, build BuildInfo, static http.Handler) *Server {
 	s := &Server{Store: st, Vault: v, Build: build, Static: static, limiter: auth.NewLimiter(), mux: http.NewServeMux()}
+	s.oidc.pending = map[string]oidcPending{}
 	s.routes()
 	return s
 }
@@ -97,6 +100,10 @@ func (s *Server) routes() {
 	m.HandleFunc("POST /api/setup", s.setup)
 	m.HandleFunc("POST /api/auth/login", s.login)
 	m.HandleFunc("POST /api/auth/logout", s.logout)
+	m.HandleFunc("GET /api/auth/oidc/start", s.oidcStart)
+	m.HandleFunc("GET /api/auth/oidc/callback", s.oidcCallback)
+	m.Handle("GET /api/settings/oidc", s.authed(auth.PermSettingsManage, s.getOIDC))
+	m.Handle("PUT /api/settings/oidc", s.authed(auth.PermSettingsManage, s.putOIDC))
 
 	m.Handle("GET /api/me", s.authed("", s.me))
 	m.Handle("PUT /api/me/password", s.authed("", s.changePassword))
@@ -151,7 +158,9 @@ func (s *Server) meta(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
+	o := s.loadOIDC(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
+		"sso":         map[string]any{"enabled": o.Enabled, "label": o.Label},
 		"build":       s.Build,
 		"needsSetup":  n == 0,
 		"minPassword": auth.MinPasswordLength,
@@ -178,6 +187,19 @@ type Principal struct {
 
 // Can reports whether the principal has a permission.
 func (p Principal) Can(perm string) bool { return auth.Has(p.Role.Permissions, perm) }
+
+// SeesDevice reports whether the principal's role covers a device's group.
+func (p Principal) SeesDevice(d store.Device) bool {
+	if len(p.Role.Groups) == 0 || auth.Has(p.Role.Permissions, auth.PermAll) {
+		return true
+	}
+	for _, g := range p.Role.Groups {
+		if strings.EqualFold(g, d.GroupName) {
+			return true
+		}
+	}
+	return false
+}
 
 // PrincipalFrom returns the request's principal; only valid behind authed.
 func PrincipalFrom(r *http.Request) Principal {

@@ -278,4 +278,6 @@ CREATE TABLE metrics (
 );
 CREATE INDEX metrics_device ON metrics(device_id, at);
 `,
+	// 11: roles limited to device groups (empty list = all devices).
+	`ALTER TABLE roles ADD COLUMN device_groups TEXT NOT NULL DEFAULT '[]';`,
 }
