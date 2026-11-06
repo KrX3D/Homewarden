@@ -146,8 +146,9 @@ decision is made or changed, update it in the same PR.
 
 - v1 (done, PRs #1-#9): core + Linux/apt via SSH + Docker + OctoPrint. Manual updates, busy guards,
   OctoPrint backup to SMB before update.
-- v2: Unraid, Proxmox/LXC, PBS, schedules, API/MQTT triggers, agent.
-- v3: UniFi, Windows (DeployDeck integration), provisioning.
+- v2 (done, PRs #11-#13): Unraid, Proxmox/LXC, PBS, schedules, API/MQTT triggers, agent.
+- v3 (done, PRs #14-#16): UniFi, Windows + DeployDeck, provisioning (restore onto a
+  replacement, sudoers during onboarding).
 - Later: notifications (Discord, ntfy, Telegram, email, HA), Home Assistant via MQTT
   discovery.
 
@@ -256,6 +257,11 @@ Plain ES5-ish JS (goja), synchronous. Functions, each `(ctx, arg)`:
 - `update(ctx, ids)` - ids are component ids, or `["*"]` for everything. Throw on
   failure. The core rescans afterwards and writes version history itself.
 - `busy(ctx)` (capability `busy`) -> `{busy, reason}`; blocks updates unless forced.
+- `restore(ctx)` (capability `restore`) -> `{upload: {url, field, headers}}`; the core
+  uploads a stored backup there as multipart with an exact Content-Length (restore job,
+  `POST /api/backups/{id}/restore {deviceId}`: onto the same or a replacement device).
+- Manifest `sudoers` ($USER placeholder): Install key can add it with the one-time
+  password (`sudo -S`, checked with visudo) so a fresh device needs no terminal.
 - `discover(ctx)` (capability `discover`) -> `[{externalId, name, host, kind, state:
   running|stopped, group, presence?}]`; new ones land in the inbox as children.
 ctx: `device`, `settings`, `log()`, `sleep(ms)`, `now()`, `secret(settingKey)` ->

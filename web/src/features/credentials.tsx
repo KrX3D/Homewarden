@@ -281,13 +281,16 @@ function InstallKeyModal({ device, creds, onClose, onDone }: { device: Device; c
   const [user, setUser] = useState('pi');
   const [password, setPassword] = useState('');
   const [port, setPort] = useState(22);
+  const [sudo, setSudo] = useState(true);
+  const [rule, setRule] = useState('');
+  useEffect(() => { get<{ id: string; sudoers?: string }[]>('/api/integrations').then((l) => setRule(l.find((i) => i.id === device.kind)?.sudoers ?? '')).catch(() => {}); }, [device.kind]);
   const { busy, error, run } = useAction();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     run(async () => {
       let cred = keys.find((k) => k.id === credId);
       if (!cred) cred = await post<Credential>('/api/credentials', { name: `Homewarden key (${device.name})`, type: 'ssh_key', username: user, generate: true });
-      await post(`/api/devices/${device.id}/connection/install-key`, { user, password, port, credentialId: cred.id });
+      await post(`/api/devices/${device.id}/connection/install-key`, { user, password, port, credentialId: cred.id, setupSudo: !!rule && sudo && user !== 'root' });
       setPassword('');
       onDone(cred, user, port);
     });
@@ -328,6 +331,13 @@ function InstallKeyModal({ device, creds, onClose, onDone }: { device: Device; c
           <input id="install-password" type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} required />
           <span className="hint">{t('install.passwordHint')}</span>
         </label>
+        {rule && user !== 'root' && (
+          <div className="stack" style={{ gap: 4 }}>
+            <label className="check"><input id="install-sudo" type="checkbox" checked={sudo} onChange={(e) => setSudo(e.target.checked)} />{t('install.sudo')}</label>
+            <code className="small" style={{ overflowWrap: 'anywhere' }}>{rule.replace('$USER', user)}</code>
+            <span className="small muted">{t('install.sudoHint')}</span>
+          </div>
+        )}
         <ErrorAlert error={error} />
       </form>
     </Modal>

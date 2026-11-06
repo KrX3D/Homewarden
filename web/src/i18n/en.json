@@ -537,5 +537,17 @@
  "agent.insecure": "Homewarden uses a self-signed HTTPS certificate",
  "agent.adminPs": "PowerShell as administrator",
  "agent.tokenHint": "The command contains a one-time token, valid for 24 hours. Creating a new one replaces it.",
- "factWarn.unifi_offline": "One or more UniFi devices are offline or not adopted."
+ "factWarn.unifi_offline": "One or more UniFi devices are offline or not adopted.",
+ "install.sudo": "Also allow updates: add this sudoers rule",
+ "install.sudoHint": "Uses the same password once through sudo. The rule is checked with visudo before it is saved.",
+ "restore.button": "Restore",
+ "restore.title": "Restore backup",
+ "restore.intro": "Puts {name} from {when} back onto a device.",
+ "restore.onto": "Restore onto",
+ "restore.same": "(this device)",
+ "restore.ontoHint": "Pick another device of the same type to set up a replacement, e.g. a freshly flashed OctoPi.",
+ "restore.warning": "The device's current settings are replaced by the backup and it restarts. Running jobs on the device should be finished first.",
+ "restore.start": "Restore now",
+ "restore.started": "Restore started. The job log shows the progress.",
+ "error.no_restore_support": "This device's integration cannot restore backups."
 }

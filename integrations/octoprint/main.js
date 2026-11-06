@@ -160,6 +160,14 @@ function backup(ctx) {
   return { name: b.name, size: b.size || 0, download: { url: base(ctx) + '/plugin/backup/download/' + encodeURIComponent(b.name), headers: { 'X-Api-Key': cred.secret } } };
 }
 
+// restore(ctx) tells the core where to upload a backup zip; OctoPrint restores it,
+// reinstalls the plugins listed in it and restarts.
+function restore(ctx) {
+  var cred = ctx.secret('apiKey');
+  if (!cred) throw new Error('No API key set.');
+  return { upload: { url: base(ctx) + '/plugin/backup/restore', field: 'file', headers: { 'X-Api-Key': cred.secret } } };
+}
+
 function update(ctx, ids) {
   var all = ids.indexOf('*') >= 0;
   var info = detect(ctx).components;

@@ -202,6 +202,7 @@ function BackupCard({ device }: { device: Device }) {
   const saved: BackupSettings = { targetId: 0, beforeUpdate: false, keep: 5, ...((device.config as { backup?: BackupSettings }).backup ?? {}) };
   const [bs, setBs] = useState<BackupSettings>(saved);
   const [ok, setOk] = useState(false);
+  const [restoring, setRestoring] = useState<Backup | null>(null);
   const { busy, error, run } = useAction();
   const load = useCallback(() => { get<Backup[]>(`/api/backups?device=${device.id}`).then(setList).catch(() => {}); }, [device.id]);
   useEffect(() => {
@@ -254,13 +255,46 @@ function BackupCard({ device }: { device: Device }) {
                 <td className="small">{b.name}</td>
                 <td className="small muted">{formatTime(lang, b.at)}</td>
                 <td className="small mono">{mb(b.size)}</td>
-                <td style={{ textAlign: 'right' }}>{can('backups.run') && <a className="small" href={`/api/backups/${b.id}/download`}>{t('backups.download')}</a>}</td>
+                <td style={{ textAlign: 'right' }}>{can('backups.run') && <span className="row" style={{ gap: 10, justifyContent: 'flex-end' }}>
+                  <a className="small" href={`/api/backups/${b.id}/download`}>{t('backups.download')}</a>
+                  {integ.capabilities.includes('restore') && <button type="button" className="btn subtle sm" onClick={() => setRestoring(b)}>{t('restore.button')}</button>}
+                </span>}</td>
               </tr>
             ))}
           </tbody></table>
         </div>
       )}
+      {restoring && <RestoreModal device={device} backup={restoring} onClose={() => setRestoring(null)} />}
     </section>
+  );
+}
+
+function RestoreModal({ device, backup, onClose }: { device: Device; backup: Backup; onClose: () => void }) {
+  const t = useT();
+  const lang = useLang();
+  const [targets, setTargets] = useState<Device[]>([]);
+  const [target, setTarget] = useState(device.id);
+  const [jobId, setJobId] = useState(0);
+  const { busy, error, run } = useAction();
+  useEffect(() => { get<Device[]>('/api/devices?status=active').then((l) => setTargets(l.filter((d) => d.kind === device.kind))).catch(() => {}); }, [device.kind]);
+  return (
+    <Modal title={t('restore.title')} onClose={onClose} footer={jobId ? <Link className="btn" to={`/jobs/${jobId}`}>{t('sw.showLog')}</Link> : (
+      <>
+        <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
+        <button className="btn danger" type="button" disabled={busy} onClick={() => run(async () => { const j = await post<{ id: number }>(`/api/backups/${backup.id}/restore`, { deviceId: target }); setJobId(j.id); })}>{t('restore.start')}</button>
+      </>
+    )}>
+      <p className="small">{t('restore.intro', { name: backup.name, when: formatTime(lang, backup.at) })}</p>
+      <label className="field">{t('restore.onto')}
+        <select id="restore-target" value={target} onChange={(e) => setTarget(Number(e.target.value))}>
+          {targets.map((d) => <option key={d.id} value={d.id}>{d.name}{d.id === device.id ? ' ' + t('restore.same') : ''}</option>)}
+        </select>
+        <span className="hint">{t('restore.ontoHint')}</span>
+      </label>
+      <div className="alert warn small">{t('restore.warning')}</div>
+      {jobId > 0 && <div className="alert ok">{t('restore.started')}</div>}
+      <ErrorAlert error={error} />
+    </Modal>
   );
 }
 
