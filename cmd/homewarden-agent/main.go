@@ -113,6 +113,18 @@ func run(c command) result {
 	} else {
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", c.Cmd)
 	}
+	if runtime.GOOS == "windows" {
+		// Windows PowerShell 5.1 must build its own module path. Inheriting PowerShell 7's
+		// (when the agent was started from pwsh) makes built-in modules such as
+		// Microsoft.PowerShell.Security fail to load.
+		env := []string{}
+		for _, e := range os.Environ() {
+			if !strings.HasPrefix(strings.ToUpper(e), "PSMODULEPATH=") {
+				env = append(env, e)
+			}
+		}
+		cmd.Env = env
+	}
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if c.Stdin != "" {

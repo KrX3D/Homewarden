@@ -1,18 +1,18 @@
 {
   "id": "windows",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "minCore": "0.1.0",
   "name": {
     "en": "Windows (agent)",
     "de": "Windows (Agent)"
   },
   "description": {
-    "en": "Beta. Windows PCs and servers through the Homewarden agent: pending Windows Updates (security updates marked) and winget app updates, each installable on its own. Reboot required is shown.",
-    "de": "Beta. Windows-PCs und -Server über den Homewarden-Agent: ausstehende Windows-Updates (Sicherheitsupdates markiert) und winget-App-Updates, jeweils einzeln installierbar. Neustart nötig wird angezeigt."
+    "en": "Beta. Windows PCs and servers through the Homewarden agent: pending Windows Updates (security updates marked), winget app updates, and your own PowerShell update scripts from the share (the DeployDeck scripts): which program this PC is behind on, and running its update script here. Each part installable on its own.",
+    "de": "Beta. Windows-PCs und -Server über den Homewarden-Agent: ausstehende Windows-Updates (Sicherheitsupdates markiert), winget-App-Updates und deine eigenen PowerShell-Update-Skripte von der Freigabe (die DeployDeck-Skripte): bei welchem Programm dieser PC zurückliegt, und das Ausführen seines Update-Skripts hier. Jeder Teil einzeln installierbar."
   },
   "howto": {
-    "en": "1. In the Connection card switch to Agent, create the install command and run the Windows line in an administrator PowerShell on the PC.\n2. Set online detection to Agent heartbeat.\n3. winget must be installed (App Installer from the Microsoft Store; included in Windows 11). Apps installed only for one user may not be visible to the agent, which runs as SYSTEM.",
-    "de": "1. In der Karte Verbindung auf Agent umstellen, den Installationsbefehl erstellen und die Windows-Zeile in einer Administrator-PowerShell auf dem PC ausführen.\n2. Online-Erkennung auf Agent-Lebenszeichen stellen.\n3. winget muss installiert sein (App-Installer aus dem Microsoft Store; in Windows 11 enthalten). Nur für einen Benutzer installierte Apps sieht der Agent, der als SYSTEM läuft, eventuell nicht."
+    "en": "1. In the Connection card switch to Agent, create the install command and run the Windows line in an administrator PowerShell on the PC.\n2. Set online detection to Agent heartbeat.\n3. winget must be installed (App Installer from the Microsoft Store; included in Windows 11). Apps installed only for one user may not be visible to the agent, which runs as SYSTEM.\n4. Your update scripts: set Scripts folder to the UNC path of InstallationScripts on the share. The agent runs as SYSTEM, which has no access to most shares: pick a Password credential with the share user under Share login. Turn on Share checks on one PC only, to also see when the installer on the share is behind the vendor.",
+    "de": "1. In der Karte Verbindung auf Agent umstellen, den Installationsbefehl erstellen und die Windows-Zeile in einer Administrator-PowerShell auf dem PC ausführen.\n2. Online-Erkennung auf Agent-Lebenszeichen stellen.\n3. winget muss installiert sein (App-Installer aus dem Microsoft Store; in Windows 11 enthalten). Nur für einen Benutzer installierte Apps sieht der Agent, der als SYSTEM läuft, eventuell nicht.\n4. Deine Update-Skripte: Skriptordner auf den UNC-Pfad von InstallationScripts auf der Freigabe setzen. Der Agent läuft als SYSTEM und hat auf die meisten Freigaben keinen Zugriff: unter Freigabe-Anmeldung Zugangsdaten vom Typ Passwort mit dem Freigabe-Benutzer wählen. Freigabe-Prüfung nur auf einem PC einschalten, um zusätzlich zu sehen, wann der Installer auf der Freigabe hinter dem Hersteller liegt."
   },
   "connection": "agent",
   "permissions": {
@@ -47,6 +47,70 @@
       "label": {
         "en": "winget app updates",
         "de": "winget-App-Updates"
+      }
+    },
+    {
+      "key": "scriptsPath",
+      "type": "string",
+      "default": "",
+      "placeholder": "\\\\192.168.90.114\\Daten\\Prog\\InstallationScripts",
+      "label": {
+        "en": "Scripts folder (UNC)",
+        "de": "Skriptordner (UNC)"
+      },
+      "help": {
+        "en": "Folder with the *Update.ps1 scripts. Empty = no script updates.",
+        "de": "Ordner mit den *Update.ps1-Skripten. Leer = keine Skript-Updates."
+      }
+    },
+    {
+      "key": "statePath",
+      "type": "string",
+      "default": "",
+      "label": {
+        "en": "State folder",
+        "de": "State-Ordner"
+      },
+      "help": {
+        "en": "Where the scripts write State\\*.json. Empty = <Scripts folder>\\Log\\State.",
+        "de": "Wo die Skripte State\\*.json schreiben. Leer = <Skriptordner>\\Log\\State."
+      }
+    },
+    {
+      "key": "shareLogin",
+      "type": "credential",
+      "credentialTypes": [
+        "password"
+      ],
+      "label": {
+        "en": "Share login",
+        "de": "Freigabe-Anmeldung"
+      }
+    },
+    {
+      "key": "hostKey",
+      "type": "string",
+      "default": "",
+      "label": {
+        "en": "PC name in the state files",
+        "de": "PC-Name in den State-Dateien"
+      },
+      "help": {
+        "en": "Empty = the same as the scripts use (GetPcByUUID.ps1, then the hardware UUID).",
+        "de": "Leer = wie die Skripte selbst (GetPcByUUID.ps1, sonst die Hardware-UUID)."
+      }
+    },
+    {
+      "key": "showShare",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Share checks on this PC",
+        "de": "Freigabe-Prüfung auf diesem PC"
+      },
+      "help": {
+        "en": "Also list programs whose installer on the share is behind the vendor. Turn on for one PC.",
+        "de": "Zusätzlich Programme zeigen, deren Installer auf der Freigabe hinter dem Hersteller liegt. Für einen PC einschalten."
       }
     }
   ],
