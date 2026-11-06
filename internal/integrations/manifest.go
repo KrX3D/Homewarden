@@ -40,6 +40,9 @@ type Permissions struct {
 	Docker     bool     `json:"docker"`
 	HTTPDevice bool     `json:"httpDevice"` // HTTP to the device's own address
 	HTTPHosts  []string `json:"httpHosts"`  // further hosts (exact or *.suffix)
+	// HTTPHostsSetting names a device setting whose comma-separated hosts are allowed
+	// too (e.g. a private registry). The user types those hosts, so they are theirs.
+	HTTPHostsSetting string `json:"httpHostsSetting,omitempty"`
 }
 
 // Manifest describes an integration.

@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -151,6 +152,10 @@ func (c *call) ctxObject() *goja.Object {
 		}
 	})
 	o.Set("now", func() int64 { return time.Now().Unix() })
+	// Lets integrations recognise Homewarden's own container (Docker sets the
+	// hostname to the short container id).
+	hn, _ := os.Hostname()
+	o.Set("self", map[string]any{"hostname": hn})
 	o.Set("secret", c.secret)
 
 	util := vm.NewObject()
@@ -271,7 +276,17 @@ func (c *call) allowedHost(host string) bool {
 	if c.in.Permissions.HTTPDevice && strings.EqualFold(h, c.dev.Host) {
 		return true
 	}
-	for _, p := range c.in.Permissions.HTTPHosts {
+	hosts := c.in.Permissions.HTTPHosts
+	if key := c.in.Permissions.HTTPHostsSetting; key != "" {
+		if v, ok := Settings(c.dev)[key].(string); ok {
+			for _, h := range strings.Split(v, ",") {
+				if h = strings.TrimSpace(h); h != "" {
+					hosts = append(hosts, h)
+				}
+			}
+		}
+	}
+	for _, p := range hosts {
 		p = strings.ToLower(p)
 		if p == h || (strings.HasPrefix(p, "*.") && strings.HasSuffix(h, p[1:])) {
 			return true

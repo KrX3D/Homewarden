@@ -85,6 +85,7 @@ func (s *Software) scan(ctx context.Context, run *Run) (string, any, error) {
 	}
 	run.Log("Scanning %s with %s %s", d.Name, in.ID, in.Version)
 	res, err := s.detect(ctx, run, in, d)
+	s.stateFromScan(ctx, d, err == nil)
 	if err != nil {
 		_ = s.St.SetFacts(ctx, d.ID, nil, err.Error())
 		s.Events.Publish("device.software", map[string]int64{"id": d.ID})
@@ -216,6 +217,24 @@ func firstNonEmpty(a, b string) string {
 		return a
 	}
 	return b
+}
+
+// stateFromScan gives devices without their own network check (e.g. a Docker host
+// reached through its API) a state: reachable by the integration = online.
+func (s *Software) stateFromScan(ctx context.Context, d store.Device, ok bool) {
+	if d.Presence.Reach.Method != "none" || d.ParentID != nil {
+		return
+	}
+	state := store.StateOffline
+	at := time.Now().Unix()
+	if ok {
+		state = store.StateReady
+		_ = s.St.RecordSeen(ctx, d.ID, at, nil)
+	}
+	if state != d.State {
+		_ = s.St.SetDeviceState(ctx, d.ID, state, at)
+		s.Events.Publish("device.state", map[string]any{"id": d.ID, "state": state, "since": at, "previous": d.State})
+	}
 }
 
 // UpdateParams are the parameters of an update job.
