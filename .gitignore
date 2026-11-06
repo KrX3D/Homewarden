@@ -1,0 +1,8 @@
+/bin/
+/dist/
+/data/
+node_modules/
+*.db
+*.db-*
+.env
+.DS_Store
