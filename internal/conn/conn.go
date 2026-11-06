@@ -124,7 +124,7 @@ func (s *Service) Dial(ctx context.Context, d store.Device) (*ssh.Client, Settin
 }
 
 // Exec runs one command on a device. With privileged=true and sudo enabled in the
-// device settings, the command runs through `sudo -n` (never prompts).
+// device settings, the command is prefixed with `sudo -n` (never prompts).
 func (s *Service) Exec(ctx context.Context, d store.Device, cmd string, privileged bool, timeout time.Duration) (sshx.Result, error) {
 	c, set, err := s.Dial(ctx, d)
 	if err != nil {
@@ -132,7 +132,7 @@ func (s *Service) Exec(ctx context.Context, d store.Device, cmd string, privileg
 	}
 	defer c.Close()
 	if privileged && set.Sudo {
-		cmd = "sudo -n sh -c " + sshx.ShellQuote(cmd)
+		cmd = "sudo -n " + cmd
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -157,7 +157,7 @@ echo "hostname=$(hostname)"
 . /etc/os-release 2>/dev/null && echo "os=$PRETTY_NAME"
 echo "kernel=$(uname -r)"
 echo "arch=$(uname -m)"
-if sudo -n true 2>/dev/null; then echo "sudo=yes"; else echo "sudo=no"; fi`
+if sudo -n -l >/dev/null 2>&1; then echo "sudo=yes"; else echo "sudo=no"; fi`
 
 // Test connects to a device and reports what it found.
 func (s *Service) Test(ctx context.Context, d store.Device) (Facts, error) {

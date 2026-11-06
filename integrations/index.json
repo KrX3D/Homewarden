@@ -1,0 +1,5 @@
+{
+  "integrations": [
+    { "id": "linux-apt", "version": "1.0.0", "path": "linux-apt" }
+  ]
+}

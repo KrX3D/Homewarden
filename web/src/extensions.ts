@@ -8,3 +8,6 @@ export const deviceSections: ComponentType<{ device: Device }>[] = [];
 
 /** Extra tabs on the settings page. */
 export const settingsTabs: { path: string; labelKey: string; perm?: string; element: JSX.Element }[] = [];
+
+/** Extra entries in the sidebar, with their pages. */
+export const navItems: { path: string; labelKey: string; perm?: string; icon: JSX.Element; element: JSX.Element; badge?: () => number }[] = [];

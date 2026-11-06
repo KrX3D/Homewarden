@@ -97,4 +97,65 @@ CREATE TABLE known_hosts (
 	first_seen  INTEGER NOT NULL
 );
 `,
+	// 4: installed integrations, scan results, version history and jobs.
+	`
+CREATE TABLE integrations (
+	id           TEXT PRIMARY KEY,
+	version      TEXT NOT NULL,
+	source       TEXT NOT NULL,
+	enabled      INTEGER NOT NULL DEFAULT 1,
+	installed_at INTEGER NOT NULL
+);
+
+CREATE TABLE components (
+	device_id        INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	component_id     TEXT NOT NULL,
+	name             TEXT NOT NULL,
+	grp              TEXT NOT NULL DEFAULT '',
+	installed        TEXT NOT NULL DEFAULT '',
+	available        TEXT NOT NULL DEFAULT '',
+	update_available INTEGER NOT NULL DEFAULT 0,
+	security         INTEGER NOT NULL DEFAULT 0,
+	updatable        INTEGER NOT NULL DEFAULT 1,
+	meta             TEXT NOT NULL DEFAULT '{}',
+	updated_at       INTEGER NOT NULL,
+	PRIMARY KEY (device_id, component_id)
+);
+
+CREATE TABLE version_history (
+	id           INTEGER PRIMARY KEY,
+	device_id    INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	component_id TEXT NOT NULL,
+	name         TEXT NOT NULL,
+	old_version  TEXT NOT NULL,
+	new_version  TEXT NOT NULL,
+	at           INTEGER NOT NULL
+);
+CREATE INDEX version_history_device ON version_history(device_id, at);
+
+CREATE TABLE device_facts (
+	device_id  INTEGER PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+	facts      TEXT NOT NULL DEFAULT '{}',
+	scanned_at INTEGER NOT NULL,
+	error      TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE jobs (
+	id          INTEGER PRIMARY KEY,
+	type        TEXT NOT NULL,
+	device_id   INTEGER REFERENCES devices(id) ON DELETE SET NULL,
+	device_name TEXT NOT NULL DEFAULT '',
+	title       TEXT NOT NULL DEFAULT '',
+	params      TEXT NOT NULL DEFAULT '{}',
+	status      TEXT NOT NULL,
+	created_by  TEXT NOT NULL DEFAULT '',
+	created_at  INTEGER NOT NULL,
+	started_at  INTEGER,
+	finished_at INTEGER,
+	log         TEXT NOT NULL DEFAULT '',
+	result      TEXT NOT NULL DEFAULT '{}'
+);
+CREATE INDEX jobs_created ON jobs(created_at);
+CREATE INDEX jobs_device ON jobs(device_id, created_at);
+`,
 }

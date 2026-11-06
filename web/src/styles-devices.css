@@ -26,3 +26,11 @@ dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .timeline .seg-off { background: var(--off); opacity: .55; }
 .timeline .seg-none { background: transparent; }
 .timeline-axis { display: flex; justify-content: space-between; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+/* ---- software, jobs */
+pre.log { background: var(--sunk); border-radius: 8px; padding: 12px; margin: 0; overflow: auto; max-height: 70vh; font: 12.5px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+pre.log.diff { max-height: 50vh; white-space: pre; }
+pre.log .add { background: var(--ok-soft); color: var(--ok); display: block; }
+pre.log .del { background: var(--crit-soft); color: var(--crit); display: block; }
+pre.howto { background: var(--accent-soft); border-radius: 8px; padding: 12px; margin: 0; font: 13px/1.6 var(--body); white-space: pre-wrap; overflow-wrap: anywhere; }
+details > summary { color: var(--accent); }

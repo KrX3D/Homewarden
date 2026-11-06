@@ -9,6 +9,8 @@ import SetupPage from './pages/Setup';
 import LoginPage from './pages/Login';
 import DevicesPage from './pages/Devices';
 import SettingsPage from './pages/Settings';
+import { navItems } from './extensions';
+import { useBadges } from './features/software';
 
 export type NavItem = { to: string; label: string; icon: ReactNode; perm?: string; badge?: number };
 
@@ -29,8 +31,10 @@ function Shell() {
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.pathname]);
 
+  const badges = useBadges();
   const nav: NavItem[] = [
     { to: '/devices', label: t('nav.devices'), icon: <IconDevices />, perm: 'devices.view' },
+    ...navItems.map((n) => ({ to: '/' + n.path, label: t(n.labelKey), icon: n.icon, perm: n.perm, badge: badges[n.path] })),
     { to: '/settings', label: t('nav.settings'), icon: <IconSettings /> },
   ];
 
@@ -72,6 +76,7 @@ function Shell() {
             <Route path="/" element={<Navigate to={can('devices.view') ? '/devices' : '/settings'} replace />} />
             <Route path="/devices/*" element={<DevicesPage />} />
             <Route path="/settings/*" element={<SettingsPage />} />
+            {navItems.map((n) => <Route key={n.path} path={'/' + n.path + '/*'} element={n.element} />)}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

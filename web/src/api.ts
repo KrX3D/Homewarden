@@ -91,3 +91,31 @@ export type CredentialType = 'ssh_key' | 'password' | 'token';
 export type Credential = { id: number; name: string; type: CredentialType; username: string; public: string; createdAt: number; updatedAt: number; usedBy: number };
 export type ConnectionSettings = { method: 'ssh' | ''; port?: number; credentialId?: number; user?: string; sudo: boolean };
 export type Facts = { user: string; hostname: string; os: string; kernel: string; arch: string; sudo: boolean; hostKey: string; hostKeyFirst: boolean };
+
+export type Text = Record<string, string>;
+export type IntegrationSetting = {
+  key: string; type: 'string' | 'number' | 'bool' | 'select' | 'credential' | 'password';
+  label: Text; help?: Text; default?: unknown; required?: boolean; options?: { value: string; label: Text }[];
+  credentialTypes?: string[]; placeholder?: string;
+};
+export type Permissions = { ssh: boolean; docker: boolean; httpDevice: boolean; httpHosts: string[] | null };
+export type Integration = {
+  id: string; version: string; name: Text; description: Text; howto?: Text; connection: string;
+  permissions: Permissions; settings?: IntegrationSetting[]; presence?: PresenceConfig; capabilities: string[];
+  source: string; iconSvg?: string;
+};
+export type CatalogEntry = { source: string; id: string; version: string; name: Text; description: Text; permissions: Permissions; iconSvg?: string };
+export type Component = {
+  deviceId: number; id: string; name: string; group: string; installed: string; available: string;
+  updateAvailable: boolean; security: boolean; updatable: boolean; meta: Record<string, any>; updatedAt: number;
+};
+export type JobStatus = 'queued' | 'running' | 'success' | 'failed' | 'blocked' | 'cancelled';
+export type Job = {
+  id: number; type: string; deviceId: number | null; deviceName: string; title: string; params: any; status: JobStatus;
+  createdBy: string; createdAt: number; startedAt: number | null; finishedAt: number | null; log?: string; result: any;
+};
+export type VersionChange = { componentId: string; name: string; oldVersion: string; newVersion: string; at: number };
+export type Software = {
+  components: Component[]; facts: { facts: Record<string, any>; scannedAt: number; error: string };
+  history: VersionChange[]; jobs: Job[];
+};
