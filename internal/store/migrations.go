@@ -180,4 +180,23 @@ CREATE TABLE backups (
 );
 CREATE INDEX backups_device ON backups(device_id, at);
 `,
+	// 6: API tokens and actions waiting for a device to come online.
+	`
+CREATE TABLE api_tokens (
+	id         INTEGER PRIMARY KEY,
+	user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	name       TEXT NOT NULL,
+	token_hash TEXT NOT NULL UNIQUE,
+	created_at INTEGER NOT NULL,
+	last_used  INTEGER
+);
+
+CREATE TABLE pending_actions (
+	device_id INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	action    TEXT NOT NULL,
+	params    TEXT NOT NULL DEFAULT '{}',
+	since     INTEGER NOT NULL,
+	PRIMARY KEY (device_id, action)
+);
+`,
 }

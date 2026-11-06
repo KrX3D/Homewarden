@@ -20,10 +20,36 @@ import (
 
 // BackupSettings is the "backup" object of a device config.
 type BackupSettings struct {
-	TargetID     int64 `json:"targetId"`
-	BeforeUpdate bool  `json:"beforeUpdate"`
-	Keep         int   `json:"keep"`
+	TargetID     int64  `json:"targetId"`
+	BeforeUpdate bool   `json:"beforeUpdate"`
+	Keep         int    `json:"keep"`
+	Schedule     string `json:"schedule"` // cron, empty = no scheduled backups
 }
+
+// Policy is the "policy" object of a device config: how updates run.
+type Policy struct {
+	Mode     string `json:"mode"`     // manual | auto | scheduled
+	Schedule string `json:"schedule"` // cron, for scheduled
+	Scope    string `json:"scope"`    // security | all
+}
+
+// DevicePolicy reads a device's update policy.
+func DevicePolicy(d store.Device) Policy {
+	var c struct {
+		Policy Policy `json:"policy"`
+	}
+	_ = json.Unmarshal(d.Config, &c)
+	if c.Policy.Mode == "" {
+		c.Policy.Mode = "manual"
+	}
+	if c.Policy.Scope == "" {
+		c.Policy.Scope = "security"
+	}
+	return c.Policy
+}
+
+// DeviceBackup reads a device's backup settings.
+func DeviceBackup(d store.Device) BackupSettings { return extras(d).Backup }
 
 // Guard is one user-defined busy rule from the "guards" list of a device config.
 type Guard struct {

@@ -236,6 +236,10 @@ function BackupCard({ device }: { device: Device }) {
               <input id="bk-keep" type="number" min={1} max={100} value={bs.keep} onChange={(e) => setBs({ ...bs, keep: Number(e.target.value) })} />
             </label>
           </div>
+          <label className="field">{t('auto.backupSchedule')}
+            <input id="bk-schedule" type="text" className="mono" value={bs.schedule ?? ''} onChange={(e) => setBs({ ...bs, schedule: e.target.value })} placeholder="0 2 * * *" />
+            <span className="hint">{t('auto.cronHint')}</span>
+          </label>
           <label className="check"><input id="bk-before" type="checkbox" checked={bs.beforeUpdate} onChange={(e) => setBs({ ...bs, beforeUpdate: e.target.checked })} />{t('backups.beforeUpdate')}</label>
           {ok && <div className="alert ok">{t('conn.saved')}</div>}
           <div><button className="btn" type="submit" disabled={busy}>{t('common.save')}</button></div>

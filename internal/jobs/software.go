@@ -65,13 +65,68 @@ func (s *Software) integration(d store.Device) (*integrations.Integration, error
 	return in, nil
 }
 
+// ScanParams are the parameters of a scan job.
+type ScanParams struct {
+	// ThenUpdate starts an update after a successful scan: "security" or "all".
+	ThenUpdate string `json:"thenUpdate,omitempty"`
+}
+
 // EnqueueScan queues a scan unless one is already queued or running for the device.
 func (s *Software) EnqueueScan(ctx context.Context, d store.Device, by string) (store.Job, error) {
-	if last, err := s.St.LastJob(ctx, d.ID, "scan"); err == nil && (last.Status == store.JobQueued || last.Status == store.JobRunning) {
+	return s.EnqueueScanThen(ctx, d, by, "")
+}
+
+// EnqueueScanThen queues a scan that is followed by an update of the given scope.
+func (s *Software) EnqueueScanThen(ctx context.Context, d store.Device, by, thenUpdate string) (store.Job, error) {
+	if last, err := s.St.LastJob(ctx, d.ID, "scan"); err == nil && (last.Status == store.JobQueued || last.Status == store.JobRunning) && thenUpdate == "" {
 		return last, nil
 	}
 	id := d.ID
-	return s.Runner.Enqueue(ctx, store.Job{Type: "scan", DeviceID: &id, DeviceName: d.Name, Title: "Scan " + d.Name, CreatedBy: by})
+	b, _ := json.Marshal(ScanParams{ThenUpdate: thenUpdate})
+	return s.Runner.Enqueue(ctx, store.Job{Type: "scan", DeviceID: &id, DeviceName: d.Name, Title: "Scan " + d.Name, CreatedBy: by, Params: b})
+}
+
+// EnqueueUpdate queues an update of the given component ids.
+func (s *Software) EnqueueUpdate(ctx context.Context, d store.Device, by string, ids []string, force bool) (store.Job, error) {
+	b, _ := json.Marshal(UpdateParams{Components: ids, Force: force})
+	title := "Update " + d.Name
+	if len(ids) == 1 && ids[0] == "*" {
+		title += ": everything"
+	} else {
+		title += fmt.Sprintf(": %d components", len(ids))
+	}
+	id := d.ID
+	return s.Runner.Enqueue(ctx, store.Job{Type: "update", DeviceID: &id, DeviceName: d.Name, Title: title, Params: b, CreatedBy: by})
+}
+
+// policyUpdate starts the update a policy or a "scan then update" asked for.
+func (s *Software) policyUpdate(ctx context.Context, run *Run, d store.Device, scope string) {
+	comps, err := s.St.Components(ctx, d.ID)
+	if err != nil {
+		return
+	}
+	ids := []string{}
+	for _, c := range comps {
+		// "os" rows summarise everything (selecting one upgrades all packages), so a
+		// security-only run must pick the individual packages instead.
+		if !c.UpdateAvailable || !c.Updatable || c.Group == "action" || c.Group == "os" {
+			continue
+		}
+		if scope == "security" && !c.Security {
+			continue
+		}
+		ids = append(ids, c.ID)
+	}
+	if len(ids) == 0 {
+		run.Log("Update policy (%s): nothing to update.", scope)
+		return
+	}
+	if scope == "all" {
+		ids = []string{"*"}
+	}
+	if j, err := s.EnqueueUpdate(ctx, d, "policy", ids, false); err == nil {
+		run.Log("Update policy (%s): started job %d.", scope, j.ID)
+	}
 }
 
 func (s *Software) scan(ctx context.Context, run *Run) (string, any, error) {
@@ -90,6 +145,17 @@ func (s *Software) scan(ctx context.Context, run *Run) (string, any, error) {
 		_ = s.St.SetFacts(ctx, d.ID, nil, err.Error())
 		s.Events.Publish("device.software", map[string]int64{"id": d.ID})
 		return store.JobFailed, nil, err
+	}
+	var sp ScanParams
+	_ = run.Params(&sp)
+	scope := sp.ThenUpdate
+	if scope == "" && run.Job.CreatedBy != "policy" {
+		if p := DevicePolicy(d); p.Mode == "auto" {
+			scope = p.Scope
+		}
+	}
+	if scope != "" {
+		s.policyUpdate(ctx, run, d, scope)
 	}
 	if in.Has("discover") {
 		if n, err := s.discover(ctx, run, in, d); err != nil {

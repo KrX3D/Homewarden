@@ -42,6 +42,13 @@ func (b *Broker) Publish(typ string, data any) {
 	}
 }
 
+// Subscribe returns a channel of all events for in-process consumers (MQTT).
+// Call Unsubscribe when done.
+func (b *Broker) Subscribe() chan Event { return b.subscribe() }
+
+// Unsubscribe stops a channel from Subscribe.
+func (b *Broker) Unsubscribe(ch chan Event) { b.unsubscribe(ch) }
+
 func (b *Broker) subscribe() chan Event {
 	ch := make(chan Event, 64)
 	b.mu.Lock()
