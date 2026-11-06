@@ -128,7 +128,7 @@ export type Guard = { name: string; type: 'ssh' | 'http'; command?: string; url?
 
 export type Policy = { mode: 'manual' | 'auto' | 'scheduled'; schedule: string; scope: 'security' | 'all' };
 export type APIToken = { id: number; name: string; createdAt: number; lastUsed: number | null };
-export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: number; baseTopic: string };
+export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: number; baseTopic: string; haDiscovery?: boolean };
 
 export type AgentStatus = { enrolled: boolean; online: boolean; pendingEnrollment?: boolean;
   agent?: { hostname: string; os: string; arch: string; version: string; lastSeen: number | null } };

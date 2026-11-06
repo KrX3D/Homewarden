@@ -149,8 +149,10 @@ decision is made or changed, update it in the same PR.
 - v2 (done, PRs #11-#13): Unraid, Proxmox/LXC, PBS, schedules, API/MQTT triggers, agent.
 - v3 (done, PRs #14-#16): UniFi, Windows + DeployDeck, provisioning (restore onto a
   replacement, sudoers during onboarding).
-- Later: notifications (Discord, ntfy, Telegram, email, HA), Home Assistant via MQTT
-  discovery.
+- Done (PR #17): notifications, Home Assistant MQTT discovery.
+- Next: a PowerShell-scripts integration that runs the user's own update scripts
+  (Powershell-Update-and-Install-scripts) on PCs through the agent, so DeployDeck can be
+  retired; then confirm the 0.9.x beta integrations on real systems.
 
 ## Open questions
 
@@ -293,6 +295,13 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
 - API tokens (`hw_...`, Settings, API tokens) authenticate with
   `Authorization: Bearer`; such requests skip the CSRF header check.
   `POST /api/devices/{id}/trigger {action, scope}` is the simple external endpoint.
+- `internal/notify/` - channels (discord, ntfy, telegram, gotify, email, webhook; config
+  vault-encrypted) and the service that follows server events: new updates /
+  security updates (deduplicated in `notify_sent` per component+version), failed or
+  blocked jobs, fact warnings (sent once while present), offline after the device's
+  `config.notify.offlineMinutes` (+ "back online"). Messages in en/de (global setting).
+- Home Assistant: MQTT discovery (setting `haDiscovery`) publishes per device a
+  connectivity binary_sensor, an updates sensor and scan/update buttons.
 - `web/src/useEvents.ts` - ONE shared EventSource for the whole app. Never open more:
   each SSE stream holds one of the browser's six HTTP/1.1 connections per host, and the
   device page hung once that ran out.

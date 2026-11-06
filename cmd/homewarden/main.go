@@ -21,6 +21,7 @@ import (
 	"github.com/KrX3D/Homewarden/internal/events"
 	"github.com/KrX3D/Homewarden/internal/integrations"
 	"github.com/KrX3D/Homewarden/internal/jobs"
+	"github.com/KrX3D/Homewarden/internal/notify"
 	"github.com/KrX3D/Homewarden/internal/presence"
 	"github.com/KrX3D/Homewarden/internal/store"
 	"github.com/KrX3D/Homewarden/internal/vault"
@@ -94,6 +95,10 @@ func main() {
 	mq.Reload(ctx)
 	srv.SetBaseContext(ctx)
 	srv.AttachAutomation(auto, mq)
+
+	notifier := &notify.Service{St: st, Vault: v, Events: broker}
+	go notifier.Run(ctx)
+	srv.AttachNotify(notifier)
 
 	go engine.Run(ctx)
 

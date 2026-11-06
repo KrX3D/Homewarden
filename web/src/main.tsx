@@ -14,6 +14,7 @@ import './features/credentials';
 import './features/software';
 import './features/backups';
 import './features/automation';
+import './features/notifications';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(
