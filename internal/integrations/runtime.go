@@ -271,14 +271,18 @@ type httpOpts struct {
 }
 
 // allowedHost checks a URL host against the manifest permissions.
-func (c *call) allowedHost(host string) bool {
+func (c *call) allowedHost(host string) bool { return AllowedHost(c.in, c.dev, host) }
+
+// AllowedHost reports whether an integration may reach host for this device. The core
+// uses it too, e.g. before downloading a backup URL an integration returned.
+func AllowedHost(in *Integration, dev store.Device, host string) bool {
 	h := strings.ToLower(host)
-	if c.in.Permissions.HTTPDevice && strings.EqualFold(h, c.dev.Host) {
+	if in.Permissions.HTTPDevice && strings.EqualFold(h, dev.Host) {
 		return true
 	}
-	hosts := c.in.Permissions.HTTPHosts
-	if key := c.in.Permissions.HTTPHostsSetting; key != "" {
-		if v, ok := Settings(c.dev)[key].(string); ok {
+	hosts := in.Permissions.HTTPHosts
+	if key := in.Permissions.HTTPHostsSetting; key != "" {
+		if v, ok := Settings(dev)[key].(string); ok {
 			for _, h := range strings.Split(v, ",") {
 				if h = strings.TrimSpace(h); h != "" {
 					hosts = append(hosts, h)

@@ -154,4 +154,6 @@ func TestPermissionsAndLastAdmin(t *testing.T) {
 	}
 }
 
-func itoa(i int64) string { return json.Number(func() string { b, _ := json.Marshal(i); return string(b) }()).String() }
+func itoa(i int64) string {
+	return json.Number(func() string { b, _ := json.Marshal(i); return string(b) }()).String()
+}

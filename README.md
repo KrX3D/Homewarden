@@ -8,10 +8,13 @@ outside.
 It runs as a single Docker container and is set up entirely through its web interface.
 No playbooks or config files to write.
 
-> **Status: early development.** The image currently only serves a placeholder page.
-> The features below are the plan, not what works today.
+> **Status: first version.** Works today: devices with staged online detection, the
+> inbox, credentials and SSH onboarding, the integration catalog with Linux (apt),
+> Docker hosts and OctoPrint, updates with live logs, busy rules and backups to SMB or
+> a folder. Unraid, Proxmox, Proxmox Backup Server, UniFi, Windows, schedules,
+> MQTT/API triggers and notifications come next.
 
-## Planned features
+## Features
 
 - **Presence**: knows when devices that are only sometimes on (a 3D printer Pi, a backup
   server) come online and scans them once they are fully ready.

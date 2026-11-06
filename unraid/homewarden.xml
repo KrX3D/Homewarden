@@ -26,6 +26,8 @@
 
   <Config Name="Docker socket" Target="/var/run/docker.sock" Default="/var/run/docker.sock" Mode="rw" Description="Lets Homewarden see and update the containers on this Unraid server. Remove this row if you do not want that. Read-write is needed to update containers; read-only is enough to only see them." Type="Path" Display="always" Required="false" Mask="false">/var/run/docker.sock</Config>
 
+  <Config Name="Backups folder (optional)" Target="/backups" Default="/mnt/user/backups/homewarden" Mode="rw" Description="Optional. A folder for device backups (for example OctoPrint backups). Add it under Backups as a folder target with the path /backups. An SMB share works as well and needs no mapping." Type="Path" Display="always" Required="false" Mask="false"></Config>
+
   <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User id Homewarden runs as. 99 is Unraid's nobody. Set 0 to run as root (not needed for anything)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
 
   <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group id Homewarden runs as. 100 is Unraid's users." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>

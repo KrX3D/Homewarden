@@ -34,3 +34,5 @@ pre.log .add { background: var(--ok-soft); color: var(--ok); display: block; }
 pre.log .del { background: var(--crit-soft); color: var(--crit); display: block; }
 pre.howto { background: var(--accent-soft); border-radius: 8px; padding: 12px; margin: 0; font: 13px/1.6 var(--body); white-space: pre-wrap; overflow-wrap: anywhere; }
 details > summary { color: var(--accent); }
+
+.guard-row { border: 1px solid var(--line); border-radius: 8px; padding: 12px; gap: 10px; }
