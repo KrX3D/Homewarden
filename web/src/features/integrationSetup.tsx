@@ -1,6 +1,6 @@
 // Integration-wide setup: settings and an SSH connection shared by every device of
 // one integration. Devices only set what differs.
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { get, put, type Credential, type Integration, type IntegrationSetting, type Text } from '../api';
 import { useLang, useT, type Lang } from '../i18n';
@@ -153,6 +153,9 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
   const [creating, setCreating] = useState<null | { types: Credential['type'][]; apply: (c: Credential) => void; fromSetting?: boolean; tokenUserLabel?: string; defaultName?: string }>(null);
   const [saved, setSaved] = useState(false);
   const { busy, error, run } = useAction();
+  // The result line sits at the end of a long form: bring it into view.
+  const resultRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (saved || error) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [saved, error]);
   const ssh = integ.connection === 'ssh' || integ.permissions?.ssh;
 
   useEffect(() => { get<Credential[]>('/api/credentials').then(setCreds).catch(() => {}); }, []);
@@ -263,8 +266,10 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
             )}
           </div>
 
-          <ErrorAlert error={error} />
-          {saved && <div className="alert ok">{t('integSetup.saved')}</div>}
+          <div ref={resultRef} className="stack" style={{ gap: 8, scrollMarginBottom: 16 }}>
+            <ErrorAlert error={error} />
+            {saved && <div className="alert ok">{t('integSetup.saved')}</div>}
+          </div>
         </form>
       )}
       {creating && <CredentialModal cred={null} types={creating.types} fromSetting={creating.fromSetting} tokenUserLabel={creating.tokenUserLabel} defaultName={creating.defaultName} onClose={() => setCreating(null)} onSaved={(c) => {

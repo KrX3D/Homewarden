@@ -104,6 +104,15 @@ decision is made or changed, update it in the same PR.
   list, optional network scan) plus manual adding.
 - Discovered devices land in an inbox: Add (then configure) or Ignore. Ignored devices
   are hidden in a list and can be re-added later.
+- Home Assistant integration (REST, long-lived token, no SSH): components are HA's own
+  `update.*` entities (Core/Supervisor = app, OS = os, add-ons by entity_picture
+  `/api/hassio/addons/`, everything else plugin). Install via `update.install` (with
+  `backup: true` where supported_features has 8), then poll the entity because the
+  REST call returns early and Core/OS restart HA. Order: add-ons/others, Supervisor,
+  Core, OS. Busy: any entity in_progress or `sensor.backup_backup_manager_state` not idle.
+  Release notes: release_summary, GitHub release body when release_url is a GitHub tag.
+- Integrations page: installed ones are not listed under Available (uninstalling brings
+  them back); a newer catalog version shows as a pill + Update button on the installed card.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting

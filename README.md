@@ -9,7 +9,7 @@ It runs as a single Docker container and is set up entirely through its web inte
 No playbooks or config files to write.
 
 > **Status:** integrations for Linux (apt), Docker and OctoPrint are tested; Proxmox VE,
-> Proxmox Backup Server, Unraid, UniFi, Windows and DeployDeck are beta (version 0.9).
+> Proxmox Backup Server, Unraid, UniFi, Windows, DeployDeck and Home Assistant are beta (version 0.9).
 > Also included: an agent for hosts Homewarden cannot reach, schedules and update
 > policies, API tokens, MQTT with Home Assistant discovery, notifications, backups
 > with restore onto a replacement device.
@@ -31,7 +31,8 @@ No playbooks or config files to write.
 - **Set up once per integration**: one credential and shared settings for all devices
   of a kind; a device only sets what differs.
 - **Integrations** installable from a catalog (GitHub or your own Gitea): Linux/apt,
-  Docker, OctoPrint first, then Unraid, Proxmox, Proxmox Backup Server, UniFi and Windows.
+  Docker, OctoPrint first, then Unraid, Proxmox, Proxmox Backup Server, UniFi, Windows and
+  Home Assistant (Core, OS, Supervisor, add-ons, HACS).
 - Users with roles, optional 2FA, SSO via OIDC later. Light and dark mode.
 
 ## Running
@@ -78,6 +79,7 @@ card.
 | Homewarden → Proxmox VE / PBS | TCP 8006 / 8007 | Proxmox APIs |
 | Homewarden → UniFi console | TCP 443 (8443 self-hosted) | UniFi API |
 | Homewarden → DeployDeck | TCP 8080 | DeployDeck API |
+| Homewarden → Home Assistant | TCP 8123 | Home Assistant API |
 | Homewarden → remote Docker host | TCP 2375 | Docker socket proxy (the local socket needs no port) |
 | Homewarden → NAS | TCP 445 | SMB backup target |
 | Homewarden → MQTT broker | TCP 1883 | MQTT, Home Assistant discovery |

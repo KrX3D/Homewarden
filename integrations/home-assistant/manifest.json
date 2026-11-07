@@ -1,0 +1,150 @@
+{
+  "id": "home-assistant",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": {
+    "en": "Home Assistant",
+    "de": "Home Assistant"
+  },
+  "description": {
+    "en": "Beta. Every update Home Assistant knows about, individually: Core, Operating System, Supervisor, each add-on, HACS and device firmware. Installed through Home Assistant itself, optionally with its own backup first. Updates wait while Home Assistant installs something or runs a backup.",
+    "de": "Beta. Jedes Update, das Home Assistant kennt, einzeln: Core, Betriebssystem, Supervisor, jedes Add-on, HACS und Geräte-Firmware. Installiert über Home Assistant selbst, optional vorher mit dessen eigenem Backup. Updates warten, solange Home Assistant etwas installiert oder ein Backup läuft."
+  },
+  "howto": {
+    "en": "Access token:\n1. In Home Assistant click your user name at the bottom of the sidebar, then the Security tab.\n2. Under Long-lived access tokens click Create token, name it Homewarden and copy it. It is shown only once.\n3. In Homewarden: Integrations, Home Assistant, Set up. Under Access token click New credential, paste the token and save.\n\nThe Home Assistant device:\n1. Add Home Assistant (e.g. the VM's address) as a device and pick Home Assistant in its Integration card.\n2. Leave Connection empty: no SSH is needed.\n3. Suggested online detection: ping, ready when TCP 8123 answers.\n\nGood to know:\n- Home Assistant OS shows Core, OS, Supervisor and add-ons. A plain Docker install has none of those; update its container with the Docker integration instead.\n- Updates run in this order: add-ons and others, Supervisor, Core, OS last, because Core and OS restart Home Assistant.\n- Skipped versions in Home Assistant are not offered.",
+    "de": "Zugriffstoken:\n1. In Home Assistant unten in der Seitenleiste auf deinen Benutzernamen klicken, dann den Reiter Sicherheit.\n2. Unter Langlebige Zugangstoken auf Token erstellen klicken, Homewarden als Namen eingeben und das Token kopieren. Es wird nur einmal angezeigt.\n3. In Homewarden: Integrationen, Home Assistant, Einrichten. Unter Zugriffstoken auf Neue Zugangsdaten klicken, Token einfügen und speichern.\n\nDas Home-Assistant-Gerät:\n1. Home Assistant (z. B. die Adresse der VM) als Gerät hinzufügen und in seiner Integrations-Karte Home Assistant wählen.\n2. Verbindung leer lassen: SSH wird nicht gebraucht.\n3. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 8123 antwortet.\n\nGut zu wissen:\n- Home Assistant OS zeigt Core, Betriebssystem, Supervisor und Add-ons. Eine reine Docker-Installation hat nichts davon; deren Container aktualisiert die Docker-Integration.\n- Updates laufen in dieser Reihenfolge: Add-ons und Sonstiges, Supervisor, Core, zuletzt das Betriebssystem, weil Core und Betriebssystem Home Assistant neu starten.\n- In Home Assistant übersprungene Versionen werden nicht angeboten."
+  },
+  "connection": "http",
+  "permissions": {
+    "ssh": false,
+    "docker": false,
+    "httpDevice": true,
+    "httpHosts": [
+      "api.github.com"
+    ]
+  },
+  "settings": [
+    {
+      "key": "token",
+      "type": "credential",
+      "credentialTypes": [
+        "token"
+      ],
+      "required": true,
+      "label": {
+        "en": "Access token",
+        "de": "Zugriffstoken"
+      },
+      "help": {
+        "en": "Home Assistant: your profile (user name at the bottom of the sidebar), Security, Long-lived access tokens, Create token.",
+        "de": "Home Assistant: dein Profil (Benutzername unten in der Seitenleiste), Sicherheit, Langlebige Zugangstoken, Token erstellen."
+      }
+    },
+    {
+      "key": "port",
+      "type": "number",
+      "default": 8123,
+      "label": {
+        "en": "Port",
+        "de": "Port"
+      }
+    },
+    {
+      "key": "https",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Use HTTPS",
+        "de": "HTTPS verwenden"
+      }
+    },
+    {
+      "key": "insecure",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Accept self-signed HTTPS certificates",
+        "de": "Selbstsignierte HTTPS-Zertifikate akzeptieren"
+      }
+    },
+    {
+      "key": "backupBeforeUpdate",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Let Home Assistant create a backup before each update",
+        "de": "Home Assistant vor jedem Update ein Backup erstellen lassen"
+      },
+      "help": {
+        "en": "Uses Home Assistant's own backup, where the update supports it (Core and add-ons). The backup stays in Home Assistant.",
+        "de": "Nutzt das eigene Backup von Home Assistant, wo das Update es unterstützt (Core und Add-ons). Das Backup bleibt in Home Assistant."
+      }
+    },
+    {
+      "key": "url",
+      "type": "string",
+      "default": "",
+      "placeholder": "http://192.168.90.50:8123",
+      "label": {
+        "en": "Home Assistant address",
+        "de": "Home-Assistant-Adresse"
+      },
+      "help": {
+        "en": "Empty = the device address with the port above. Must point at the device itself.",
+        "de": "Leer = die Geräteadresse mit dem Port oben. Muss auf das Gerät selbst zeigen."
+      },
+      "scope": "device"
+    }
+  ],
+  "presence": {
+    "reach": {
+      "method": "ping"
+    },
+    "ready": {
+      "method": "tcp",
+      "port": 8123
+    },
+    "settleSeconds": 60,
+    "intervalSeconds": 30
+  },
+  "capabilities": [
+    "detect",
+    "update",
+    "busy",
+    "changelog"
+  ],
+  "entry": "main.js",
+  "files": [
+    "main.js"
+  ],
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "icmp",
+      "port": "",
+      "note": {
+        "en": "online check (ping)",
+        "de": "Online-Prüfung (Ping)"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "8123",
+      "note": {
+        "en": "Home Assistant API",
+        "de": "Home-Assistant-API"
+      }
+    },
+    {
+      "target": "internet",
+      "proto": "tcp",
+      "port": "443",
+      "note": {
+        "en": "release notes from GitHub",
+        "de": "Release Notes von GitHub"
+      }
+    }
+  ]
+}
