@@ -514,6 +514,15 @@ function IntegrationsPage() {
   const byId = new Map<string, CatalogEntry[]>();
   for (const e of catalog?.entries ?? []) byId.set(e.id, [...(byId.get(e.id) ?? []), e]);
   const srcLabel = (s: string) => (s === 'builtin' ? t('market.builtin') : s.replace(/^https?:\/\//, '').split('/')[0]);
+  // One offer per integration: the newest version wins; on a tie the built-in copy,
+  // since it needs no network.
+  const bestOf = (offers: CatalogEntry[]) => [...offers].sort((a, b) => cmpVersion(b.version, a.version) || (a.source === 'builtin' ? -1 : b.source === 'builtin' ? 1 : 0))[0];
+  const available = [...byId.entries()].filter(([id]) => !installed.some((i) => i.id === id));
+  const newerOf = (i: Integration) => {
+    const offers = byId.get(i.id);
+    const best = offers && bestOf(offers);
+    return best && cmpVersion(best.version, i.version) > 0 ? best : null;
+  };
 
   return (
     <>
@@ -531,10 +540,12 @@ function IntegrationsPage() {
                   <IntegrationIcon svg={i.iconSvg} />
                   <h3 className="grow">{tx(i.name, lang)}</h3>
                   <span className="chip">{i.version}</span>
+                  {newerOf(i) && <span className="pill warn" title={srcLabel(newerOf(i)!.source)}>{t('market.newVersion', { v: newerOf(i)!.version })}</span>}
                 </div>
                 <p className="small muted">{tx(i.description, lang)}</p>
                 <div className="row small muted">{t('market.from', { source: srcLabel(i.source) })}
                   <span style={{ flex: 1 }} />
+                  {newerOf(i) && <button className="btn sm" type="button" onClick={() => setReview(newerOf(i)!)}>{t('market.updateTo', { v: newerOf(i)!.version })}</button>}
                   <button className="btn sm" type="button" onClick={() => setSetupId(i.id)}>{t('integSetup.open')}</button>
                   <ConfirmButton label={t('market.uninstall')} onConfirm={() => run(async () => { await del(`/api/integrations/${i.id}`); })} />
                 </div>
@@ -548,29 +559,24 @@ function IntegrationsPage() {
         <h2>{t('market.available')}</h2>
         {!catalog ? <Spinner /> : (
           <div className="grid-2">
-            {[...byId.entries()].map(([id, offers]) => {
-              const inst = installed.find((i) => i.id === id);
+            {available.map(([id, offers]) => {
               const first = offers[0];
               return (
                 <div className="card" key={id}>
                   <div className="card-head">
                     <IntegrationIcon svg={first.iconSvg} />
                     <h3 className="grow">{tx(first.name, lang)}</h3>
-                    {inst && <span className="pill ok">{t('market.isInstalled')}</span>}
                   </div>
                   <p className="small muted">{tx(first.description, lang)}</p>
                   {(() => {
-                    // One row per integration: the newest version wins; on a tie the
-                    // built-in copy, since it needs no network.
-                    const best = [...offers].sort((a, b) => cmpVersion(b.version, a.version) || (a.source === 'builtin' ? -1 : b.source === 'builtin' ? 1 : 0))[0];
+                    const best = bestOf(offers);
                     const also = offers.filter((o) => o !== best && o.version === best.version).map((o) => srcLabel(o.source));
-                    const newer = inst && cmpVersion(best.version, inst.version) > 0;
                     return (
                       <div className="row small">
                         <span className="chip">{best.version}</span>
                         <span className="muted">{srcLabel(best.source)}{also.length > 0 && ' · ' + t('market.alsoIn', { list: also.join(', ') })}</span>
                         <span style={{ flex: 1 }} />
-                        {(!inst || newer) && <button className="btn sm" type="button" onClick={() => setReview(best)}>{inst ? t('market.updateTo', { v: best.version }) : t('market.install')}</button>}
+                        <button className="btn sm" type="button" onClick={() => setReview(best)}>{t('market.install')}</button>
                       </div>
                     );
                   })()}
@@ -579,11 +585,12 @@ function IntegrationsPage() {
             })}
           </div>
         )}
+        {catalog && available.length === 0 && <p className="small muted">{t('market.allInstalled')}</p>}
         {catalog?.errors.map((e) => <div key={e.source} className="alert warn small">{t('market.sourceError', { source: e.source })} <span className="mono">{e.error}</span></div>)}
       </section>
 
       <SourcesCard sources={sources} onSaved={(s) => { setSources(s); loadCatalog(); }} />
-      {review && <ReviewModal entry={review} onClose={() => setReview(null)} onInstalled={() => { setSetupId(review.id); setReview(null); loadCatalog(); }} />}
+      {review && <ReviewModal entry={review} onClose={() => setReview(null)} onInstalled={() => { if (!installed.some((i) => i.id === review.id)) setSetupId(review.id); setReview(null); loadCatalog(); }} />}
       {setupInteg && <IntegrationSetupModal integ={setupInteg} onClose={() => setSetupId(null)} />}
     </>
   );

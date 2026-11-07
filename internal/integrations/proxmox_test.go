@@ -44,7 +44,7 @@ func runDetect(t *testing.T, id string, srv *httptest.Server, settings map[strin
 }
 
 // runFn installs the built-in integration and calls fn against srv.
-func runFn(t *testing.T, id string, srv *httptest.Server, settings map[string]any, fn string) (json.RawMessage, error) {
+func runFn(t *testing.T, id string, srv *httptest.Server, settings map[string]any, fn string, arg ...any) (json.RawMessage, error) {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(filepath.Join(dir, "t.db"))
@@ -61,6 +61,7 @@ func runFn(t *testing.T, id string, srv *httptest.Server, settings map[string]an
 	u, _ := url.Parse(srv.URL)
 	settings["apiToken"] = cred.ID
 	settings["apiKey"] = cred.ID
+	settings["token"] = cred.ID
 	settings["port"] = u.Port()
 	cfg, _ := json.Marshal(map[string]any{"settings": settings})
 	r := NewRegistry(dir, st, builtin.FS)
@@ -69,7 +70,7 @@ func runFn(t *testing.T, id string, srv *httptest.Server, settings map[string]an
 		t.Fatal(err)
 	}
 	h := &Host{St: st, Vault: v}
-	return h.Call(context.Background(), in, store.Device{ID: 1, Name: "x", Host: u.Hostname(), Config: cfg}, fn, nil, func(l string) { t.Log(l) })
+	return h.Call(context.Background(), in, store.Device{ID: 1, Name: "x", Host: u.Hostname(), Config: cfg}, fn, firstArg(arg), func(l string) { t.Log(l) })
 }
 
 func TestProxmoxDetect(t *testing.T) {
@@ -249,4 +250,11 @@ func TestDeployDeckDetect(t *testing.T) {
 	if len(res.Components) != 2 || res.Components[0]["id"] != "prog:3" || res.Components[1]["id"] != "pc:LAPTOP:9" {
 		t.Fatalf("want share update + LAPTOP behind, got %v", res.Components)
 	}
+}
+
+func firstArg(a []any) any {
+	if len(a) == 0 {
+		return nil
+	}
+	return a[0]
 }

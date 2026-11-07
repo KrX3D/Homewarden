@@ -395,7 +395,6 @@
  "market.builtin": "Eingebaut",
  "market.from": "Von {source}",
  "market.uninstall": "Deinstallieren",
- "market.isInstalled": "Installiert",
  "market.install": "Installieren",
  "market.update": "Aktualisieren",
  "market.updateTo": "Auf {v} aktualisieren",
@@ -771,5 +770,7 @@
  "netinfo.network": "Netzwerk",
  "netinfo.connected": "Verbunden seit",
  "netinfo.alias": "Name in UniFi",
- "netinfo.from": "Von {source} auf"
+ "netinfo.from": "Von {source} auf",
+ "market.newVersion": "{v} verfügbar",
+ "market.allInstalled": "Alles aus dem Katalog ist installiert."
 }
