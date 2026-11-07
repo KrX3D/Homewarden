@@ -17,9 +17,22 @@ function pve(ctx, method, path, body) {
     insecure: !!setting(ctx, 'insecure', true), timeout: 60
   });
   if (r.status === 401) throw new Error('Proxmox refused the API token. Username must be the full token id, e.g. root@pam!homewarden.');
-  if (r.status === 403) throw new Error('The API token lacks a permission for ' + path + '.');
+  if (r.status === 403) throw new Error(missingPrivilege(path));
   if (r.status >= 400) throw new Error('Proxmox ' + method + ' ' + path + ': HTTP ' + r.status + ' ' + (r.body || '').slice(0, 200));
   return r.json ? r.json.data : null;
+}
+
+// Privileges the token needs (with Privilege Separation on): Sys.Audit (node status,
+// tasks, disks), Sys.Modify (list and refresh package updates), VM.Audit (LXC/VM list),
+// Datastore.Audit (storage), VM.Snapshot (snapshots before LXC updates).
+var PRIVILEGES = 'Sys.Audit, Sys.Modify, VM.Audit, Datastore.Audit, VM.Snapshot';
+
+function missingPrivilege(path) {
+  var p = /\/apt\//.test(path) ? 'Sys.Modify' : /\/snapshot/.test(path) ? 'VM.Snapshot'
+    : /\/(lxc|qemu)/.test(path) ? 'VM.Audit' : /\/storage/.test(path) ? 'Datastore.Audit' : 'Sys.Audit';
+  return 'The API token lacks the privilege ' + p + ' (for ' + path + '). In Proxmox either edit the token ' +
+    '(Datacenter, Permissions, API Tokens) and untick Privilege Separation, or give the token a role with ' +
+    PRIVILEGES + ' on path / (Datacenter, Permissions, Add, API Token Permission). The built-in PVEAuditor role is not enough: it lacks Sys.Modify.';
 }
 
 function node(ctx) {

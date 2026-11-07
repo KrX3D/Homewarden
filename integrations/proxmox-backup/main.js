@@ -15,7 +15,7 @@ function pbs(ctx, method, path) {
     insecure: !!setting(ctx, 'insecure', true), timeout: 60
   });
   if (r.status === 401) throw new Error('PBS refused the API token. Username must be the token id, e.g. root@pam!homewarden.');
-  if (r.status === 403) throw new Error('The API token lacks a permission for ' + path + '.');
+  if (r.status === 403) throw new Error('The API token lacks a permission for ' + path + '. In PBS give the token the role Audit on path / (Configuration, Access Control, Permissions, Add, API Token Permission).');
   if (r.status >= 400) throw new Error('PBS ' + method + ' ' + path + ': HTTP ' + r.status);
   return r.json ? r.json.data : null;
 }

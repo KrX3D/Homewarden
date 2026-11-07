@@ -807,5 +807,11 @@
  "jobType.update": "Update",
  "jobType.backup": "Backup",
  "jobType.restore": "Wiederherstellung",
- "jobs.when": "Wann"
+ "jobs.when": "Wann",
+ "mon.suggestTitle": "Vorschläge aus deinen Geräten",
+ "mon.suggestIntro": "Geräte ohne Monitor. Weboberflächen bekommen eine HTTP-Prüfung mit Zertifikatsablauf, andere ihren Port oder Ping. Gerade ausgeschaltete Geräte sind nicht vorausgewählt, damit z. B. ein Drucker, der nur manchmal an ist, nicht gleich als ausgefallen startet.",
+ "mon.suggestOffline": "gerade offline",
+ "mon.suggestAdd": "Ausgewählte hinzufügen ({n})",
+ "mon.suggestHide": "Ausblenden",
+ "mon.suggestHideAll": "Alle ausblenden"
 }

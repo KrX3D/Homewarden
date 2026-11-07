@@ -141,6 +141,7 @@ function TargetModal({ target, onClose, onSaved }: { target: BackupTarget | null
       <>
         {target && <ConfirmButton label={t('common.delete')} onConfirm={() => run(async () => { await del(`/api/backup-targets/${target.id}`); onSaved(); })} />}
         <span style={{ flex: 1 }} />
+        <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
         <button className="btn ghost" type="button" disabled={busy} onClick={() => run(async () => { setTested(false); await post('/api/backup-targets/test', body()); setTested(true); })}>{t('backups.test')}</button>
         <button className="btn" type="submit" form="target-form" disabled={busy}>{t('common.save')}</button>
       </>

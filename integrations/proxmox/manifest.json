@@ -1,6 +1,6 @@
 {
   "id": "proxmox",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "minCore": "0.1.0",
   "name": {
     "en": "Proxmox VE",
@@ -11,8 +11,8 @@
     "de": "Beta. Proxmox-VE-Host: Paketupdates per API gelesen, per SSH installiert; Container (LXC) und VMs erscheinen im Posteingang; Debian-basierte LXCs können vom Host aus aktualisiert werden, optional nach einem Snapshot. Updates warten, solange ein Backup (vzdump) läuft."
   },
   "howto": {
-    "en": "1. In Proxmox: Datacenter, Permissions, API Tokens, Add. User root@pam, Token ID homewarden, untick Privilege Separation (or give the token PVEAuditor plus VM.Snapshot on / for snapshots).\n2. In Homewarden: Settings, Credentials, API token. Username = the full token id, e.g. root@pam!homewarden. Token = the secret shown once in Proxmox.\n3. Pick it under API token in the integration setup (Integrations, Set up). Node is set per device; leave it empty for a single-node setup.\n4. For updates (host and LXCs): set up the Connection card with SSH as root (Install key with the root password once). Turn on Use sudo only if you log in as a normal user with sudo rights.\n5. Suggested online detection: ping, ready when TCP 8006 answers.",
-    "de": "1. In Proxmox: Datacenter, Permissions, API Tokens, Add. Benutzer root@pam, Token-ID homewarden, Privilege Separation abwählen (oder dem Token PVEAuditor plus VM.Snapshot auf / für Snapshots geben).\n2. In Homewarden: Einstellungen, Zugangsdaten, API-Token. Benutzername = die volle Token-ID, z. B. root@pam!homewarden. Token = das Geheimnis, das Proxmox einmal anzeigt.\n3. In der Integrations-Einrichtung (Integrationen, Einrichten) unter API-Token auswählen. Der Knoten wird pro Gerät gesetzt; bei einem einzelnen Server leer lassen.\n4. Für Updates (Host und LXCs): Karte Verbindung mit SSH als root einrichten (einmal Schlüssel installieren mit dem root-Passwort). sudo nur einschalten, wenn du dich als normaler Benutzer mit sudo-Rechten anmeldest.\n5. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 8006 antwortet."
+    "en": "API token:\n1. In Proxmox: Datacenter, Permissions, API Tokens, Add.\n2. User root@pam, Token ID homewarden. Untick Privilege Separation: the token then has the rights of root@pam. Click Add and copy the secret, it is shown only once.\n3. In Homewarden: Integrations, Proxmox VE, Set up. Under API token click New credential: Token ID = root@pam!homewarden, Token = the secret.\n\nLeast privilege instead (Privilege Separation stays ticked):\n1. Datacenter, Permissions, Roles, Create: name Homewarden with Sys.Audit, Sys.Modify, VM.Audit, Datastore.Audit and VM.Snapshot.\n2. Datacenter, Permissions, Add, API Token Permission: path /, the token, role Homewarden, Propagate on.\n- PVEAuditor alone is not enough: listing package updates needs Sys.Modify.\n\nThe Proxmox device:\n1. Pick Proxmox VE in its Integration card. Node is set per device; leave it empty for a single-node setup.\n2. For updates (host and LXCs): set up the Connection card with SSH as root (Install key with the root password once). Turn on Use sudo only if you log in as a normal user with sudo rights.\n3. Suggested online detection: ping, ready when TCP 8006 answers.",
+    "de": "API-Token:\n1. In Proxmox: Datacenter, Permissions, API Tokens, Add.\n2. Benutzer root@pam, Token-ID homewarden. Privilege Separation abwählen: Das Token hat dann die Rechte von root@pam. Add klicken und das Geheimnis kopieren, es wird nur einmal angezeigt.\n3. In Homewarden: Integrationen, Proxmox VE, Einrichten. Unter API-Token auf Neue Zugangsdaten klicken: Token-ID = root@pam!homewarden, Token = das Geheimnis.\n\nStattdessen mit minimalen Rechten (Privilege Separation bleibt an):\n1. Datacenter, Permissions, Roles, Create: Name Homewarden mit Sys.Audit, Sys.Modify, VM.Audit, Datastore.Audit und VM.Snapshot.\n2. Datacenter, Permissions, Add, API Token Permission: Pfad /, das Token, Rolle Homewarden, Propagate an.\n- PVEAuditor allein reicht nicht: Paketupdates auflisten braucht Sys.Modify.\n\nDas Proxmox-Gerät:\n1. In seiner Integrations-Karte Proxmox VE wählen. Der Knoten wird pro Gerät gesetzt; bei einem einzelnen Server leer lassen.\n2. Für Updates (Host und LXCs): Karte Verbindung mit SSH als root einrichten (einmal Schlüssel installieren mit dem root-Passwort). sudo nur einschalten, wenn du dich als normaler Benutzer mit sudo-Rechten anmeldest.\n3. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 8006 antwortet."
   },
   "connection": "http",
   "permissions": {
@@ -34,8 +34,8 @@
         "de": "API-Token"
       },
       "help": {
-        "en": "Token ID and the secret shown once when the token was created.",
-        "de": "Token-ID und das Geheimnis, das beim Anlegen des Tokens einmal angezeigt wird."
+        "en": "Token ID and secret. Untick Privilege Separation, or give the token a role with Sys.Audit, Sys.Modify, VM.Audit, Datastore.Audit, VM.Snapshot.",
+        "de": "Token-ID und Geheimnis. Privilege Separation abwählen oder dem Token eine Rolle mit Sys.Audit, Sys.Modify, VM.Audit, Datastore.Audit, VM.Snapshot geben."
       },
       "credentialUsername": {
         "en": "Token ID (e.g. root@pam!homewarden)",

@@ -94,6 +94,7 @@ function ChannelModal({ channel, events, onClose, onSaved }: { channel: Channel 
       <>
         {channel && <ConfirmButton label={t('common.delete')} onConfirm={() => run(async () => { await del(`/api/notify/channels/${channel.id}`); onSaved(); })} />}
         <span style={{ flex: 1 }} />
+        <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
         <button className="btn ghost" type="button" disabled={busy} onClick={() => run(async () => { setTested(false); await post('/api/notify/test', { ...body(), id: channel?.id ?? 0 }); setTested(true); })}>{t('notify.test')}</button>
         <button className="btn" type="submit" form="channel-form" disabled={busy}>{t('common.save')}</button>
       </>

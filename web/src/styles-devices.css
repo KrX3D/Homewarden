@@ -1,7 +1,9 @@
 /* ---- devices */
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .device-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
-.device-card { all: unset; box-sizing: border-box; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+.device-card { all: unset; box-sizing: border-box; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
+.device-card .card-name { min-width: 0; overflow-wrap: anywhere; }
+.device-card .pill { flex-shrink: 0; }
 .device-card:hover { border-color: var(--accent); }
 .device-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .tree { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }

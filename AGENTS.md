@@ -118,6 +118,9 @@ decision is made or changed, update it in the same PR.
   log line, history grouped by day, filters (status, kind, device, search), paging with
   `GET /api/jobs?before=<id>&limit=`. A failed job stores `result.error` (runner), shown
   in the list. Script errors lose the JS "Error: "/"GoError: " prefix (`scriptErr`).
+- Proxmox token privileges (Privilege Separation on): Sys.Audit, Sys.Modify (GET
+  apt/update needs it; PVEAuditor is not enough), VM.Audit, Datastore.Audit, VM.Snapshot.
+  A 403 names the missing one and both ways to fix it (`missingPrivilege` in main.js).
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting
@@ -189,6 +192,11 @@ decision is made or changed, update it in the same PR.
   `assets/mark.svg` is the line mark (currentColor), `assets/icon.svg`/`icon.png` the
   app icon (white mark on accent #2f56c9, rounded square). Unraid template points at
   the raw `assets/icon.png` on main.
+- Every `Modal` has a close X in its title bar; edit dialogs also have Cancel.
+- Monitors page suggests one monitor per active device without one (frontend only,
+  `suggestFor` in monitors.tsx): known web UIs (HA, OctoPrint, Proxmox, PBS, UniFi,
+  DeployDeck) get HTTP, else the device's tcp ready port, else ping. Online devices are
+  preselected; hidden suggestions are a per-browser convenience in localStorage.
 - `Modal`: fixed title, own-scrolling body (`min-width: 0`, so wide `pre`/tables stay
   inside), footer always visible. `wide` for scripts, changelogs, scan results.
 

@@ -807,5 +807,11 @@
  "jobType.update": "Update",
  "jobType.backup": "Backup",
  "jobType.restore": "Restore",
- "jobs.when": "When"
+ "jobs.when": "When",
+ "mon.suggestTitle": "Suggested from your devices",
+ "mon.suggestIntro": "Devices without a monitor. Web interfaces get an HTTP check with certificate expiry, others their port or ping. Devices that are off right now are not preselected, so a printer that is only sometimes on does not start as down.",
+ "mon.suggestOffline": "offline now",
+ "mon.suggestAdd": "Add selected ({n})",
+ "mon.suggestHide": "Hide",
+ "mon.suggestHideAll": "Hide all"
 }
