@@ -57,6 +57,33 @@ optional and only needed to see and update containers on that host.
 Homewarden is meant for the local network only. Put it behind your reverse proxy, but
 do not expose it to the internet.
 
+## Network and firewall
+
+Homewarden connects **out** to your devices. Only the web port has to be reachable
+**in**. When devices live in other VLANs, allow the Homewarden address to reach them on
+the ports below. With Unraid's default bridge networking that address is the Unraid
+server's IP; with `br0` or a custom network it is the container's own IP. The same
+lists are shown in the app under Settings, Network, and in each device's Integration
+card.
+
+| From → to | Port | What for |
+|---|---|---|
+| Browser, agents, push scripts → Homewarden | TCP 8080 (or 443 via your reverse proxy) | web interface, agent connections, push monitors |
+| Homewarden → devices | ICMP | online detection, network scan |
+| Homewarden → devices | the TCP port you set as a device's online check | online detection |
+| Homewarden → devices | TCP 22 | SSH: Linux (apt), Unraid, Proxmox updates, OctoPi packages, PBS packages |
+| Homewarden → OctoPrint | TCP 80 (443 with HTTPS) | OctoPrint API |
+| Homewarden → Proxmox VE / PBS | TCP 8006 / 8007 | Proxmox APIs |
+| Homewarden → UniFi console | TCP 443 (8443 self-hosted) | UniFi API |
+| Homewarden → DeployDeck | TCP 8080 | DeployDeck API |
+| Homewarden → remote Docker host | TCP 2375 | Docker socket proxy (the local socket needs no port) |
+| Homewarden → NAS | TCP 445 | SMB backup target |
+| Homewarden → MQTT broker | TCP 1883 | MQTT, Home Assistant discovery |
+| Homewarden → internet | TCP 443 | image registries, integration catalog, notifications, SSO provider, release notes |
+| Windows PC → share | TCP 445 | the PC runs your update scripts from the share |
+
+The agent needs nothing open on the device: it connects to Homewarden.
+
 ## License
 
 [MIT](LICENSE)

@@ -34,6 +34,15 @@ type Setting struct {
 	Placeholder     string   `json:"placeholder,omitempty"`
 }
 
+// Port is one network requirement. Target: device (Homewarden reaches the device),
+// internet (Homewarden reaches the internet), homewarden (the device reaches Homewarden).
+type Port struct {
+	Target string `json:"target"`
+	Proto  string `json:"proto"`
+	Port   string `json:"port"`
+	Note   Text   `json:"note"`
+}
+
 // Permissions is what the sandbox lets the script do. Shown before installing.
 type Permissions struct {
 	SSH        bool     `json:"ssh"`
@@ -61,6 +70,9 @@ type Manifest struct {
 	Entry        string                `json:"entry"`
 	Files        []string              `json:"files"`
 	Icon         string                `json:"icon,omitempty"`
+	// Ports lists the network access the integration needs, shown in the GUI so
+	// firewall/VLAN rules can be set up.
+	Ports []Port `json:"ports,omitempty"`
 	// Sudoers is the rule Install key can add for updates ($USER is replaced by the
 	// login). Lets a fresh device be set up from the GUI without a terminal.
 	Sudoers string `json:"sudoers,omitempty"`

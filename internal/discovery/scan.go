@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -149,11 +150,17 @@ func (s *Scanner) scan(ctx context.Context, hosts []netip.Addr) Result {
 				return
 			}
 			name := ip
-			rctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-			if names, err := net.DefaultResolver.LookupAddr(rctx, ip); err == nil && len(names) > 0 {
-				name = strings.TrimSuffix(names[0], ".")
+			if ownIP(ip) {
+				name = "Homewarden (this container)"
+			} else {
+				rctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+				if names, err := net.DefaultResolver.LookupAddr(rctx, ip); err == nil && len(names) > 0 {
+					if n := strings.TrimSuffix(names[0], "."); !LooksGenerated(n) {
+						name = n
+					}
+				}
+				cancel()
 			}
-			cancel()
 			d := store.Device{
 				Name: name, Host: ip, MAC: arpMAC(ip), Status: store.StatusDiscovered, Source: "scan", ExternalID: ip,
 				Presence: store.PresenceConfig{Reach: store.ProbeConfig{Method: "ping"}, SettleSeconds: 60, IntervalSeconds: 30},
@@ -184,4 +191,27 @@ func arpMAC(ip string) string {
 		}
 	}
 	return ""
+}
+
+var containerID = regexp.MustCompile(`^[0-9a-f]{12}(\.|$)`)
+
+// LooksGenerated reports names nobody chose: a container id (Docker answers reverse
+// lookups with it) or a bare IP address. Such names may be replaced by better ones, e.g.
+// a UniFi alias.
+func LooksGenerated(name string) bool {
+	return name == "" || containerID.MatchString(name) || net.ParseIP(name) != nil
+}
+
+// ownIP reports whether ip belongs to this container.
+func ownIP(ip string) bool {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok && n.IP.String() == ip {
+			return true
+		}
+	}
+	return false
 }

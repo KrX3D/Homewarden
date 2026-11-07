@@ -1,6 +1,6 @@
 {
   "id": "proxmox",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "minCore": "0.1.0",
   "name": {
     "en": "Proxmox VE",
@@ -128,5 +128,34 @@
   "files": [
     "main.js"
   ],
-  "icon": "icon.svg"
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "icmp",
+      "port": "",
+      "note": {
+        "en": "online check (ping)",
+        "de": "Online-Prüfung (Ping)"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "8006",
+      "note": {
+        "en": "Proxmox API",
+        "de": "Proxmox-API"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "22",
+      "note": {
+        "en": "SSH: installing updates on the host and in LXCs",
+        "de": "SSH: Updates auf dem Host und in LXCs installieren"
+      }
+    }
+  ]
 }

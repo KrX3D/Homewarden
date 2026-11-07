@@ -1,6 +1,6 @@
 {
   "id": "unraid",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "minCore": "0.1.0",
   "name": {
     "en": "Unraid",
@@ -70,5 +70,25 @@
   "files": [
     "main.js"
   ],
-  "icon": "icon.svg"
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "icmp",
+      "port": "",
+      "note": {
+        "en": "online check (ping)",
+        "de": "Online-Prüfung (Ping)"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "22",
+      "note": {
+        "en": "SSH: OS, plugins, disks",
+        "de": "SSH: OS, Plugins, Platten"
+      }
+    }
+  ]
 }

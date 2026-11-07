@@ -713,5 +713,14 @@
  "roles.onlyGroups": "Nur Geräte in: {groups}",
  "error.oidc_incomplete": "Gib Issuer-URL und Client-ID an.",
  "error.oidc_discovery": "Der Anbieter ist nicht erreichbar oder kein OpenID-Connect-Issuer.",
- "devices.colMac": "MAC / Hersteller"
+ "devices.colMac": "MAC / Hersteller",
+ "settings.network": "Netzwerk",
+ "net.intro": "Was deine Firewall- und VLAN-Regeln erlauben müssen. Regeln gehen von der Adresse des Homewarden-Containers zu den Geräten, nicht umgekehrt, außer beim Web-Port.",
+ "net.vlan": "Geräte in einem anderen VLAN: erlaube der IP des Homewarden-Containers den Zugriff in dieses VLAN auf den Ports unten. Unter Unraid mit Bridge-Netzwerk ist das die IP des Unraid-Servers; mit br0 oder einem eigenen Netzwerk die eigene IP des Containers.",
+ "net.none": "Braucht keinen zusätzlichen Netzwerkzugriff.",
+ "net.needs": "Netzwerkzugriff, den diese Integration braucht",
+ "net.dir.device": "Homewarden → Gerät",
+ "net.dir.internet": "Homewarden → Internet",
+ "net.dir.homewarden": "Gerät → Homewarden",
+ "market.alsoIn": "auch in {list}"
 }

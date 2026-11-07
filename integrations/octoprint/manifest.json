@@ -1,6 +1,6 @@
 {
   "id": "octoprint",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "minCore": "0.1.0",
   "name": {
     "en": "OctoPrint / OctoPi",
@@ -110,5 +110,43 @@
     "main.js"
   ],
   "icon": "icon.svg",
-  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot"
+  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "icmp",
+      "port": "",
+      "note": {
+        "en": "online check (ping)",
+        "de": "Online-Prüfung (Ping)"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "80",
+      "note": {
+        "en": "OctoPrint API (443 when OctoPrint uses HTTPS)",
+        "de": "OctoPrint-API (443, wenn OctoPrint HTTPS nutzt)"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "22",
+      "note": {
+        "en": "SSH, only for OctoPi system packages",
+        "de": "SSH, nur für OctoPi-Systempakete"
+      }
+    },
+    {
+      "target": "internet",
+      "proto": "tcp",
+      "port": "443",
+      "note": {
+        "en": "release notes from GitHub",
+        "de": "Release Notes von GitHub"
+      }
+    }
+  ]
 }

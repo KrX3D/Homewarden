@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/KrX3D/Homewarden/internal/discovery"
 	"github.com/KrX3D/Homewarden/internal/events"
 	"github.com/KrX3D/Homewarden/internal/integrations"
 	"github.com/KrX3D/Homewarden/internal/store"
@@ -243,6 +244,12 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 		}
 		existing, err := s.St.DeviceByExternal(ctx, source, f.ExternalID)
 		if errors.Is(err, store.ErrNotFound) {
+			// Already known from another source (network scan, another integration)?
+			// Then enrich that device instead of creating a second one.
+			if same, err := s.St.DeviceByMACOrHost(ctx, f.MAC, f.Host); err == nil && same.ID != parent.ID {
+				s.mergeDiscovered(ctx, same, f)
+				continue
+			}
 			pid := parent.ID
 			pres := store.PresenceConfig{Reach: store.ProbeConfig{Method: "none"}, Ready: store.ProbeConfig{Method: "none"}, IntervalSeconds: 60}
 			if f.Presence != nil {
@@ -277,6 +284,28 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 		s.Events.Publish("device.changed", map[string]int64{"id": parent.ID})
 	}
 	return created, nil
+}
+
+// mergeDiscovered adds what a discovery knows to an existing device: the MAC when it
+// had none, and the name when the current one was never chosen by anyone (an IP, a
+// container id, or a device still untouched in the inbox from a network scan).
+func (s *Software) mergeDiscovered(ctx context.Context, d store.Device, f discovered) {
+	changed := false
+	if d.MAC == "" && f.MAC != "" {
+		d.MAC, changed = f.MAC, true
+	}
+	untouched := d.Status == store.StatusDiscovered && d.Source == "scan"
+	if f.Name != "" && !discovery.LooksGenerated(f.Name) && f.Name != d.Name && (discovery.LooksGenerated(d.Name) || d.Name == d.Host || untouched) {
+		d.Name, changed = f.Name, true
+	}
+	if d.Host == "" && f.Host != "" {
+		d.Host, changed = f.Host, true
+	}
+	if changed {
+		if err := s.St.UpdateDevice(ctx, d); err == nil {
+			s.Events.Publish("device.changed", map[string]int64{"id": d.ID})
+		}
+	}
 }
 
 func firstNonEmpty(a, b string) string {

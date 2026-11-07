@@ -18,6 +18,7 @@ import './features/notifications';
 import './features/monitors';
 import './features/resources';
 import './features/sso';
+import './features/network';
 import App from './App';
 
 createRoot(document.getElementById('root')!).render(
