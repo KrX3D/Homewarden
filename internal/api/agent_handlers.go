@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"github.com/KrX3D/Homewarden/internal/agent"
 	"github.com/KrX3D/Homewarden/internal/auth"
 	"github.com/KrX3D/Homewarden/internal/conn"
+	"github.com/KrX3D/Homewarden/internal/sshx"
 	"github.com/KrX3D/Homewarden/internal/store"
 )
 
@@ -24,6 +26,7 @@ func (s *Server) AttachAgents(h *agent.Hub) {
 	s.agents = h
 	m := s.mux
 	m.Handle("POST /api/devices/{id}/agent/enroll", s.authed(auth.PermDevicesManage, s.startEnroll))
+	m.Handle("POST /api/devices/{id}/agent/install-ssh", s.authed(auth.PermDevicesManage, s.installAgentSSH))
 	m.Handle("GET /api/devices/{id}/agent", s.authed(auth.PermDevicesView, s.agentStatus))
 	m.Handle("DELETE /api/devices/{id}/agent", s.authed(auth.PermDevicesManage, s.revokeAgent))
 	m.HandleFunc("POST /api/agent/enroll", s.agentEnroll)
@@ -46,6 +49,62 @@ func (s *Server) startEnroll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "expires": exp.Unix()})
+}
+
+// installAgentSSH installs the Linux agent from the GUI: it logs in over SSH (with a
+// password typed in for this once, or the device's saved connection), runs the same
+// installer as the copy-paste command and lets the agent enrol itself.
+func (s *Server) installAgentSSH(w http.ResponseWriter, r *http.Request) {
+	d, ok := s.loadDevice(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Server   string `json:"server"` // Homewarden's address as the device reaches it
+		Insecure bool   `json:"insecure"`
+		User     string `json:"user"`
+		Password string `json:"password"`
+		Port     int    `json:"port"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(in.Server), "/"))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.ContainsAny(in.Server, " '\"\n") {
+		FailMsg(w, http.StatusBadRequest, "bad_request", "server must be an http(s) address")
+		return
+	}
+	if d.Host == "" {
+		FailMsg(w, http.StatusBadRequest, "bad_request", "the device has no address")
+		return
+	}
+	token := auth.NewSetupToken()
+	if err := s.Store.StartEnrollment(r.Context(), d.ID, auth.HashToken(token), time.Now().Add(30*time.Minute).Unix()); err != nil {
+		internal(w, err)
+		return
+	}
+	args := []string{u.String(), token}
+	if in.Insecure {
+		args = append(args, "--insecure")
+	}
+	out, err := s.conn.RunScriptAsRoot(r.Context(), d, conn.Login{User: strings.TrimSpace(in.User), Password: in.Password, Port: in.Port}, installSh, args, 4*time.Minute)
+	if err != nil {
+		var mismatch *sshx.HostKeyMismatch
+		if errors.Is(err, conn.ErrNotConfigured) || errors.As(err, &mismatch) || out == "" {
+			sshError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusBadGateway, APIError{Error: "install_failed", Message: err.Error(), Detail: map[string]string{"output": tail(out, 4000)}})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"output": tail(out, 4000)})
+}
+
+func tail(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return "..." + s[len(s)-n:]
 }
 
 func (s *Server) agentStatus(w http.ResponseWriter, r *http.Request) {
@@ -216,7 +275,14 @@ K=""; [ "$EXTRA" = "--insecure" ] && K="-k"
 BIN=/usr/local/bin/homewarden-agent
 [ -d /boot/config ] && [ -f /etc/unraid-version ] && BIN=/boot/config/homewarden-agent
 echo "Downloading agent for linux-$ARCH"
-curl -fsSL $K -o "$BIN.new" "$SERVER/agent/download/linux-$ARCH"
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL $K -o "$BIN.new" "$SERVER/agent/download/linux-$ARCH"
+elif command -v wget >/dev/null 2>&1; then
+  W=""; [ "$EXTRA" = "--insecure" ] && W="--no-check-certificate"
+  wget -q $W -O "$BIN.new" "$SERVER/agent/download/linux-$ARCH"
+else
+  echo "needs curl or wget to download the agent"; exit 1
+fi
 chmod 755 "$BIN.new" && mv "$BIN.new" "$BIN"
 INS=""; [ "$EXTRA" = "--insecure" ] && INS="-insecure"
 CONF=/etc/homewarden-agent.json

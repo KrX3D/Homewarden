@@ -95,12 +95,13 @@ func TestProxmoxDetect(t *testing.T) {
 	facts := res["facts"].(map[string]any)
 	if facts["guests"] != float64(2) || facts["memoryPercent"] != float64(25) {
 		t.Fatalf("facts: %v", facts)
-	}	// No SSH in this test: listed, but not installable, with a hint.
+	}
+	// No SSH in this test: listed, but not installable, with a hint.
 	if w, _ := json.Marshal(facts["warnings"]); !strings.Contains(string(w), "ssh_needed") {
 		t.Fatalf("want ssh_needed warning, got %s", w)
 	}
 	kernel := comps[1].(map[string]any)
-	if kernel["updatable"] != false || kernel["meta"].(map[string]any)["warning"] != "reboots" {
+	if kernel["updatable"] != false || kernel["meta"].(map[string]any)["warning"] != "needs-reboot" {
 		t.Fatalf("kernel: %v", kernel)
 	}
 	if m := sec["meta"].(map[string]any); m["warning"] != nil {

@@ -106,14 +106,14 @@ function detect(ctx) {
       id: 'pkg:' + p.Package, name: p.Package, group: 'package', installed: p.OldVersion || '', available: p.Version,
       updateAvailable: true, security: /security/i.test((p.Origin || '') + ' ' + (p.Title || '')),
       updatable: !noSSH,
-      meta: { warning: kernel ? 'reboots' : SERVICE_PKGS.test(p.Package) ? 'restarts-services' : undefined, repo: p.Origin, note: noSSH ? SSH_HINT : undefined }
+      meta: { warning: kernel ? 'needs-reboot' : SERVICE_PKGS.test(p.Package) ? 'restarts-services' : undefined, repo: p.Origin, note: noSSH ? SSH_HINT : undefined }
     };
   });
   var status = pve(ctx, 'GET', '/nodes/' + n + '/status') || {};
   comps.unshift({
     id: 'os', name: 'Proxmox VE ' + (ver.version || ''), group: 'os', installed: ver.version || '', available: '',
     updateAvailable: pkgs.length > 0, security: comps.some(function (c) { return c.security; }), updatable: !noSSH,
-    meta: { summary: pkgs.length + ' packages', warning: comps.some(function (c) { return c.meta.warning === 'reboots'; }) ? 'reboots' : 'restarts-services' }
+    meta: { summary: pkgs.length + ' packages', warning: comps.some(function (c) { return c.meta.warning === 'needs-reboot'; }) ? 'needs-reboot' : 'restarts-services' }
   });
 
   var list = guests(ctx, n);
@@ -133,8 +133,18 @@ function detect(ctx) {
   var mem = status.memory ? Math.round(100 * status.memory.used / status.memory.total) : null;
   ctx.log('Proxmox VE ' + ver.version + ' on ' + n + ': ' + pkgs.length + ' host packages, ' + list.length + ' guests.');
   var warnings = noSSH && pkgs.length ? ['ssh_needed'] : [];
+  // Homewarden never reboots a Proxmox host. A newer installed kernel than the running
+  // one means the user should, when it suits them.
+  var rebootRequired = false;
+  if (!noSSH) {
+    try {
+      var k = ctx.ssh.exec("uname -r; ls /boot | sed -n 's/^vmlinuz-//p' | sort -V | tail -n 1", { timeout: 20 }).stdout.trim().split('\n');
+      rebootRequired = k.length === 2 && !!k[1] && k[0] !== k[1];
+      if (rebootRequired) ctx.log('Running kernel ' + k[0] + ', newest installed ' + k[1] + ': a reboot is needed to use it.');
+    } catch (e) { /* informational only */ }
+  }
   return {
-    facts: { warnings: warnings, version: ver.version, node: n, kernel: status.kversion || '', cpuPercent: status.cpu != null ? Math.round(status.cpu * 100) : null,
+    facts: { warnings: warnings, rebootRequired: rebootRequired, version: ver.version, node: n, kernel: status.kversion || '', cpuPercent: status.cpu != null ? Math.round(status.cpu * 100) : null,
       memoryPercent: mem, uptimeSeconds: status.uptime || 0, guests: list.length,
       running: list.filter(function (g) { return g.status === 'running'; }).length },
     components: comps
