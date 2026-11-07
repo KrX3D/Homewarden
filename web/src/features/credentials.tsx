@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { del, get, post, put, ApiError, type ConnectionSettings, type Credential, type CredentialType, type Device, type Facts } from '../api';
 import { errorText, formatTime, useLang, useT } from '../i18n';
 import { useSession } from '../session';
-import { ConfirmButton, ErrorAlert, Modal, Segmented, useAction } from '../components/ui';
+import { ConfirmButton, ErrorAlert, Modal, Segmented, copyText, useAction } from '../components/ui';
 import { AgentPanel } from './agentPanel';
 import { IconEdit, IconKey, IconPlus } from '../components/icons';
 import { deviceSections, settingsTabs } from '../extensions';
@@ -14,7 +14,7 @@ function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false);
   return (
     <button type="button" className="btn ghost sm" onClick={() => {
-      navigator.clipboard?.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1500); }, () => {});
+      copyText(text).then((ok) => { if (ok) { setDone(true); setTimeout(() => setDone(false), 1500); } });
     }}>{done ? t('common.copied') : t('common.copy')}</button>
   );
 }

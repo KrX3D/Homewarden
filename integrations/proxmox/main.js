@@ -80,12 +80,21 @@ var SERVICE_PKGS = /^(pve-manager|pve-cluster|pve-ha-manager|qemu-server|pve-con
 // The Proxmox API lists updates but cannot install them; that needs SSH. Returns ''
 // when SSH works, else the reason.
 function sshProblem(ctx) {
-  try {
-    var r = ctx.ssh.exec('true', { timeout: 20 });
-    return r.code === 0 ? '' : 'SSH test command failed';
-  } catch (e) {
-    return String(e && e.message || e);
+  var last = '';
+  for (var i = 0; i < 4; i++) {
+    try {
+      var r = ctx.ssh.exec('true', { timeout: 20 });
+      return r.code === 0 ? '' : 'SSH test command failed';
+    } catch (e) {
+      last = String(e && e.message || e);
+      // Root's authorized_keys is a link into /etc/pve (pmxcfs). Right after an update
+      // restarted pve-cluster it is briefly unreadable, so key auth fails: wait, retry.
+      // "not set up" will not change by waiting.
+      if (/not set up/.test(last)) return last;
+      ctx.sleep(5000);
+    }
   }
+  return last;
 }
 
 var SSH_HINT = 'Installing needs SSH: the Proxmox API can only list updates. Set up the Connection card with SSH as root, or a shared connection in the integration setup.';

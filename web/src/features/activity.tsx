@@ -6,7 +6,7 @@ import { get, post, type Job, type JobStatus } from '../api';
 import { formatAgo, formatTime, useLang, useT, type Lang } from '../i18n';
 import { useSession } from '../session';
 import { useEvents } from '../useEvents';
-import { Segmented, Spinner } from '../components/ui';
+import { Segmented, Spinner, copyText } from '../components/ui';
 import { IconJobs } from '../components/icons';
 
 const jobClass: Record<JobStatus, string> = { queued: 'off', running: 'accent', success: 'ok', failed: 'crit', blocked: 'warn', cancelled: 'off' };
@@ -297,7 +297,7 @@ function ActivityDetail() {
         <div className="card-head">
           <h2 className="grow">{t('activity.output')} <span className="muted small">{t('activity.lines', { n: lines.length })}{problems > 0 && <> · <span className="text-crit">{t('activity.problems', { n: problems })}</span></>}</span></h2>
           {live && <label className="check small"><input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />{t('activity.follow')}</label>}
-          <button className="btn subtle sm" type="button" disabled={!log} onClick={() => navigator.clipboard?.writeText(log).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }, () => {})}>{copied ? t('common.copied') : t('common.copy')}</button>
+          <button className="btn subtle sm" type="button" disabled={!log} onClick={() => copyText(log).then((ok) => { if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); } })}>{copied ? t('common.copied') : t('common.copy')}</button>
           <button className="btn subtle sm" type="button" disabled={!log} onClick={download}>{t('activity.download')}</button>
         </div>
         {lines.length === 0 ? <p className="muted small">{t('jobs.noOutput')}</p> : (
