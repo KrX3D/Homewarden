@@ -59,3 +59,22 @@ func TestWithDefaults(t *testing.T) {
 		t.Fatalf("docker got defaults: %v", set)
 	}
 }
+
+func TestNetworkInfo(t *testing.T) {
+	ctx := context.Background()
+	st, err := Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	udm, _ := st.CreateDevice(ctx, Device{Name: "UDM SE"})
+	pi, _ := st.CreateDevice(ctx, Device{Name: "octopi"})
+	if err := st.SetNetworkInfo(ctx, pi.ID, udm.ID, json.RawMessage(`{"via":"wired","port":5}`)); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.SetNetworkInfo(ctx, pi.ID, udm.ID, json.RawMessage(`{"via":"wired","port":6}`))
+	got, err := st.NetworkInfoFor(ctx, pi.ID)
+	if err != nil || len(got) != 1 || got[0].SourceName != "UDM SE" || string(got[0].Data) != `{"via":"wired","port":6}` {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+}

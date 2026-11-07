@@ -245,7 +245,14 @@ function InboxTable({ devices, status, onChanged }: { devices: Device[]; status:
   const { error, run } = useAction();
   const [integs, setIntegs] = useState<Integration[]>([]);
   const [kinds, setKinds] = useState<Record<number, string>>({});
-  useEffect(() => { if (status === 'discovered') get<Integration[]>('/api/integrations').then(setIntegs).catch(() => {}); }, [status]);
+  useEffect(() => { get<Integration[]>('/api/integrations').then(setIntegs).catch(() => {}); }, []);
+  // "unifi:12" (integration:parent id) reads as the integration's name.
+  const sourceLabel = (src: string) => {
+    if (t('source.' + src) !== 'source.' + src) return t('source.' + src);
+    const id = src.split(':')[0];
+    const i = integs.find((x) => x.id === id);
+    return i ? i.name[lang] || i.name.en : src;
+  };
   const setStatus = (d: Device, s: DeviceStatus) => run(async () => {
     // Adding "as" an integration sets its type and online detection in one go; shared
     // settings then come from the integration setup.
@@ -260,14 +267,14 @@ function InboxTable({ devices, status, onChanged }: { devices: Device[]; status:
       <ErrorAlert error={error} />
       <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>{t('devices.colName')}</th><th>{t('devices.colHost')}</th><th>{t('devices.colMac')}</th><th>{t('inbox.source')}</th><th>{t('inbox.found')}</th><th></th></tr></thead>
+          <thead><tr><th>{t('devices.colName')}</th><th>{t('devices.colHost')}</th><th>{t('devices.colMac')}</th><th>{t('inbox.source')}</th><th>{t('inbox.found')}</th><th style={{ textAlign: 'right' }}>{status === 'discovered' && integs.length > 0 ? t('inbox.addAs') : ''}</th></tr></thead>
           <tbody>
             {devices.map((d) => (
               <tr key={d.id}>
                 <td><strong>{d.name}</strong></td>
                 <td className="mono small">{d.host}</td>
                 <td className="small">{d.mac ? <><span className="mono">{d.mac}</span>{d.vendor && <div className="muted">{d.vendor}</div>}</> : ''}</td>
-                <td><span className="chip">{t('source.' + d.source) !== 'source.' + d.source ? t('source.' + d.source) : d.source}</span></td>
+                <td><span className="chip">{sourceLabel(d.source)}</span></td>
                 <td className="small muted">{formatAgo(lang, d.createdAt)}</td>
                 <td style={{ textAlign: 'right' }}>
                   <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>

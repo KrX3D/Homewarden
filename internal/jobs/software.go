@@ -57,6 +57,12 @@ type discovered struct {
 	State      string                `json:"state"` // running | stopped
 	Group      string                `json:"group"`
 	Presence   *store.PresenceConfig `json:"presence"`
+	// Network is how the parent sees this device on the network (UniFi: switch port,
+	// access point, signal). Stored for the matching device, shown in its Network card.
+	Network json.RawMessage `json:"network,omitempty"`
+	// EnrichOnly entries never create devices; they only add Network (and MAC/name)
+	// to devices Homewarden already has.
+	EnrichOnly bool `json:"enrichOnly,omitempty"`
 }
 
 func (s *Software) integration(d store.Device) (*integrations.Integration, error) {
@@ -234,6 +240,11 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 	}
 	source := fmt.Sprintf("%s:%d", in.ID, parent.ID)
 	created := 0
+	network := func(id int64, f discovered) {
+		if len(f.Network) > 0 && string(f.Network) != "null" && id != parent.ID {
+			_ = s.St.SetNetworkInfo(ctx, id, parent.ID, f.Network)
+		}
+	}
 	for _, f := range found {
 		if f.ExternalID == "" {
 			continue
@@ -246,8 +257,14 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 		if errors.Is(err, store.ErrNotFound) {
 			// Already known from another source (network scan, another integration)?
 			// Then enrich that device instead of creating a second one.
-			if same, err := s.St.DeviceByMACOrHost(ctx, f.MAC, f.Host); err == nil && same.ID != parent.ID {
-				s.mergeDiscovered(ctx, same, f)
+			if same, err := s.St.DeviceByMACOrHost(ctx, f.MAC, f.Host); err == nil {
+				if same.ID != parent.ID { // the parent itself (the UDM in its own list) is no new device
+					s.mergeDiscovered(ctx, same, f)
+					network(same.ID, f)
+				}
+				continue
+			}
+			if f.EnrichOnly {
 				continue
 			}
 			pid := parent.ID
@@ -271,6 +288,7 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 		if err != nil {
 			return created, err
 		}
+		network(existing.ID, f)
 		// Keep name and state of known children current; their presence comes from here.
 		if existing.Presence.Reach.Method == "none" && existing.State != state {
 			_ = s.St.SetDeviceState(ctx, existing.ID, state, time.Now().Unix())

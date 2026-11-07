@@ -34,6 +34,18 @@ func fakeAPI(t *testing.T, scheme string, routes map[string]any) *httptest.Serve
 
 func runDetect(t *testing.T, id string, srv *httptest.Server, settings map[string]any) map[string]any {
 	t.Helper()
+	out, err := runFn(t, id, srv, settings, "detect")
+	if err != nil {
+		t.Fatalf("%s detect: %v", id, err)
+	}
+	var res map[string]any
+	json.Unmarshal(out, &res)
+	return res
+}
+
+// runFn installs the built-in integration and calls fn against srv.
+func runFn(t *testing.T, id string, srv *httptest.Server, settings map[string]any, fn string) (json.RawMessage, error) {
+	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(filepath.Join(dir, "t.db"))
 	if err != nil {
@@ -57,13 +69,7 @@ func runDetect(t *testing.T, id string, srv *httptest.Server, settings map[strin
 		t.Fatal(err)
 	}
 	h := &Host{St: st, Vault: v}
-	out, err := h.Call(context.Background(), in, store.Device{ID: 1, Name: "x", Host: u.Hostname(), Config: cfg}, "detect", nil, func(l string) { t.Log(l) })
-	if err != nil {
-		t.Fatalf("%s detect: %v", id, err)
-	}
-	var res map[string]any
-	json.Unmarshal(out, &res)
-	return res
+	return h.Call(context.Background(), in, store.Device{ID: 1, Name: "x", Host: u.Hostname(), Config: cfg}, fn, nil, func(l string) { t.Log(l) })
 }
 
 func TestProxmoxDetect(t *testing.T) {
@@ -145,6 +151,56 @@ func TestUniFiDetect(t *testing.T) {
 	facts := res["facts"].(map[string]any)
 	if facts["offlineDevices"] != float64(1) {
 		t.Fatalf("facts: %v", facts)
+	}
+}
+
+func TestUniFiDiscoverNetwork(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var data any
+		switch r.URL.Path {
+		case "/proxy/network/api/s/default/stat/device":
+			data = []map[string]any{{"mac": "sw:01", "name": "Switch Office", "type": "usw", "state": 1}, {"mac": "ap:01", "name": "AP Living", "type": "uap", "state": 1}}
+		case "/proxy/network/api/s/default/stat/sta":
+			data = []map[string]any{
+				{"mac": "aa:01", "ip": "192.168.90.20", "name": "octopi", "is_wired": true, "sw_mac": "sw:01", "sw_port": 5, "network": "LAN", "uptime": 3600},
+				{"mac": "aa:02", "ip": "192.168.20.7", "hostname": "phone", "is_wired": false, "ap_mac": "ap:01", "essid": "Home", "signal": -58, "tx_rate": 866000},
+			}
+		default:
+			w.WriteHeader(404)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"meta": map[string]any{"rc": "ok"}, "data": data})
+	}))
+	defer srv.Close()
+	out, err := runFn(t, "unifi", srv, map[string]any{"insecure": true, "unifiOS": true, "site": "default"}, "discover")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found []map[string]any
+	json.Unmarshal(out, &found)
+	if len(found) != 4 {
+		t.Fatalf("want 2 devices + 2 clients, got %d", len(found))
+	}
+	wired, wifi := found[2], found[3]
+	if wired["enrichOnly"] != true {
+		t.Fatalf("clients must be enrich-only without importClients: %v", wired)
+	}
+	n := wired["network"].(map[string]any)
+	if n["via"] != "wired" || n["uplink"] != "Switch Office" || n["port"] != float64(5) {
+		t.Fatalf("wired: %v", n)
+	}
+	n = wifi["network"].(map[string]any)
+	if n["via"] != "wifi" || n["uplink"] != "AP Living" || n["ssid"] != "Home" || n["signal"] != float64(-58) || n["txMbps"] != float64(866) {
+		t.Fatalf("wifi: %v", n)
+	}
+}
+
+func TestUniFiWrongDevice(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	srv.Close() // nothing listens: like picking UniFi on a device that is not the console
+	_, err := runFn(t, "unifi", srv, map[string]any{"insecure": true, "unifiOS": true, "site": "default"}, "detect")
+	if err == nil || !strings.Contains(err.Error(), "only on the console") {
+		t.Fatalf("want a hint about the console, got %v", err)
 	}
 }
 

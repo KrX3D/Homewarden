@@ -40,6 +40,7 @@ func (s *Server) AttachSoftware(d SoftwareDeps) {
 
 	m.Handle("PUT /api/devices/{id}/integration", s.authed(auth.PermDevicesManage, s.setDeviceIntegration))
 	m.Handle("GET /api/devices/{id}/software", s.authed(auth.PermDevicesView, s.deviceSoftware))
+	m.Handle("GET /api/devices/{id}/network", s.authed(auth.PermDevicesView, s.deviceNetwork))
 	m.Handle("POST /api/devices/{id}/scan", s.authed(auth.PermDevicesView, s.scanDevice))
 	m.Handle("POST /api/devices/{id}/update", s.authed(auth.PermUpdatesRun, s.updateDevice2))
 	m.Handle("GET /api/updates", s.authed(auth.PermDevicesView, s.pendingUpdates))
@@ -292,6 +293,20 @@ func (s *Server) setDeviceIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 	s.dev.Events.Publish("device.changed", map[string]int64{"id": d.ID})
 	out, _ := s.Store.Device(r.Context(), d.ID)
+	writeJSON(w, http.StatusOK, out)
+}
+
+// deviceNetwork returns what other devices (a UniFi console) report about this one.
+func (s *Server) deviceNetwork(w http.ResponseWriter, r *http.Request) {
+	d, ok := s.loadDevice(w, r)
+	if !ok {
+		return
+	}
+	out, err := s.Store.NetworkInfoFor(r.Context(), d.ID)
+	if err != nil {
+		internal(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, out)
 }
 
