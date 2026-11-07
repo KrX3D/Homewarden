@@ -81,3 +81,28 @@ export function useAction() {
   };
   return { busy, error, setError, run };
 }
+
+/**
+ * Copies text. navigator.clipboard only exists on HTTPS (or localhost); Homewarden is
+ * often opened over plain http on the LAN, so fall back to a hidden textarea and
+ * execCommand, which browsers still allow inside a click.
+ */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (window.isSecureContext && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch { /* fall through */ }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.top = '-1000px';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}

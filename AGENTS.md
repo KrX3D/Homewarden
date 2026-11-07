@@ -128,6 +128,11 @@ decision is made or changed, update it in the same PR.
 - Proxmox: detect tests SSH (`sshProblem`); without it packages are notify-only with a
   note, LXC checks are skipped and facts.warnings has `ssh_needed`; update() fails early
   with the same hint. `restarts-services` only on packages in SERVICE_PKGS, kernels `reboots`.
+- Proxmox root `authorized_keys` links into /etc/pve (pmxcfs): while an update restarts
+  pve-cluster, key auth fails for a few seconds. `sshProblem` retries 4x5 s (not for
+  "not set up"), so the scan right after an update does not report SSH as missing.
+- Copy buttons use `copyText` (components/ui.tsx): navigator.clipboard only exists in
+  secure contexts; over plain http (the usual LAN setup) it falls back to execCommand.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting
