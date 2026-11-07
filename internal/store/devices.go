@@ -191,6 +191,13 @@ func (s *Store) UpdateDevice(ctx context.Context, d Device) error {
 	return err
 }
 
+// SetDeviceSource records which discovery owns a device, so the next run finds it by
+// its external id (used when an integration adopts a device a network scan found).
+func (s *Store) SetDeviceSource(ctx context.Context, id int64, source, externalID string) error {
+	_, err := s.DB.ExecContext(ctx, "UPDATE devices SET source = ?, external_id = ? WHERE id = ?", source, externalID, id)
+	return err
+}
+
 // SetDeviceStatus moves a device between active, discovered and ignored.
 func (s *Store) SetDeviceStatus(ctx context.Context, id int64, status string) error {
 	_, err := s.DB.ExecContext(ctx, "UPDATE devices SET status = ? WHERE id = ?", status, id)
@@ -265,6 +272,40 @@ func (s *Store) PrunePresence(ctx context.Context, before int64) error {
 
 // DeviceByMACOrHost finds a device with the same MAC address, or else the same
 // address, to merge discoveries from different sources into one device.
+// DeviceByMACOrHostExcept is DeviceByMACOrHost ignoring the given device ids.
+func (s *Store) DeviceByMACOrHostExcept(ctx context.Context, mac, host string, except ...int64) (Device, error) {
+	skip := func(id int64) bool {
+		for _, e := range except {
+			if e == id {
+				return true
+			}
+		}
+		return false
+	}
+	for _, q := range []struct{ col, val string }{{"mac", strings.ToLower(strings.TrimSpace(mac))}, {"host", strings.ToLower(strings.TrimSpace(host))}} {
+		if q.val == "" {
+			continue
+		}
+		rows, err := s.DB.QueryContext(ctx, "SELECT "+deviceCols+" FROM devices WHERE lower("+q.col+") = ? ORDER BY id", q.val)
+		if err != nil {
+			return Device{}, err
+		}
+		var found *Device
+		for rows.Next() {
+			d, err := scanDevice(rows)
+			if err == nil && !skip(d.ID) {
+				found = &d
+				break
+			}
+		}
+		rows.Close()
+		if found != nil {
+			return *found, nil
+		}
+	}
+	return Device{}, ErrNotFound
+}
+
 func (s *Store) DeviceByMACOrHost(ctx context.Context, mac, host string) (Device, error) {
 	if mac = strings.ToLower(strings.TrimSpace(mac)); mac != "" {
 		d, err := scanDevice(s.DB.QueryRowContext(ctx, "SELECT "+deviceCols+" FROM devices WHERE lower(mac) = ? ORDER BY id LIMIT 1", mac))
