@@ -33,7 +33,7 @@ function detect(ctx) {
     pkgs.forEach(function (p) {
       comps.push({ id: 'pkg:' + p.Package, name: p.Package, group: 'package', installed: p.OldVersion || '', available: p.Version,
         updateAvailable: true, security: /security/i.test((p.Origin || '') + ' ' + (p.Title || '')),
-        meta: { warning: /kernel|linux-image/.test(p.Package) ? 'reboots' : 'restarts-services' } });
+        meta: { warning: /kernel|linux-image/.test(p.Package) ? 'needs-reboot' : 'restarts-services' } });
     });
     comps.unshift({ id: 'os', name: 'Proxmox Backup Server ' + facts.version, group: 'os', installed: facts.version, available: '',
       updateAvailable: pkgs.length > 0, security: comps.some(function (c) { return c.security; }), meta: { summary: pkgs.length + ' packages' } });

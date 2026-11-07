@@ -133,6 +133,14 @@ decision is made or changed, update it in the same PR.
   "not set up"), so the scan right after an update does not report SSH as missing.
 - Copy buttons use `copyText` (components/ui.tsx): navigator.clipboard only exists in
   secure contexts; over plain http (the usual LAN setup) it falls back to execCommand.
+- Agent install from the GUI: `POST /api/devices/{id}/agent/install-ssh {server, insecure,
+  user, password, port}` (no password = the saved connection). `conn.RunScriptAsRoot`
+  copies install.sh to /tmp and runs it as root (directly, `sudo -S` with the one-time
+  password, else `sudo -n`); the password is never stored. Linux only. install.sh uses
+  curl, else wget.
+- Warning `needs-reboot`: takes effect after a restart Homewarden does not do (Proxmox/PBS
+  kernels). `reboots` means the update itself restarts the device. Proxmox sets
+  facts.rebootRequired when the newest /boot kernel differs from uname -r.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting
