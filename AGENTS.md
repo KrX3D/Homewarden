@@ -113,6 +113,11 @@ decision is made or changed, update it in the same PR.
   Release notes: release_summary, GitHub release body when release_url is a GitHub tag.
 - Integrations page: installed ones are not listed under Available (uninstalling brings
   them back); a newer catalog version shows as a pill + Update button on the installed card.
+- The job list is the Activity page (`/activity`, web/src/features/activity.tsx; `/jobs/*`
+  redirects there, notification links use /activity). Running jobs on top with live last
+  log line, history grouped by day, filters (status, kind, device, search), paging with
+  `GET /api/jobs?before=<id>&limit=`. A failed job stores `result.error` (runner), shown
+  in the list. Script errors lose the JS "Error: "/"GoError: " prefix (`scriptErr`).
 - Proxmox token privileges (Privilege Separation on): Sys.Audit, Sys.Modify (GET
   apt/update needs it; PVEAuditor is not enough), VM.Audit, Datastore.Audit, VM.Snapshot.
   A 403 names the missing one and both ways to fix it (`missingPrivilege` in main.js).

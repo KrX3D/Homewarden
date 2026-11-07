@@ -279,7 +279,7 @@ function RestoreModal({ device, backup, onClose }: { device: Device; backup: Bac
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then((l) => setTargets(l.filter((d) => d.kind === device.kind))).catch(() => {}); }, [device.kind]);
   return (
-    <Modal title={t('restore.title')} onClose={onClose} footer={jobId ? <Link className="btn" to={`/jobs/${jobId}`}>{t('sw.showLog')}</Link> : (
+    <Modal title={t('restore.title')} onClose={onClose} footer={jobId ? <Link className="btn" to={`/activity/${jobId}`}>{t('sw.showLog')}</Link> : (
       <>
         <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
         <button className="btn danger" type="button" disabled={busy} onClick={() => run(async () => { const j = await post<{ id: number }>(`/api/backups/${backup.id}/restore`, { deviceId: target }); setJobId(j.id); })}>{t('restore.start')}</button>

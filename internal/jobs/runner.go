@@ -161,6 +161,16 @@ func (r *Runner) execute(parent context.Context, id int64) {
 		status = store.JobCancelled
 		run.Log("Cancelled.")
 	}
+	if err != nil && status == store.JobFailed {
+		switch v := result.(type) {
+		case nil:
+			result = map[string]any{"error": err.Error()}
+		case map[string]any:
+			if _, ok := v["error"]; !ok {
+				v["error"] = err.Error()
+			}
+		}
+	}
 	b, _ := json.Marshal(result)
 	_ = r.st.FinishJob(parent, id, status, b)
 	r.events.Publish("job.status", map[string]any{"id": id, "status": status, "deviceId": j.DeviceID, "type": j.Type})
