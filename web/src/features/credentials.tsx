@@ -7,6 +7,7 @@ import { ConfirmButton, ErrorAlert, Modal, Segmented, useAction } from '../compo
 import { AgentPanel } from './agentPanel';
 import { IconEdit, IconKey, IconPlus } from '../components/icons';
 import { deviceSections, settingsTabs } from '../extensions';
+import { useIntegrationDefaults } from './integrationSetup';
 
 function CopyButton({ text }: { text: string }) {
   const t = useT();
@@ -62,9 +63,12 @@ function CredentialsTab() {
   );
 }
 
-function CredentialModal({ cred, onClose, onSaved }: { cred: Credential | null; onClose: () => void; onSaved: (c: Credential) => void }) {
+/** Creates or edits a vault entry. types limits which kinds a new entry may be. */
+export function CredentialModal({ cred, onClose, onSaved, types = ['ssh_key', 'password', 'token'] }: {
+  cred: Credential | null; onClose: () => void; onSaved: (c: Credential) => void; types?: CredentialType[];
+}) {
   const t = useT();
-  const [type, setType] = useState<CredentialType>(cred?.type ?? 'ssh_key');
+  const [type, setType] = useState<CredentialType>(cred?.type ?? types[0]);
   const [name, setName] = useState(cred?.name ?? '');
   const [username, setUsername] = useState(cred?.username ?? '');
   const [secret, setSecret] = useState('');
@@ -106,9 +110,7 @@ function CredentialModal({ cred, onClose, onSaved }: { cred: Credential | null; 
           <label className="field">
             {t('cred.type')}
             <select id="cred-type" value={type} onChange={(e) => setType(e.target.value as CredentialType)}>
-              <option value="ssh_key">{t('credType.ssh_key')}</option>
-              <option value="password">{t('credType.password')}</option>
-              <option value="token">{t('credType.token')}</option>
+              {types.map((ty) => <option key={ty} value={ty}>{t('credType.' + ty)}</option>)}
             </select>
             <span className="hint">{t('credTypeHint.' + type)}</span>
           </label>
@@ -165,6 +167,7 @@ function ConnectionCard({ device }: { device: Device }) {
   const [facts, setFacts] = useState<Facts | null>(null);
   const [hostKey, setHostKey] = useState<{ fingerprint: string; keyType: string; firstSeen: number } | null>(null);
   const [installing, setInstalling] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [saved, setSaved] = useState(false);
   const save = useAction();
   const test = useAction();
@@ -179,8 +182,15 @@ function ConnectionCard({ device }: { device: Device }) {
     loadKey();
   }, [device.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const configured = !!initial.credentialId;
+  const def = useIntegrationDefaults(device.kind, manage);
+  const inheritedCred = def?.connection?.credentialId;
+  // Without its own credential the device uses its integration's connection.
+  const inherits = !initial.credentialId && initial.method !== 'agent' && !!inheritedCred;
+  const configured = !!initial.credentialId || inherits;
   const mode = set.method === 'agent' ? 'agent' : 'ssh';
+  // While no own credential is picked, user/port/sudo come from the integration too.
+  const inh = !set.credentialId && !!inheritedCred;
+  const dc = def?.connection ?? {};
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -201,7 +211,7 @@ function ConnectionCard({ device }: { device: Device }) {
     <section className="card">
       <div className="card-head">
         <h2 className="grow">{t('conn.title')}</h2>
-        <span className={'pill ' + (configured || initial.method === 'agent' ? 'accent' : 'off')}>{initial.method === 'agent' ? t('agent.name') : configured ? 'SSH' : t('conn.notSet')}</span>
+        <span className={'pill ' + (configured || initial.method === 'agent' ? 'accent' : 'off')}>{initial.method === 'agent' ? t('agent.name') : inherits ? t('conn.inheritedPill') : configured ? 'SSH' : t('conn.notSet')}</span>
       </div>
       <p className="small muted">{t('conn.intro')}</p>
       {manage && (
@@ -216,20 +226,22 @@ function ConnectionCard({ device }: { device: Device }) {
             <label className="field" style={{ flex: '2 1 200px' }}>
               {t('conn.credential')}
               <select id="conn-cred" value={set.credentialId ?? ''} onChange={(e) => setSet({ ...set, credentialId: e.target.value ? Number(e.target.value) : undefined })}>
-                <option value="">{t('conn.pickCredential')}</option>
+                <option value="">{inheritedCred ? t('integ.useDefault', { v: creds.find((c) => c.id === inheritedCred)?.name ?? '#' + inheritedCred }) : t('conn.pickCredential')}</option>
                 {creds.filter((c) => c.type !== 'token').map((c) => <option key={c.id} value={c.id}>{c.name} ({t('credType.' + c.type)})</option>)}
               </select>
             </label>
+            {can('credentials.manage') && <button id="conn-cred-new" className="btn ghost" type="button" onClick={() => setCreating(true)}><IconPlus />{t('conn.newCredential')}</button>}
             <label className="field" style={{ flex: '1 1 120px' }}>
               {t('conn.user')}
-              <input id="conn-user" type="text" value={set.user ?? ''} placeholder={creds.find((c) => c.id === set.credentialId)?.username || 'pi'} onChange={(e) => setSet({ ...set, user: e.target.value })} />
+              <input id="conn-user" type="text" disabled={inh} value={inh ? dc.user ?? '' : set.user ?? ''} placeholder={(!set.credentialId && def?.connection?.user) || creds.find((c) => c.id === (set.credentialId ?? inheritedCred))?.username || 'pi'} onChange={(e) => setSet({ ...set, user: e.target.value })} />
             </label>
             <label className="field" style={{ flex: '0 1 90px' }}>
               {t('deviceForm.port')}
-              <input id="conn-port" type="number" min={1} max={65535} value={set.port ?? 22} onChange={(e) => setSet({ ...set, port: Number(e.target.value) })} />
+              <input id="conn-port" type="number" min={1} max={65535} disabled={inh} value={inh ? dc.port ?? 22 : set.port ?? 22} onChange={(e) => setSet({ ...set, port: Number(e.target.value) })} />
             </label>
           </div>
-          <label className="check"><input id="conn-sudo" type="checkbox" checked={set.sudo} onChange={(e) => setSet({ ...set, sudo: e.target.checked })} />{t('conn.sudo')}</label>
+          {inh && <p className="small muted" style={{ margin: 0 }}>{t('conn.inheritedHint')}</p>}
+          <label className="check"><input id="conn-sudo" type="checkbox" disabled={inh} checked={inh ? !!dc.sudo : set.sudo} onChange={(e) => setSet({ ...set, sudo: e.target.checked })} />{t('conn.sudo')}</label>
           <p className="small muted">{t('conn.sudoHint')}</p>
           <ErrorAlert error={save.error} />
           {saved && <div className="alert ok">{t('conn.saved')}</div>}
@@ -268,6 +280,11 @@ function ConnectionCard({ device }: { device: Device }) {
         <p className="small muted">{t('conn.hostKey')} <code>{hostKey.keyType} {hostKey.fingerprint}</code> · {t('conn.pinned', { when: formatTime(lang, hostKey.firstSeen) })}</p>
       )}
 
+      {creating && <CredentialModal cred={null} types={['ssh_key', 'password']} onClose={() => setCreating(false)} onSaved={(c) => {
+        setCreating(false);
+        setCreds((cur) => [...cur.filter((x) => x.id !== c.id), c]);
+        setSet({ ...set, credentialId: c.id, user: set.user || c.username || '' });
+      }} />}
       {installing && <InstallKeyModal device={device} creds={creds} onClose={() => setInstalling(false)} onDone={(c, user, port) => { setInstalling(false); setSet({ ...set, method: 'ssh', credentialId: c.id, user, port }); setCreds((cur) => cur.some((x) => x.id === c.id) ? cur : [...cur, c]); runTest(); }} />}
     </section>
   );

@@ -10,18 +10,23 @@ import (
 	"net/netip"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/events"
+	"github.com/KrX3D/Homewarden/internal/oui"
 	"github.com/KrX3D/Homewarden/internal/presence"
 	"github.com/KrX3D/Homewarden/internal/store"
 )
 
-// MaxHosts limits a scan to a /22.
+// MaxHosts limits one range to a /22.
 const MaxHosts = 1024
+
+// MaxTotal limits all ranges of one scan together.
+const MaxTotal = 4096
 
 // Ports tried when a host does not answer ping (Windows blocks ICMP by default).
 var fallbackPorts = []int{22, 80, 443, 445, 8080}
@@ -32,6 +37,8 @@ type Scanner struct {
 	st      *store.Store
 	events  *events.Broker
 	running atomic.Bool
+	mu      sync.Mutex
+	last    *Result
 }
 
 // New returns a scanner.
@@ -70,17 +77,65 @@ func Hosts(cidr string) ([]netip.Addr, error) {
 	return out, nil
 }
 
-// Result summarises a finished scan.
-type Result struct {
-	Scanned int `json:"scanned"`
-	Alive   int `json:"alive"`
-	New     int `json:"new"`
+// SplitRanges splits user input on commas, semicolons and whitespace.
+func SplitRanges(text string) []string {
+	return strings.FieldsFunc(text, func(r rune) bool {
+		return r == ',' || r == ';' || r == ' ' || r == '\n' || r == '\r' || r == '\t'
+	})
 }
 
-// Start validates the range and scans it in the background. Progress and the result
-// are published as events.
-func (s *Scanner) Start(cidr string) (int, error) {
-	hosts, err := Hosts(cidr)
+// Expand turns several ranges into one de-duplicated address list.
+func Expand(ranges []string) ([]netip.Addr, error) {
+	if len(ranges) == 0 {
+		return nil, errors.New("no range given")
+	}
+	seen := map[netip.Addr]bool{}
+	out := []netip.Addr{}
+	for _, r := range ranges {
+		hosts, err := Hosts(r)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", r, err)
+		}
+		for _, h := range hosts {
+			if !seen[h] {
+				seen[h] = true
+				out = append(out, h)
+			}
+		}
+	}
+	if len(out) > MaxTotal {
+		return nil, fmt.Errorf("too many addresses: at most %d per scan", MaxTotal)
+	}
+	return out, nil
+}
+
+// Found is one address that answered.
+type Found struct {
+	IP         string `json:"ip"`
+	Name       string `json:"name"`
+	MAC        string `json:"mac,omitempty"`
+	Vendor     string `json:"vendor,omitempty"`
+	DeviceID   int64  `json:"deviceId,omitempty"`
+	DeviceName string `json:"deviceName,omitempty"`
+	// Status is "new" (just put in the inbox), "inbox" (already waiting there),
+	// "known" (an added device), "ignored" or "error".
+	Status string `json:"status"`
+}
+
+// Result summarises a finished scan.
+type Result struct {
+	Ranges  []string `json:"ranges"`
+	Scanned int      `json:"scanned"`
+	Alive   int      `json:"alive"`
+	New     int      `json:"new"`
+	Found   []Found  `json:"found"`
+	At      int64    `json:"at"`
+}
+
+// Start validates the ranges and scans them in the background. Progress and the
+// result are published as events.
+func (s *Scanner) Start(ranges []string) (int, error) {
+	hosts, err := Expand(ranges)
 	if err != nil {
 		return 0, err
 	}
@@ -90,6 +145,11 @@ func (s *Scanner) Start(cidr string) (int, error) {
 	go func() {
 		defer s.running.Store(false)
 		res := s.scan(s.base, hosts)
+		res.Ranges = ranges
+		res.At = time.Now().Unix()
+		s.mu.Lock()
+		s.last = &res
+		s.mu.Unlock()
 		s.events.Publish("discovery.done", res)
 	}()
 	return len(hosts), nil
@@ -97,6 +157,13 @@ func (s *Scanner) Start(cidr string) (int, error) {
 
 // Running reports whether a scan is in progress.
 func (s *Scanner) Running() bool { return s.running.Load() }
+
+// Last returns the most recent scan result since start-up, or nil.
+func (s *Scanner) Last() *Result {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.last
+}
 
 func alive(ctx context.Context, ip string) bool {
 	if _, err := presence.Ping(ctx, ip, 800*time.Millisecond); err == nil {
@@ -118,8 +185,7 @@ func alive(ctx context.Context, ip string) bool {
 }
 
 func (s *Scanner) scan(ctx context.Context, hosts []netip.Addr) Result {
-	var res Result
-	res.Scanned = len(hosts)
+	res := Result{Scanned: len(hosts), Found: []Found{}}
 	var mu sync.Mutex
 	var done atomic.Int64
 	sem := make(chan struct{}, 64)
@@ -140,40 +206,64 @@ func (s *Scanner) scan(ctx context.Context, hosts []netip.Addr) Result {
 			if !alive(ctx, ip) {
 				return
 			}
+			f := s.inspect(ctx, ip)
 			mu.Lock()
 			res.Alive++
-			mu.Unlock()
-			if known, _ := s.st.HostKnown(ctx, ip); known {
-				return
-			}
-			if _, err := s.st.DeviceByExternal(ctx, "scan", ip); err == nil {
-				return
-			}
-			name := ip
-			if ownIP(ip) {
-				name = "Homewarden (this container)"
-			} else {
-				rctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-				if names, err := net.DefaultResolver.LookupAddr(rctx, ip); err == nil && len(names) > 0 {
-					if n := strings.TrimSuffix(names[0], "."); !LooksGenerated(n) {
-						name = n
-					}
-				}
-				cancel()
-			}
-			d := store.Device{
-				Name: name, Host: ip, MAC: arpMAC(ip), Status: store.StatusDiscovered, Source: "scan", ExternalID: ip,
-				Presence: store.PresenceConfig{Reach: store.ProbeConfig{Method: "ping"}, SettleSeconds: 60, IntervalSeconds: 30},
-			}
-			if _, err := s.st.CreateDevice(ctx, d); err == nil {
-				mu.Lock()
+			if f.Status == "new" {
 				res.New++
-				mu.Unlock()
 			}
+			res.Found = append(res.Found, f)
+			mu.Unlock()
 		}()
 	}
 	wg.Wait()
+	sort.Slice(res.Found, func(i, j int) bool {
+		a, _ := netip.ParseAddr(res.Found[i].IP)
+		b, _ := netip.ParseAddr(res.Found[j].IP)
+		return a.Less(b)
+	})
 	return res
+}
+
+// inspect names an address that answered and files it: devices Homewarden already
+// has are left alone, unknown ones go to the inbox.
+func (s *Scanner) inspect(ctx context.Context, ip string) Found {
+	f := Found{IP: ip, Name: ip, MAC: arpMAC(ip)}
+	f.Vendor = oui.Lookup(f.MAC)
+	if ownIP(ip) {
+		f.Name = "Homewarden (this container)"
+	} else {
+		rctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		if names, err := net.DefaultResolver.LookupAddr(rctx, ip); err == nil && len(names) > 0 {
+			if n := strings.TrimSuffix(names[0], "."); !LooksGenerated(n) {
+				f.Name = n
+			}
+		}
+		cancel()
+	}
+	if d, err := s.st.DeviceByMACOrHost(ctx, f.MAC, ip); err == nil {
+		f.DeviceID, f.DeviceName = d.ID, d.Name
+		switch d.Status {
+		case store.StatusDiscovered:
+			f.Status = "inbox"
+		case store.StatusIgnored:
+			f.Status = "ignored"
+		default:
+			f.Status = "known"
+		}
+		return f
+	}
+	d := store.Device{
+		Name: f.Name, Host: ip, MAC: f.MAC, Status: store.StatusDiscovered, Source: "scan", ExternalID: ip,
+		Presence: store.PresenceConfig{Reach: store.ProbeConfig{Method: "ping"}, SettleSeconds: 60, IntervalSeconds: 30},
+	}
+	created, err := s.st.CreateDevice(ctx, d)
+	if err != nil {
+		f.Status = "error"
+		return f
+	}
+	f.DeviceID, f.DeviceName, f.Status = created.ID, created.Name, "new"
+	return f
 }
 
 // arpMAC reads the MAC of an address from the kernel's ARP table. It is only there

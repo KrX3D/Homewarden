@@ -131,10 +131,10 @@ func (s *Software) runBackup(ctx context.Context, run *Run, d store.Device) (map
 		return nil, errors.New("backup() did not return a download")
 	}
 	u, err := url.Parse(out.Download.URL)
-	if err != nil || !integrations.AllowedHost(in, d, u.Hostname()) {
+	if err != nil || !integrations.AllowedHost(in, s.St.WithDefaults(ctx, d), u.Hostname()) {
 		return nil, errors.New("backup download points to a host this integration may not reach")
 	}
-	insecure, _ := integrations.Settings(d)["insecure"].(bool)
+	insecure, _ := integrations.Settings(s.St.WithDefaults(ctx, d))["insecure"].(bool)
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, out.Download.URL, nil)
 	for k, v := range out.Download.Headers {
 		req.Header.Set(k, v)

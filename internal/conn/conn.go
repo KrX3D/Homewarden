@@ -98,6 +98,7 @@ var ErrNotConfigured = errors.New("connection not configured")
 
 // Target builds the SSH target for a device, decrypting its credential.
 func (s *Service) Target(ctx context.Context, d store.Device) (sshx.Target, Settings, error) {
+	d = s.St.WithDefaults(ctx, d) // a device without its own credential uses its integration's
 	set := FromDevice(d)
 	if set.Method != "ssh" || set.CredentialID == 0 || d.Host == "" {
 		return sshx.Target{}, set, ErrNotConfigured

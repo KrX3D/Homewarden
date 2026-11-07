@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
-import { get, post, type Device, type DeviceStatus } from '../api';
+import { get, post, put, type Device, type DeviceStatus, type Integration } from '../api';
 import { formatAgo, useLang, useT } from '../i18n';
 import { useSession } from '../session';
 import { useEvents } from '../useEvents';
 import { ErrorAlert, Modal, Segmented, useAction } from '../components/ui';
-import { IconCards, IconChevron, IconDevices, IconInbox, IconPlus, IconTable, IconTree } from '../components/icons';
+import { IconCards, IconChevron, IconDevices, IconInbox, IconPlus, IconTable, IconTrash, IconTree } from '../components/icons';
 import { DeviceFormModal, draftFrom, type DeviceDraft } from '../components/DeviceForm';
 import { StatePill } from '../components/deviceBits';
 import DeviceDetail from './DeviceDetail';
@@ -87,7 +87,7 @@ function DeviceList({ status }: { status: DeviceStatus }) {
             { value: 'tree', label: t('devices.viewTree'), icon: <IconTree /> },
           ]} />
         )}
-        {manage && status === 'discovered' && <button className="btn ghost" type="button" onClick={() => setScanning(true)}>{t('discovery.scan')}</button>}
+        {manage && <button className="btn ghost" type="button" onClick={() => setScanning(true)}>{t('discovery.scan')}</button>}
         {manage && status === 'active' && <button className="btn" type="button" onClick={() => setAdding(true)}><IconPlus />{t('devices.add')}</button>}
       </div>
 
@@ -115,7 +115,7 @@ function DeviceList({ status }: { status: DeviceStatus }) {
       )}
 
       {adding && <DeviceFormModal title={t('devices.add')} initial={draftFrom()} parents={all} onClose={() => setAdding(false)} onSubmit={create} busy={add.busy} error={add.error} />}
-      {scanning && <ScanModal onClose={() => setScanning(false)} />}
+      {scanning && <ScanModal onClose={() => { setScanning(false); reload(); }} />}
     </>
   );
 }
@@ -243,7 +243,17 @@ function InboxTable({ devices, status, onChanged }: { devices: Device[]; status:
   const t = useT();
   const lang = useLang();
   const { error, run } = useAction();
-  const setStatus = (d: Device, s: DeviceStatus) => run(async () => { await post(`/api/devices/${d.id}/status`, { status: s }); onChanged(); });
+  const [integs, setIntegs] = useState<Integration[]>([]);
+  const [kinds, setKinds] = useState<Record<number, string>>({});
+  useEffect(() => { if (status === 'discovered') get<Integration[]>('/api/integrations').then(setIntegs).catch(() => {}); }, [status]);
+  const setStatus = (d: Device, s: DeviceStatus) => run(async () => {
+    // Adding "as" an integration sets its type and online detection in one go; shared
+    // settings then come from the integration setup.
+    const kind = kinds[d.id];
+    if (s === 'active' && kind) await put(`/api/devices/${d.id}/integration`, { kind, settings: {}, applyPresence: true });
+    await post(`/api/devices/${d.id}/status`, { status: s });
+    onChanged();
+  });
   return (
     <>
       <p className="muted">{status === 'discovered' ? t('inbox.intro') : t('ignored.intro')}</p>
@@ -263,6 +273,12 @@ function InboxTable({ devices, status, onChanged }: { devices: Device[]; status:
                   <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
                     {status === 'discovered' ? (
                       <>
+                        {integs.length > 0 && (
+                          <select className="sm" aria-label={t('inbox.addAs')} value={kinds[d.id] ?? (d.kind !== 'generic' ? d.kind : '')} onChange={(e) => setKinds({ ...kinds, [d.id]: e.target.value })}>
+                            <option value="">{t('inbox.asGeneric')}</option>
+                            {integs.map((i) => <option key={i.id} value={i.id}>{i.name[lang] || i.name.en}</option>)}
+                          </select>
+                        )}
                         <button className="btn sm" type="button" onClick={() => setStatus(d, 'active')}>{t('inbox.add')}</button>
                         <button className="btn ghost sm" type="button" onClick={() => setStatus(d, 'ignored')}>{t('inbox.ignore')}</button>
                       </>
@@ -280,28 +296,51 @@ function InboxTable({ devices, status, onChanged }: { devices: Device[]; status:
   );
 }
 
+type ScanFound = { ip: string; name: string; mac?: string; vendor?: string; deviceId?: number; deviceName?: string; status: 'new' | 'inbox' | 'known' | 'ignored' | 'error' };
+type ScanResult = { ranges: string[]; scanned: number; alive: number; new: number; found: ScanFound[]; at: number };
+
 function ScanModal({ onClose }: { onClose: () => void }) {
   const t = useT();
-  const [cidr, setCidr] = useState('');
+  const lang = useLang();
+  const [ranges, setRanges] = useState<string[]>(['']);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [result, setResult] = useState<{ scanned: number; alive: number; new: number } | null>(null);
+  const [result, setResult] = useState<ScanResult | null>(null);
+  const [filed, setFiled] = useState<Record<number, 'active' | 'ignored'>>({});
+  const [hideKnown, setHideKnown] = useState(false);
   const { busy, error, run } = useAction();
-  useEffect(() => { get<{ cidr: string; running: boolean }>('/api/discovery').then((i) => { setCidr(i.cidr || '192.168.1.0/24'); if (i.running) setProgress({ done: 0, total: 0 }); }).catch(() => {}); }, []);
+  const act = useAction();
+  useEffect(() => {
+    get<{ ranges: string[]; running: boolean; last: ScanResult | null }>('/api/discovery').then((i) => {
+      setRanges(i.ranges?.length ? i.ranges : ['192.168.1.0/24']);
+      if (i.running) setProgress({ done: 0, total: 0 });
+      if (i.last) setResult(i.last);
+    }).catch(() => {});
+  }, []);
   useEvents({
     'discovery.progress': (p: { done: number; total: number }) => setProgress(p),
-    'discovery.done': (r: { scanned: number; alive: number; new: number }) => { setProgress(null); setResult(r); },
+    'discovery.done': (r: ScanResult) => { setProgress(null); setResult(r); setFiled({}); },
   });
   const start = (e: FormEvent) => {
     e.preventDefault();
     setResult(null);
     run(async () => {
-      const r = await post<{ hosts: number }>('/api/discovery/scan', { cidr });
+      const r = await post<{ hosts: number }>('/api/discovery/scan', { ranges: ranges.map((x) => x.trim()).filter(Boolean) });
       setProgress({ done: 0, total: r.hosts });
     });
   };
+  const file = (f: ScanFound, s: 'active' | 'ignored') => act.run(async () => {
+    await post(`/api/devices/${f.deviceId}/status`, { status: s });
+    setFiled((c) => ({ ...c, [f.deviceId!]: s }));
+  });
   const scanningNow = progress !== null;
+  const rows = (result?.found ?? []).filter((f) => !hideKnown || f.status === 'new' || f.status === 'inbox');
+  const statusChip = (f: ScanFound) => {
+    const s = f.deviceId && filed[f.deviceId] ? (filed[f.deviceId] === 'active' ? 'known' : 'ignored') : f.status;
+    const cls = s === 'new' ? 'pill ok' : s === 'inbox' ? 'pill warn' : s === 'known' ? 'pill accent' : 'pill off';
+    return <span className={cls}>{t('discovery.status.' + s)}</span>;
+  };
   return (
-    <Modal title={t('discovery.title')} onClose={onClose} footer={
+    <Modal wide title={t('discovery.title')} onClose={onClose} footer={
       <>
         <button className="btn subtle" type="button" onClick={onClose}>{t('common.close')}</button>
         <button className="btn" type="submit" form="scan-form" disabled={busy || scanningNow}>{t('discovery.start')}</button>
@@ -309,15 +348,58 @@ function ScanModal({ onClose }: { onClose: () => void }) {
     }>
       <form id="scan-form" className="stack" onSubmit={start}>
         <p className="small muted">{t('discovery.intro')}</p>
-        <label className="field">
-          {t('discovery.range')}
-          <input id="scan-cidr" type="text" className="mono" value={cidr} onChange={(e) => setCidr(e.target.value)} required />
-          <span className="hint">{t('discovery.rangeHint')}</span>
-        </label>
-        {scanningNow && <div className="alert info">{progress!.total ? t('discovery.progress', { done: progress!.done, total: progress!.total }) : t('discovery.running')}</div>}
-        {result && <div className="alert ok">{t('discovery.result', { alive: result.alive, scanned: result.scanned, new: result.new })}</div>}
-        <ErrorAlert error={error} />
+        <div className="field">
+          {t('discovery.ranges')}
+          {ranges.map((r, i) => (
+            <div key={i} className="row" style={{ flexWrap: 'nowrap' }}>
+              <input id={`scan-cidr-${i}`} type="text" className="mono grow" value={r} placeholder="192.168.90.0/24" aria-label={t('discovery.range')}
+                onChange={(e) => setRanges((c) => c.map((x, j) => (j === i ? e.target.value : x)))} required={i === 0} />
+              {ranges.length > 1 && <button className="btn ghost sm" type="button" aria-label={t('common.delete')} onClick={() => setRanges((c) => c.filter((_, j) => j !== i))}><IconTrash /></button>}
+            </div>
+          ))}
+          <div><button className="btn ghost sm" type="button" onClick={() => setRanges((c) => [...c, ''])}><IconPlus />{t('discovery.addRange')}</button></div>
+          <span className="hint">{t('discovery.rangesHint')}</span>
+        </div>
       </form>
+      {scanningNow && <div className="alert info">{progress!.total ? t('discovery.progress', { done: progress!.done, total: progress!.total }) : t('discovery.running')}</div>}
+      <ErrorAlert error={error || act.error} />
+      {result && (
+        <>
+          <div className="row">
+            <span className="grow">{t('discovery.result', { alive: result.alive, scanned: result.scanned, new: result.new })}
+              <span className="muted small"> · {formatAgo(lang, result.at)}</span></span>
+            <label className="row small" style={{ gap: 6 }}><input type="checkbox" checked={hideKnown} onChange={(e) => setHideKnown(e.target.checked)} />{t('discovery.hideKnown')}</label>
+          </div>
+          {rows.length > 0 && (
+            <div className="table-wrap">
+              <table className="tbl">
+                <thead><tr><th>{t('devices.colHost')}</th><th>{t('devices.colName')}</th><th>{t('devices.colMac')}</th><th>{t('devices.colState')}</th><th></th></tr></thead>
+                <tbody>
+                  {rows.map((f) => {
+                    const pending = f.deviceId && !filed[f.deviceId] && (f.status === 'new' || f.status === 'inbox');
+                    return (
+                      <tr key={f.ip}>
+                        <td className="mono small">{f.ip}</td>
+                        <td>{f.deviceId && (f.status === 'known' || filed[f.deviceId] === 'active') ? <Link to={`/devices/${f.deviceId}`} onClick={onClose}>{f.deviceName || f.name}</Link> : (f.deviceName || f.name)}</td>
+                        <td className="small">{f.mac ? <><span className="mono">{f.mac}</span>{f.vendor && <div className="muted">{f.vendor}</div>}</> : ''}</td>
+                        <td>{statusChip(f)}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          {pending && (
+                            <div className="row" style={{ justifyContent: 'flex-end', gap: 6, flexWrap: 'nowrap' }}>
+                              <button className="btn sm" type="button" disabled={act.busy} onClick={() => file(f, 'active')}>{t('inbox.add')}</button>
+                              <button className="btn ghost sm" type="button" disabled={act.busy} onClick={() => file(f, 'ignored')}>{t('inbox.ignore')}</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
     </Modal>
   );
 }
