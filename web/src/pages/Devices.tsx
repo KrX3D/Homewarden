@@ -13,9 +13,9 @@ import DeviceDetail from './DeviceDetail';
 export default function DevicesPage() {
   return (
     <Routes>
-      <Route index element={<DeviceList status="active" />} />
-      <Route path="inbox" element={<DeviceList status="discovered" />} />
-      <Route path="ignored" element={<DeviceList status="ignored" />} />
+      <Route index element={<DeviceList key="active" status="active" />} />
+      <Route path="inbox" element={<DeviceList key="discovered" status="discovered" />} />
+      <Route path="ignored" element={<DeviceList key="ignored" status="ignored" />} />
       <Route path=":id" element={<DeviceDetail />} />
     </Routes>
   );
@@ -97,7 +97,7 @@ function DeviceList({ status }: { status: DeviceStatus }) {
         {manage && <NavLink to="/devices/ignored">{t('devices.ignored')}</NavLink>}
       </nav>
 
-      {devices.length > 6 && (
+      {(devices.length > 6 || query !== '') && (
         <input id="device-search" type="text" placeholder={t('devices.search')} value={query} onChange={(e) => setQuery(e.target.value)} style={{ maxWidth: 360 }} />
       )}
       <ErrorAlert error={error} />
