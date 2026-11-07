@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/auth"
+	"github.com/KrX3D/Homewarden/internal/conn"
 	"github.com/KrX3D/Homewarden/internal/integrations"
 	"github.com/KrX3D/Homewarden/internal/jobs"
 	"github.com/KrX3D/Homewarden/internal/store"
@@ -31,6 +33,8 @@ func (s *Server) AttachSoftware(d SoftwareDeps) {
 	m.Handle("GET /api/integrations/review", s.authed(auth.PermIntegrationsManage, s.integrationReview))
 	m.Handle("POST /api/integrations/install", s.authed(auth.PermIntegrationsManage, s.installIntegration))
 	m.Handle("DELETE /api/integrations/{iid}", s.authed(auth.PermIntegrationsManage, s.uninstallIntegration))
+	m.Handle("GET /api/integrations/{iid}/defaults", s.authed(auth.PermDevicesManage, s.getIntegrationDefaults))
+	m.Handle("PUT /api/integrations/{iid}/defaults", s.authed(auth.PermIntegrationsManage, s.putIntegrationDefaults))
 	m.Handle("GET /api/settings/catalog-sources", s.authed(auth.PermIntegrationsManage, s.getSources))
 	m.Handle("PUT /api/settings/catalog-sources", s.authed(auth.PermIntegrationsManage, s.putSources))
 
@@ -153,6 +157,100 @@ func (s *Server) uninstallIntegration(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// getIntegrationDefaults returns the settings shared by all devices of an integration
+// and the devices using it.
+func (s *Server) getIntegrationDefaults(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("iid")
+	if _, ok := s.sw.Registry.Get(id); !ok {
+		fail(w, http.StatusNotFound, "unknown_integration")
+		return
+	}
+	def, err := s.Store.IntegrationDefaults(r.Context(), id)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	devs, err := s.Store.Devices(r.Context(), "")
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	type use struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+		// Own lists the setting keys the device sets itself; OwnConnection is true when
+		// it has its own credential (or uses the agent).
+		Own           []string `json:"own"`
+		OwnConnection bool     `json:"ownConnection"`
+	}
+	used := []use{}
+	for _, d := range s.visibleDevices(r, devs) {
+		if d.Kind != id || d.Status != store.StatusActive {
+			continue
+		}
+		u := use{ID: d.ID, Name: d.Name, Own: []string{}}
+		for k, v := range integrations.Settings(d) {
+			if v != nil && v != "" {
+				u.Own = append(u.Own, k)
+			}
+		}
+		sort.Strings(u.Own)
+		c := conn.FromDevice(d)
+		u.OwnConnection = c.Method == "agent" || c.CredentialID != 0
+		used = append(used, u)
+	}
+	if def.Connection == nil {
+		def.Connection = map[string]any{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"settings": def.Settings, "connection": def.Connection, "devices": used})
+}
+
+// putIntegrationDefaults stores the shared settings. Only keys the manifest defines
+// are kept.
+func (s *Server) putIntegrationDefaults(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("iid")
+	in, ok := s.sw.Registry.Get(id)
+	if !ok {
+		fail(w, http.StatusNotFound, "unknown_integration")
+		return
+	}
+	var body store.IntegrationDefaults
+	if !readJSON(w, r, &body) {
+		return
+	}
+	out := store.IntegrationDefaults{Settings: map[string]any{}}
+	for _, st := range in.Settings {
+		if v, ok := body.Settings[st.Key]; ok && v != nil && v != "" {
+			out.Settings[st.Key] = v
+		}
+	}
+	if in.Connection == "ssh" || in.Permissions.SSH {
+		if cid, _ := body.Connection["credentialId"].(float64); cid != 0 {
+			if _, err := s.Store.Credential(r.Context(), int64(cid)); err != nil {
+				fail(w, http.StatusBadRequest, "unknown_credential")
+				return
+			}
+			out.Connection = map[string]any{"credentialId": cid}
+			if u, _ := body.Connection["user"].(string); strings.TrimSpace(u) != "" {
+				out.Connection["user"] = strings.TrimSpace(u)
+			}
+			port, _ := body.Connection["port"].(float64)
+			if port < 1 || port > 65535 {
+				port = 22
+			}
+			out.Connection["port"] = port
+			sudo, _ := body.Connection["sudo"].(bool)
+			out.Connection["sudo"] = sudo
+		}
+	}
+	if err := s.Store.SetIntegrationDefaults(r.Context(), id, out); err != nil {
+		internal(w, err)
+		return
+	}
+	s.dev.Events.Publish("integrations.changed", map[string]string{"id": id})
+	writeJSON(w, http.StatusOK, out)
+}
+
 // setDeviceIntegration picks the integration (kind) and stores its settings.
 func (s *Server) setDeviceIntegration(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.loadDevice(w, r)
@@ -162,14 +260,21 @@ func (s *Server) setDeviceIntegration(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Kind     string         `json:"kind"`
 		Settings map[string]any `json:"settings"`
+		// ApplyPresence also takes over the integration's online detection, used when
+		// a device is added from the inbox straight as this integration.
+		ApplyPresence bool `json:"applyPresence"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
 	if in.Kind != "generic" {
-		if _, ok := s.sw.Registry.Get(in.Kind); !ok {
+		integ, ok := s.sw.Registry.Get(in.Kind)
+		if !ok {
 			fail(w, http.StatusBadRequest, "unknown_integration")
 			return
+		}
+		if in.ApplyPresence && integ.Presence != nil {
+			d.Presence = *integ.Presence
 		}
 	}
 	cfg := map[string]json.RawMessage{}

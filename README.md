@@ -25,9 +25,11 @@ No playbooks or config files to write.
   optional backup can run first.
 - **Rollback** to a previous image tag or the pre-update backup.
 - **Backups** to an SMB share, with backup-age warnings.
-- **Discovery** of containers, LXCs, VMs and network clients, with an inbox to add or
-  ignore what was found.
+- **Discovery** of containers, LXCs, VMs and network clients, plus a network scan over
+  several ranges/VLANs at once, with an inbox to add or ignore what was found.
 - **Monitoring**: uptime checks, resource history, disk health, certificate expiry.
+- **Set up once per integration**: one credential and shared settings for all devices
+  of a kind; a device only sets what differs.
 - **Integrations** installable from a catalog (GitHub or your own Gitea): Linux/apt,
   Docker, OctoPrint first, then Unraid, Proxmox, Proxmox Backup Server, UniFi and Windows.
 - Users with roles, optional 2FA, SSO via OIDC later. Light and dark mode.

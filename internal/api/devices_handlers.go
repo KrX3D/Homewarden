@@ -265,20 +265,30 @@ func (s *Server) devicePresence(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) discoveryInfo(w http.ResponseWriter, r *http.Request) {
-	cidr, err := s.Store.GetSetting(r.Context(), "discovery.cidr", "")
+	ranges, err := s.Store.GetSetting(r.Context(), "discovery.cidr", "")
 	if err != nil {
 		internal(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"cidr": cidr, "running": s.dev.Scanner.Running(), "maxHosts": discovery.MaxHosts})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ranges": discovery.SplitRanges(ranges), "running": s.dev.Scanner.Running(),
+		"maxHosts": discovery.MaxHosts, "maxTotal": discovery.MaxTotal, "last": s.dev.Scanner.Last(),
+	})
 }
 
 func (s *Server) discoveryScan(w http.ResponseWriter, r *http.Request) {
-	var in struct{ CIDR string }
+	var in struct {
+		Ranges []string
+		CIDR   string // single range, older clients
+	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	n, err := s.dev.Scanner.Start(in.CIDR)
+	ranges := []string{}
+	for _, x := range append(in.Ranges, in.CIDR) {
+		ranges = append(ranges, discovery.SplitRanges(x)...)
+	}
+	n, err := s.dev.Scanner.Start(ranges)
 	if errors.Is(err, discovery.ErrBusy) {
 		fail(w, http.StatusConflict, "scan_running")
 		return
@@ -287,7 +297,7 @@ func (s *Server) discoveryScan(w http.ResponseWriter, r *http.Request) {
 		FailMsg(w, http.StatusBadRequest, "invalid_cidr", err.Error())
 		return
 	}
-	_ = s.Store.SetSetting(r.Context(), "discovery.cidr", strings.TrimSpace(in.CIDR))
+	_ = s.Store.SetSetting(r.Context(), "discovery.cidr", strings.Join(ranges, ","))
 	writeJSON(w, http.StatusAccepted, map[string]int{"hosts": n})
 }
 

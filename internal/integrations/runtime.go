@@ -44,6 +44,37 @@ func Settings(d store.Device) map[string]any {
 	return cfg.Settings
 }
 
+// withManifestDefaults fills settings that neither the device nor the integration
+// defaults set with the manifest's default, the last step of the lookup order.
+func withManifestDefaults(in *Integration, d store.Device) store.Device {
+	cfg := map[string]any{}
+	if len(d.Config) > 0 && json.Unmarshal(d.Config, &cfg) != nil {
+		return d
+	}
+	set, _ := cfg["settings"].(map[string]any)
+	if set == nil {
+		set = map[string]any{}
+	}
+	changed := false
+	for _, s := range in.Settings {
+		if s.Default == nil {
+			continue
+		}
+		if v, ok := set[s.Key]; !ok || v == nil || v == "" {
+			set[s.Key] = s.Default
+			changed = true
+		}
+	}
+	if !changed {
+		return d
+	}
+	cfg["settings"] = set
+	if b, err := json.Marshal(cfg); err == nil {
+		d.Config = b
+	}
+	return d
+}
+
 // ScriptError is an error thrown by integration code (as opposed to a Go failure).
 type ScriptError struct{ Msg string }
 
@@ -68,6 +99,10 @@ func (h *Host) Call(ctx context.Context, in *Integration, dev store.Device, fn s
 	if logf == nil {
 		logf = func(string) {}
 	}
+	if h.St != nil {
+		dev = h.St.WithDefaults(ctx, dev) // integration-wide settings and connection
+	}
+	dev = withManifestDefaults(in, dev)
 	vm := goja.New()
 	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
 	c := &call{ctx: ctx, host: h, in: in, dev: dev, logf: logf, vm: vm}

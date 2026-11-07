@@ -98,7 +98,15 @@ func (s *Store) CredentialUsage(ctx context.Context, id int64) (int, error) {
 	err := s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM devices d WHERE EXISTS (
 			SELECT 1 FROM json_tree(d.config) WHERE key LIKE '%credentialId' AND CAST(value AS INTEGER) = ?)`, id).Scan(&n)
-	return n, err
+	if err != nil {
+		return n, err
+	}
+	// Integration setups count as one user each.
+	var m int
+	err = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM settings st WHERE st.key LIKE 'integration.defaults.%' AND json_valid(st.value) AND EXISTS (
+			SELECT 1 FROM json_tree(st.value) WHERE key LIKE '%credentialId' AND CAST(value AS INTEGER) = ?)`, id).Scan(&m)
+	return n + m, err
 }
 
 // KnownHost is a pinned SSH host key.

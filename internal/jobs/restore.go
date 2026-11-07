@@ -83,7 +83,7 @@ func (s *Software) restoreJob(ctx context.Context, run *Run) (string, any, error
 		return store.JobFailed, nil, errors.New("restore() did not return an upload")
 	}
 	u, err := url.Parse(out.Upload.URL)
-	if err != nil || !integrations.AllowedHost(in, d, u.Hostname()) {
+	if err != nil || !integrations.AllowedHost(in, s.St.WithDefaults(ctx, d), u.Hostname()) {
 		return store.JobFailed, nil, errors.New("restore upload points to a host this integration may not reach")
 	}
 	if out.Upload.Field == "" {
@@ -119,7 +119,7 @@ func (s *Software) restoreJob(ctx context.Context, run *Run) (string, any, error
 	for k, v := range out.Upload.Headers {
 		req.Header.Set(k, v)
 	}
-	insecure, _ := integrations.Settings(d)["insecure"].(bool)
+	insecure, _ := integrations.Settings(s.St.WithDefaults(ctx, d))["insecure"].(bool)
 	client := &http.Client{Timeout: 30 * time.Minute, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure}}}
 	run.Log("Uploading %s (%d MB) to %s", b.Name, b.Size>>20, u.Host)
 	resp, err := client.Do(req)

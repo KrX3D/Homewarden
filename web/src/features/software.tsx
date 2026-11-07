@@ -13,6 +13,7 @@ import { ConfirmButton, ErrorAlert, Modal, Spinner, useAction } from '../compone
 import { IconJobs, IconPuzzle, IconRefresh, IconUpdates } from '../components/icons';
 import { deviceSections, navItems } from '../extensions';
 import { PortsList, type Port } from './network';
+import { IntegrationSetupModal, SettingField, cleanSettings, useIntegrationDefaults } from './integrationSetup';
 
 export const tx = (text: Text | undefined, lang: Lang) => (text ? text[lang] || text.en || '' : '');
 
@@ -152,40 +153,6 @@ function useIntegrations() {
   return list;
 }
 
-function SettingField({ s, value, onChange, creds }: { s: IntegrationSetting; value: unknown; onChange: (v: unknown) => void; creds: Credential[] }) {
-  const lang = useLang();
-  const t = useT();
-  const id = 'set-' + s.key;
-  const help = tx(s.help, lang);
-  if (s.type === 'bool') {
-    return (
-      <div className="stack" style={{ gap: 2 }}>
-        <label className="check"><input id={id} type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />{tx(s.label, lang)}</label>
-        {help && <span className="small muted" style={{ paddingLeft: 24 }}>{help}</span>}
-      </div>
-    );
-  }
-  return (
-    <label className="field">
-      {tx(s.label, lang)}
-      {s.type === 'select' ? (
-        <select id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)}>
-          {s.options?.map((o) => <option key={o.value} value={o.value}>{tx(o.label, lang)}</option>)}
-        </select>
-      ) : s.type === 'credential' ? (
-        <select id={id} value={String(value ?? '')} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}>
-          <option value="">{t('conn.pickCredential')}</option>
-          {creds.filter((c) => !s.credentialTypes?.length || s.credentialTypes.includes(c.type)).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      ) : (
-        <input id={id} type={s.type === 'number' ? 'number' : s.type === 'password' ? 'password' : 'text'} value={String(value ?? '')} placeholder={s.placeholder}
-          onChange={(e) => onChange(s.type === 'number' ? Number(e.target.value) : e.target.value)} required={s.required} />
-      )}
-      {help && <span className="hint">{help}</span>}
-    </label>
-  );
-}
-
 function IntegrationCard({ device }: { device: Device }) {
   const t = useT();
   const lang = useLang();
@@ -197,30 +164,30 @@ function IntegrationCard({ device }: { device: Device }) {
   const [values, setValues] = useState<Record<string, unknown>>(savedSettings);
   const [howto, setHowto] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [setup, setSetup] = useState(false);
   const { busy, error, run } = useAction();
+  const manage = can('devices.manage');
+  const def = useIntegrationDefaults(kind, manage && !setup);
   useEffect(() => { setKind(device.kind); setValues(savedSettings); }, [device.kind, JSON.stringify(savedSettings)]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (can('devices.manage')) get<Credential[]>('/api/credentials').then(setCreds).catch(() => {}); }, [can]);
+  useEffect(() => { if (manage) get<Credential[]>('/api/credentials').then(setCreds).catch(() => {}); }, [manage]);
 
   const integ = list.find((i) => i.id === kind);
-  const manage = can('devices.manage');
   if (device.parentId && device.kind === 'generic' && !manage) return null;
 
-  const withDefaults = (i: Integration | undefined, v: Record<string, unknown>) => {
-    const out = { ...v };
-    i?.settings?.forEach((s) => { if (out[s.key] === undefined && s.default !== undefined) out[s.key] = s.default; });
-    return out;
-  };
+  // Empty fields are not saved: the device then follows the integration setup, and
+  // after that the manifest default.
   const save = (e: FormEvent) => {
     e.preventDefault();
     setSaved(false);
     run(async () => {
-      await put(`/api/devices/${device.id}/integration`, { kind, settings: withDefaults(integ, values) });
+      await put(`/api/devices/${device.id}/integration`, { kind, settings: cleanSettings(values) });
       setSaved(true);
     });
   };
   const applyPresence = () => run(async () => {
     await put(`/api/devices/${device.id}`, { ...device, presence: integ!.presence });
   });
+  const inherited = (s: IntegrationSetting) => def?.settings?.[s.key] ?? s.default;
 
   return (
     <section className="card">
@@ -235,13 +202,19 @@ function IntegrationCard({ device }: { device: Device }) {
         <form className="stack" onSubmit={save}>
           <label className="field">
             {t('integ.type')}
-            <select id="dev-integration" value={kind} onChange={(e) => { setKind(e.target.value); setValues(withDefaults(list.find((i) => i.id === e.target.value), {})); }}>
+            <select id="dev-integration" value={kind} onChange={(e) => { setKind(e.target.value); setValues({}); }}>
               <option value="generic">{t('integ.generic')}</option>
               {list.map((i) => <option key={i.id} value={i.id}>{tx(i.name, lang)}</option>)}
             </select>
             {integ && <span className="hint">{tx(integ.description, lang)}</span>}
           </label>
-          {integ?.settings?.map((s) => <SettingField key={s.key} s={s} value={values[s.key] ?? s.default} creds={creds} onChange={(v) => setValues({ ...values, [s.key]: v })} />)}
+          {integ && (
+            <div className="alert info small row" style={{ gap: 8 }}>
+              <span className="grow">{t('integ.sharedHint', { name: tx(integ.name, lang) })}</span>
+              {can('integrations.manage') && <button className="btn ghost sm" type="button" onClick={() => setSetup(true)}>{t('integSetup.open')}</button>}
+            </div>
+          )}
+          {integ?.settings?.map((s) => <SettingField key={s.key} s={s} value={values[s.key]} creds={creds} inherited={inherited(s)} onChange={(v) => setValues({ ...values, [s.key]: v })} />)}
           <ErrorAlert error={error} />
           {saved && <div className="alert ok">{t('conn.saved')}</div>}
           <div className="row">
@@ -262,6 +235,7 @@ function IntegrationCard({ device }: { device: Device }) {
           <div style={{ marginTop: 8 }}><PortsList ports={(integ as Integration & { ports?: Port[] }).ports} /></div>
         </details>
       ) : null}
+      {setup && integ && <IntegrationSetupModal integ={integ} onClose={() => setSetup(false)} />}
     </section>
   );
 }
@@ -378,7 +352,7 @@ function ChangelogModal({ device, comp, onClose }: { device: Device; comp: Compo
   const { error, run } = useAction();
   useEffect(() => { run(async () => setData(await get(`/api/devices/${device.id}/changelog?component=${encodeURIComponent(comp.id)}`))); }, [comp.id]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Modal title={t('sw.changelogOf', { name: comp.name })} onClose={onClose} footer={<button className="btn" type="button" onClick={onClose}>{t('common.close')}</button>}>
+    <Modal wide title={t('sw.changelogOf', { name: comp.name })} onClose={onClose} footer={<button className="btn" type="button" onClick={onClose}>{t('common.close')}</button>}>
       {!data && !error && <Spinner />}
       {data && (data.text ? <pre className="log" style={{ maxHeight: '60vh' }}>{data.text}</pre> : <p className="muted small">{t('sw.noChangelog')}</p>)}
       {data?.url && <a className="small" href={data.url} target="_blank" rel="noreferrer">{data.url}</a>}
@@ -507,6 +481,8 @@ function IntegrationsPage() {
   const [catalog, setCatalog] = useState<{ entries: CatalogEntry[]; errors: { source: string; error: string }[] } | null>(null);
   const [sources, setSources] = useState<string[]>([]);
   const [review, setReview] = useState<CatalogEntry | null>(null);
+  const [setupId, setSetupId] = useState<string | null>(null);
+  const setupInteg = installed.find((i) => i.id === setupId);
   const { error, run } = useAction();
   const loadCatalog = useCallback(() => {
     get<typeof catalog>('/api/integrations/catalog').then(setCatalog).catch(() => {});
@@ -538,6 +514,7 @@ function IntegrationsPage() {
                 <p className="small muted">{tx(i.description, lang)}</p>
                 <div className="row small muted">{t('market.from', { source: srcLabel(i.source) })}
                   <span style={{ flex: 1 }} />
+                  <button className="btn sm" type="button" onClick={() => setSetupId(i.id)}>{t('integSetup.open')}</button>
                   <ConfirmButton label={t('market.uninstall')} onConfirm={() => run(async () => { await del(`/api/integrations/${i.id}`); })} />
                 </div>
               </div>
@@ -585,7 +562,8 @@ function IntegrationsPage() {
       </section>
 
       <SourcesCard sources={sources} onSaved={(s) => { setSources(s); loadCatalog(); }} />
-      {review && <ReviewModal entry={review} onClose={() => setReview(null)} onInstalled={() => { setReview(null); loadCatalog(); }} />}
+      {review && <ReviewModal entry={review} onClose={() => setReview(null)} onInstalled={() => { setSetupId(review.id); setReview(null); loadCatalog(); }} />}
+      {setupInteg && <IntegrationSetupModal integ={setupInteg} onClose={() => setSetupId(null)} />}
     </>
   );
 }
@@ -638,7 +616,7 @@ function ReviewModal({ entry, onClose, onInstalled }: { entry: CatalogEntry; onC
   const lines = data ? (data.current ? diffLines(data.current.script, data.candidate.script) : data.candidate.script.split('\n').map((s) => ({ t: ' ' as const, s }))) : [];
   const changed = lines.filter((l) => l.t !== ' ').length;
   return (
-    <Modal title={t('market.reviewTitle', { name: tx(entry.name, lang), v: entry.version })} onClose={onClose} footer={
+    <Modal wide title={t('market.reviewTitle', { name: tx(entry.name, lang), v: entry.version })} onClose={onClose} footer={
       <>
         <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
         <button className="btn" type="button" disabled={busy || !data} onClick={() => run(async () => { await post('/api/integrations/install', { source: entry.source, id: entry.id }); onInstalled(); })}>{data?.current ? t('market.update') : t('market.install')}</button>
