@@ -47,6 +47,7 @@ type Server struct {
 	Static http.Handler
 
 	limiter  *auth.Limiter
+	catalog  catalogCache
 	mux      *http.ServeMux
 	dev      DeviceDeps
 	conn     *conn.Service

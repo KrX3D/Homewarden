@@ -88,6 +88,7 @@ func main() {
 	go sw.AutoScan(ctx)
 	go sw.MetricsLoop(ctx)
 	srv.AttachSoftware(api.SoftwareDeps{Registry: reg, Runner: runner, Software: sw})
+	go srv.CatalogLoop(ctx) // integration updates: at start and every 6 hours
 	srv.AttachBackups()
 
 	auto := &automation.Service{St: st, Sw: sw}

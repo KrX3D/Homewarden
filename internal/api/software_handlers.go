@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/auth"
@@ -30,6 +31,7 @@ func (s *Server) AttachSoftware(d SoftwareDeps) {
 	m := s.mux
 	m.Handle("GET /api/integrations", s.authed(auth.PermDevicesView, s.listIntegrations))
 	m.Handle("GET /api/integrations/catalog", s.authed(auth.PermIntegrationsManage, s.integrationCatalog))
+	m.Handle("GET /api/integrations/updates", s.authed(auth.PermIntegrationsManage, s.integrationUpdates))
 	m.Handle("GET /api/integrations/review", s.authed(auth.PermIntegrationsManage, s.integrationReview))
 	m.Handle("POST /api/integrations/install", s.authed(auth.PermIntegrationsManage, s.installIntegration))
 	m.Handle("DELETE /api/integrations/{iid}", s.authed(auth.PermIntegrationsManage, s.uninstallIntegration))
@@ -58,8 +60,10 @@ func (s *Server) listIntegrations(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.sw.Registry.All())
 }
 
-func (s *Server) sources(r *http.Request) []string {
-	raw, _ := s.Store.GetSetting(r.Context(), "catalog.sources", "")
+func (s *Server) sources(r *http.Request) []string { return s.sourcesCtx(r.Context()) }
+
+func (s *Server) sourcesCtx(ctx context.Context) []string {
+	raw, _ := s.Store.GetSetting(ctx, "catalog.sources", "")
 	if raw == "" {
 		return []string{integrations.DefaultSource}
 	}
@@ -97,9 +101,93 @@ func (s *Server) putSources(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"sources": clean})
 }
 
+// catalogCache keeps the last catalog check. The server checks at start and every
+// 6 hours (CatalogLoop), so the Integrations page and the sidebar badge show updates
+// without fetching GitHub/Gitea on every page load.
+type catalogCache struct {
+	mu      sync.Mutex
+	at      time.Time
+	entries []integrations.CatalogEntry
+	errs    []integrations.SourceError
+	updates int
+}
+
+// CatalogInterval is how often the catalog is checked in the background.
+const CatalogInterval = 6 * time.Hour
+
+// refreshCatalog fetches the catalog from all sources and announces a changed number
+// of available integration updates.
+func (s *Server) refreshCatalog(ctx context.Context) {
+	entries, errs := s.sw.Registry.Catalog(ctx, s.sourcesCtx(ctx))
+	n := len(s.integrationUpdatesFrom(entries))
+	s.catalog.mu.Lock()
+	changed := n != s.catalog.updates || s.catalog.at.IsZero()
+	s.catalog.at, s.catalog.entries, s.catalog.errs, s.catalog.updates = time.Now(), entries, errs, n
+	s.catalog.mu.Unlock()
+	if changed {
+		s.dev.Events.Publish("integrations.updates", map[string]int{"count": n})
+	}
+}
+
+// CatalogLoop checks the catalog now and then every CatalogInterval until ctx ends.
+func (s *Server) CatalogLoop(ctx context.Context) {
+	t := time.NewTicker(CatalogInterval)
+	defer t.Stop()
+	for {
+		s.refreshCatalog(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+func (s *Server) cachedCatalog(ctx context.Context, refresh bool) ([]integrations.CatalogEntry, []integrations.SourceError, time.Time) {
+	s.catalog.mu.Lock()
+	empty := s.catalog.at.IsZero()
+	s.catalog.mu.Unlock()
+	if refresh || empty {
+		s.refreshCatalog(ctx)
+	}
+	s.catalog.mu.Lock()
+	defer s.catalog.mu.Unlock()
+	return s.catalog.entries, s.catalog.errs, s.catalog.at
+}
+
+// integrationCatalog returns the last catalog check; ?refresh=1 checks again first.
 func (s *Server) integrationCatalog(w http.ResponseWriter, r *http.Request) {
-	entries, errs := s.sw.Registry.Catalog(r.Context(), s.sources(r))
-	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "errors": errs})
+	entries, errs, at := s.cachedCatalog(r.Context(), r.URL.Query().Get("refresh") == "1")
+	writeJSON(w, http.StatusOK, map[string]any{"entries": entries, "errors": errs, "checkedAt": at.Unix()})
+}
+
+type integrationUpdate struct {
+	ID        string `json:"id"`
+	Installed string `json:"installed"`
+	Available string `json:"available"`
+}
+
+func (s *Server) integrationUpdatesFrom(entries []integrations.CatalogEntry) []integrationUpdate {
+	newest := map[string]string{}
+	for _, e := range entries {
+		if cur, ok := newest[e.ID]; !ok || integrations.CompareVersions(e.Version, cur) > 0 {
+			newest[e.ID] = e.Version
+		}
+	}
+	out := []integrationUpdate{}
+	for _, in := range s.sw.Registry.All() {
+		if v, ok := newest[in.ID]; ok && integrations.CompareVersions(v, in.Version) > 0 {
+			out = append(out, integrationUpdate{in.ID, in.Version, v})
+		}
+	}
+	return out
+}
+
+// integrationUpdates lists installed integrations with a newer catalog version, from
+// the last background check.
+func (s *Server) integrationUpdates(w http.ResponseWriter, r *http.Request) {
+	entries, _, at := s.cachedCatalog(r.Context(), false)
+	writeJSON(w, http.StatusOK, map[string]any{"updates": s.integrationUpdatesFrom(entries), "checkedAt": at.Unix()})
 }
 
 // integrationReview returns the installed and the offered script so the user can see

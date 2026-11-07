@@ -141,6 +141,10 @@ decision is made or changed, update it in the same PR.
 - Warning `needs-reboot`: takes effect after a restart Homewarden does not do (Proxmox/PBS
   kernels). `reboots` means the update itself restarts the device. Proxmox sets
   facts.rebootRequired when the newest /boot kernel differs from uname -r.
+- Integration catalog is checked by the server at start and every 6 h (`CatalogLoop`,
+  cache in `Server.catalog`); `GET /api/integrations/catalog` serves the cache
+  (`?refresh=1` = check now), `GET /api/integrations/updates` feeds the sidebar badge.
+  A changed update count publishes `integrations.updates`.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting
