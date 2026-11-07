@@ -261,6 +261,11 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 				if same.ID != parent.ID { // the parent itself (the UDM in its own list) is no new device
 					s.mergeDiscovered(ctx, same, f)
 					network(same.ID, f)
+					// A network-scan entry is the same machine seen from outside: let this
+					// integration own it, so it gets the parent link and is found by id next time.
+					if same.Source == "scan" && !f.EnrichOnly {
+						s.adopt(ctx, same, parent, source, f)
+					}
 				}
 				continue
 			}
@@ -289,6 +294,7 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 			return created, err
 		}
 		network(existing.ID, f)
+		existing = s.combine(ctx, existing, parent, source, f)
 		// Keep name and state of known children current; their presence comes from here.
 		if existing.Presence.Reach.Method == "none" && existing.State != state {
 			_ = s.St.SetDeviceState(ctx, existing.ID, state, time.Now().Unix())
@@ -302,6 +308,62 @@ func (s *Software) discover(ctx context.Context, run *Run, in *integrations.Inte
 		s.Events.Publish("device.changed", map[string]int64{"id": parent.ID})
 	}
 	return created, nil
+}
+
+// adopt makes d a child of parent owned by this discovery source.
+func (s *Software) adopt(ctx context.Context, d, parent store.Device, source string, f discovered) {
+	if err := s.St.SetDeviceSource(ctx, d.ID, source, f.ExternalID); err != nil {
+		return
+	}
+	if fresh, err := s.St.Device(ctx, d.ID); err == nil {
+		d = fresh // mergeDiscovered may just have renamed it
+	}
+	if d.ParentID == nil {
+		pid := parent.ID
+		d.ParentID = &pid
+		if d.GroupName == "" {
+			d.GroupName = firstNonEmpty(f.Group, parent.GroupName)
+		}
+		_ = s.St.UpdateDevice(ctx, d)
+	}
+	s.Events.Publish("device.changed", map[string]int64{"id": d.ID})
+}
+
+// combine handles a known child that turns out to be a machine Homewarden already has
+// under another entry (same MAC or address, e.g. from a network scan before the
+// integration reported the MAC). The entry the user has not worked with yet goes:
+// an untouched scan result is removed; a child still in the inbox gives way to the
+// added device, which takes over its identity. Two added devices are left alone.
+// Returns the device that represents the child now.
+func (s *Software) combine(ctx context.Context, child, parent store.Device, source string, f discovered) store.Device {
+	if f.MAC != "" && child.MAC == "" || f.Host != "" && child.Host == "" {
+		s.mergeDiscovered(ctx, child, f)
+		if d, err := s.St.Device(ctx, child.ID); err == nil {
+			child = d
+		}
+	}
+	if f.MAC == "" && f.Host == "" {
+		return child
+	}
+	other, err := s.St.DeviceByMACOrHostExcept(ctx, f.MAC, f.Host, child.ID, parent.ID)
+	if err != nil {
+		return child
+	}
+	switch {
+	case other.Status == store.StatusDiscovered && other.Source == "scan":
+		_ = s.St.DeleteDevice(ctx, other.ID)
+		s.Events.Publish("device.changed", map[string]int64{"id": other.ID})
+		return child
+	case child.Status == store.StatusDiscovered && other.Status == store.StatusActive && (other.Source == "scan" || other.Source == "manual"):
+		_ = s.St.DeleteDevice(ctx, child.ID)
+		s.mergeDiscovered(ctx, other, f)
+		if d, err := s.St.Device(ctx, other.ID); err == nil {
+			other = d
+		}
+		s.adopt(ctx, other, parent, source, f)
+		return other
+	}
+	return child
 }
 
 // mergeDiscovered adds what a discovery knows to an existing device: the MAC when it

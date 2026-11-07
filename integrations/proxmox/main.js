@@ -160,10 +160,63 @@ function detect(ctx) {
   };
 }
 
+function pveTry(ctx, path) {
+  try { return pve(ctx, 'GET', path); } catch (e) { return null; }
+}
+
+var MAC_RE = /([0-9a-f]{2}(?::[0-9a-f]{2}){5})/i;
+var IPV4_RE = /^(\d{1,3}\.){3}\d{1,3}$/;
+
+// MAC (and a static IP, if any) from the first network device of a guest config.
+// LXC: "name=eth0,bridge=vmbr0,hwaddr=BC:24:11:..,ip=192.168.90.20/24"; VM: "virtio=BC:24:11:..,bridge=vmbr0".
+function netOf(cfg) {
+  for (var i = 0; i < 10; i++) {
+    var v = cfg && cfg['net' + i];
+    if (typeof v !== 'string') continue;
+    var m = MAC_RE.exec(v);
+    if (!m) continue;
+    var ip = /(?:^|,)ip=(\d{1,3}(?:\.\d{1,3}){3})/.exec(v);
+    return { mac: m[1].toLowerCase(), ip: ip ? ip[1] : '' };
+  }
+  return { mac: '', ip: '' };
+}
+
+// The address a running guest has right now: LXCs report their interfaces, VMs only
+// through the QEMU guest agent.
+function liveIP(ctx, n, g, mac) {
+  if (g.status !== 'running') return '';
+  if (g.type === 'lxc') {
+    var ifs = pveTry(ctx, '/nodes/' + n + '/lxc/' + g.vmid + '/interfaces') || [];
+    for (var i = 0; i < ifs.length; i++) {
+      var f = ifs[i];
+      if (f.name === 'lo' || !f.inet) continue;
+      if (mac && f.hwaddr && f.hwaddr.toLowerCase() !== mac) continue;
+      return String(f.inet).split('/')[0];
+    }
+    return '';
+  }
+  var ag = pveTry(ctx, '/nodes/' + n + '/qemu/' + g.vmid + '/agent/network-get-interfaces');
+  var list = (ag && ag.result) || [];
+  for (var j = 0; j < list.length; j++) {
+    var it = list[j];
+    if (mac && (it['hardware-address'] || '').toLowerCase() !== mac) continue;
+    var addrs = it['ip-addresses'] || [];
+    for (var k = 0; k < addrs.length; k++) {
+      var a = addrs[k]['ip-address'];
+      if (addrs[k]['ip-address-type'] === 'ipv4' && IPV4_RE.test(a) && a.indexOf('127.') !== 0) return a;
+    }
+  }
+  return '';
+}
+
 function discover(ctx) {
-  return guests(ctx, node(ctx)).map(function (g) {
-    return { externalId: g.type + '/' + g.vmid, name: (g.name || (g.type + ' ' + g.vmid)), host: '', kind: 'generic',
-      state: g.status === 'running' ? 'running' : 'stopped' };
+  var n = node(ctx);
+  return guests(ctx, n).map(function (g) {
+    var cfg = pveTry(ctx, '/nodes/' + n + '/' + g.type + '/' + g.vmid + '/config') || {};
+    var net = netOf(cfg);
+    var ip = liveIP(ctx, n, g, net.mac) || net.ip;
+    return { externalId: g.type + '/' + g.vmid, name: (g.name || cfg.hostname || cfg.name || (g.type + ' ' + g.vmid)), host: ip, mac: net.mac,
+      kind: 'generic', state: g.status === 'running' ? 'running' : 'stopped' };
   });
 }
 

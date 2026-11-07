@@ -141,6 +141,12 @@ decision is made or changed, update it in the same PR.
 - Warning `needs-reboot`: takes effect after a restart Homewarden does not do (Proxmox/PBS
   kernels). `reboots` means the update itself restarts the device. Proxmox sets
   facts.rebootRequired when the newest /boot kernel differs from uname -r.
+- Proxmox discover reports MAC (guest config netN) and IP (static ip=, LXC /interfaces,
+  VM guest agent). Duplicates are combined (`combine`/`adopt` in jobs/software.go): an
+  untouched scan entry in the inbox is deleted in favour of the child; a child still in
+  the inbox gives way to an added scan/manual device, which takes over source,
+  external id and the parent link; a new guest matching a scan entry adopts it. Two
+  added devices are never merged automatically.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting

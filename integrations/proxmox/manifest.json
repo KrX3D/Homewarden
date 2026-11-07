@@ -1,6 +1,6 @@
 {
   "id": "proxmox",
-  "version": "0.10.7",
+  "version": "0.10.8",
   "minCore": "0.1.0",
   "name": {
     "en": "Proxmox VE",
