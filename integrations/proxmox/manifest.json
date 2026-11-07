@@ -1,6 +1,6 @@
 {
   "id": "proxmox",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "minCore": "0.1.0",
   "name": {
     "en": "Proxmox VE",
@@ -34,8 +34,12 @@
         "de": "API-Token"
       },
       "help": {
-        "en": "Credential username = token id (root@pam!homewarden), secret = token value.",
-        "de": "Benutzername der Zugangsdaten = Token-ID (root@pam!homewarden), Geheimnis = Token-Wert."
+        "en": "Token ID and the secret shown once when the token was created.",
+        "de": "Token-ID und das Geheimnis, das beim Anlegen des Tokens einmal angezeigt wird."
+      },
+      "credentialUsername": {
+        "en": "Token ID (e.g. root@pam!homewarden)",
+        "de": "Token-ID (z. B. root@pam!homewarden)"
       }
     },
     {

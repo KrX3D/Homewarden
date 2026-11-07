@@ -99,6 +99,8 @@ export type IntegrationSetting = {
   key: string; type: 'string' | 'number' | 'bool' | 'select' | 'credential' | 'password';
   label: Text; help?: Text; default?: unknown; required?: boolean; options?: { value: string; label: Text }[];
   credentialTypes?: string[]; placeholder?: string; scope?: 'device';
+  /** Label for the credential's user name when a token needs one (Proxmox token id). */
+  credentialUsername?: Text;
 };
 export type Permissions = { ssh: boolean; docker: boolean; httpDevice: boolean; httpHosts: string[] | null };
 export type Integration = {

@@ -746,7 +746,6 @@
  "integSetup.noConnection": "Keine gemeinsame Verbindung",
  "integSetup.settings": "Einstellungen",
  "integSetup.settingsHint": "Leere Felder verwenden den eingebauten Standard der Integration.",
- "integSetup.newFor": "Neue Zugangsdaten für {name}",
  "integSetup.nothing": "Bei dieser Integration gibt es nichts einzurichten.",
  "integSetup.devices": "Geräte, die sie nutzen ({n})",
  "integSetup.noDevices": "Noch kein Gerät nutzt diese Integration. Wähle sie in der Integrations-Karte eines Geräts.",
@@ -758,5 +757,7 @@
  "integSetup.perDevice": "Pro Gerät in dessen Integrations-Karte gesetzt: {list}.",
  "integ.overrides": "Gemeinsame Einstellungen für dieses Gerät abweichend setzen",
  "integ.overridesSet": "Abweichungen für dieses Gerät ({n} gesetzt)",
- "integ.overridesHint": "Ein Feld auf Standard lassen, um die Integrations-Einrichtung zu verwenden."
+ "integ.overridesHint": "Ein Feld auf Standard lassen, um die Integrations-Einrichtung zu verwenden.",
+ "cred.tokenId": "Token-ID (nur für Proxmox und PBS)",
+ "cred.tokenIdHint": "Leer lassen bei API-Schlüsseln, die nur aus einem Wert bestehen, wie bei OctoPrint oder UniFi."
 }

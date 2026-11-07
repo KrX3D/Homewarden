@@ -64,12 +64,14 @@ function CredentialsTab() {
 }
 
 /** Creates or edits a vault entry. types limits which kinds a new entry may be. */
-export function CredentialModal({ cred, onClose, onSaved, types = ['ssh_key', 'password', 'token'] }: {
+export function CredentialModal({ cred, onClose, onSaved, types = ['ssh_key', 'password', 'token'], fromSetting, tokenUserLabel, defaultName }: {
   cred: Credential | null; onClose: () => void; onSaved: (c: Credential) => void; types?: CredentialType[];
+  /** Opened for one integration setting: a token then only asks for a user name when the setting needs one. */
+  fromSetting?: boolean; tokenUserLabel?: string; defaultName?: string;
 }) {
   const t = useT();
   const [type, setType] = useState<CredentialType>(cred?.type ?? types[0]);
-  const [name, setName] = useState(cred?.name ?? '');
+  const [name, setName] = useState(cred?.name ?? defaultName ?? '');
   const [username, setUsername] = useState(cred?.username ?? '');
   const [secret, setSecret] = useState('');
   const [keyMode, setKeyMode] = useState<'generate' | 'paste'>('generate');
@@ -119,11 +121,13 @@ export function CredentialModal({ cred, onClose, onSaved, types = ['ssh_key', 'p
           {t('cred.name')}
           <input id="cred-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required maxLength={128} placeholder={type === 'ssh_key' ? 'Homewarden key' : 'OctoPrint API key'} />
         </label>
-        <label className="field">
-          {t('cred.username')}
-          <input id="cred-username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="pi" />
-          <span className="hint">{t('cred.usernameHint')}</span>
-        </label>
+        {(type !== 'token' || !fromSetting || !!tokenUserLabel || !!cred?.username) && (
+          <label className="field">
+            {type === 'token' ? (tokenUserLabel || t('cred.tokenId')) : t('cred.username')}
+            <input id="cred-username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={type === 'token' ? 'root@pam!homewarden' : 'pi'} />
+            {!(type === 'token' && tokenUserLabel) && <span className="hint">{type === 'token' ? t('cred.tokenIdHint') : t('cred.usernameHint')}</span>}
+          </label>
+        )}
         {type === 'ssh_key' && !cred && (
           <div className="stack" style={{ gap: 8 }}>
             <label className="check"><input type="radio" name="keymode" checked={keyMode === 'generate'} onChange={() => setKeyMode('generate')} />{t('cred.generate')}</label>

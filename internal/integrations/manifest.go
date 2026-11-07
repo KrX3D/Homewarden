@@ -36,6 +36,9 @@ type Setting struct {
 	// They are set in the device's Integration card only; all others are shared in the
 	// integration setup and can be overridden per device.
 	Scope string `json:"scope,omitempty"`
+	// CredentialUsername labels the user name of a token credential when the API
+	// needs one (Proxmox: the token id). Without it the dialog does not ask.
+	CredentialUsername Text `json:"credentialUsername,omitempty"`
 }
 
 // Port is one network requirement. Target: device (Homewarden reaches the device),

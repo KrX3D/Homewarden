@@ -29,6 +29,39 @@ export function useIntegrationDefaults(id: string | undefined, enabled = true) {
   return def;
 }
 
+/**
+ * Renders an integration guide: "1." lines become numbered lists, "- " lines bullet
+ * lists, short lines ending in ":" headings, everything else paragraphs.
+ */
+export function Howto({ text }: { text: string }) {
+  type Block = { kind: 'ol' | 'ul' | 'h' | 'p'; items: string[] };
+  const blocks: Block[] = [];
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const num = line.match(/^\d+\.\s+(.*)$/);
+    const bul = line.match(/^[-*]\s+(.*)$/);
+    const last = blocks[blocks.length - 1];
+    if (num) {
+      if (last?.kind === 'ol') last.items.push(num[1]); else blocks.push({ kind: 'ol', items: [num[1]] });
+    } else if (bul) {
+      if (last?.kind === 'ul') last.items.push(bul[1]); else blocks.push({ kind: 'ul', items: [bul[1]] });
+    } else if (line.endsWith(':') && line.length < 90) {
+      blocks.push({ kind: 'h', items: [line.slice(0, -1)] });
+    } else {
+      blocks.push({ kind: 'p', items: [line] });
+    }
+  }
+  return (
+    <div className="howto">
+      {blocks.map((b, i) => b.kind === 'ol' ? <ol key={i}>{b.items.map((x, j) => <li key={j}>{x}</li>)}</ol>
+        : b.kind === 'ul' ? <ul key={i}>{b.items.map((x, j) => <li key={j}>{x}</li>)}</ul>
+        : b.kind === 'h' ? <h4 key={i}>{b.items[0]}</h4>
+        : <p key={i}>{b.items[0]}</p>)}
+    </div>
+  );
+}
+
 const unset = (v: unknown) => v === undefined || v === null || v === '';
 
 /** Drops empty values so they fall back to the integration defaults. */
@@ -40,8 +73,10 @@ export function cleanSettings(v: Record<string, unknown>) {
  * One manifest setting. With `inherited` set, leaving the field empty uses that value
  * (from the integration setup or the manifest default) and the field says so.
  */
-export function SettingField({ s, value, onChange, creds, inherited, idPrefix = 'set-' }: {
+export function SettingField({ s, value, onChange, creds, inherited, idPrefix = 'set-', onNewCredential }: {
   s: IntegrationSetting; value: unknown; onChange: (v: unknown) => void; creds: Credential[]; inherited?: unknown; idPrefix?: string;
+  /** Shows a "New credential" button under a credential select. */
+  onNewCredential?: () => void;
 }) {
   const lang = useLang();
   const t = useT();
@@ -94,8 +129,16 @@ export function SettingField({ s, value, onChange, creds, inherited, idPrefix = 
           required={s.required && !hasInherited} />
       )}
       {help && <span className="hint">{help}</span>}
+      {s.type === 'credential' && onNewCredential && (
+        <span><button id={id + '-new'} className="btn ghost sm" type="button" onClick={(e) => { e.preventDefault(); onNewCredential(); }}><IconPlus />{t('conn.newCredential')}</button></span>
+      )}
     </label>
   );
+}
+
+/** Credential kinds a setting accepts, for the New credential dialog. */
+export function credentialTypesOf(s: IntegrationSetting): Credential['type'][] {
+  return (s.credentialTypes?.length ? s.credentialTypes : ['token', 'password']) as Credential['type'][];
 }
 
 /** The setup page of one integration, opened from the Integrations page. */
@@ -107,7 +150,7 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
   const [creds, setCreds] = useState<Credential[]>([]);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [conn, setConn] = useState<DefaultsConnection>({ port: 22, sudo: false });
-  const [creating, setCreating] = useState<null | { types: Credential['type'][]; apply: (c: Credential) => void }>(null);
+  const [creating, setCreating] = useState<null | { types: Credential['type'][]; apply: (c: Credential) => void; fromSetting?: boolean; tokenUserLabel?: string; defaultName?: string }>(null);
   const [saved, setSaved] = useState(false);
   const { busy, error, run } = useAction();
   const ssh = integ.connection === 'ssh' || integ.permissions?.ssh;
@@ -130,7 +173,6 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
   const sshCreds = creds.filter((c) => c.type !== 'token');
   const shared = (integ.settings ?? []).filter((s) => s.scope !== 'device');
   const perDevice = (integ.settings ?? []).filter((s) => s.scope === 'device');
-  const credSettings = shared.filter((s) => s.type === 'credential');
   // The guide starts open until something is set up.
   const fresh = !!def && Object.keys(def.settings ?? {}).length === 0 && !def.connection?.credentialId;
 
@@ -147,7 +189,7 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
           {integ.howto && (
             <details open={fresh} className="howto-box">
               <summary>{t('integSetup.guide')}</summary>
-              <pre className="howto">{tx(integ.howto, lang)}</pre>
+              <Howto text={tx(integ.howto, lang)} />
             </details>
           )}
 
@@ -187,18 +229,14 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
               <p className="small muted" style={{ margin: 0 }}>{t('integSetup.settingsHint')}</p>
               {shared.map((s) => (
                 <SettingField key={s.key} idPrefix="setup-" s={s} value={values[s.key]} creds={creds} inherited={s.default}
-                  onChange={(v) => setValues({ ...values, [s.key]: v })} />
+                  onChange={(v) => setValues({ ...values, [s.key]: v })}
+                  onNewCredential={can('credentials.manage') ? () => setCreating({
+                    types: credentialTypesOf(s), fromSetting: true,
+                    tokenUserLabel: tx(s.credentialUsername, lang) || undefined,
+                    defaultName: `${tx(integ.name, lang)} ${tx(s.label, lang)}`,
+                    apply: (c) => setValues((cur) => ({ ...cur, [s.key]: c.id })),
+                  }) : undefined} />
               ))}
-              {credSettings.length > 0 && can('credentials.manage') && (
-                <div className="row">
-                  {credSettings.map((s) => (
-                    <button key={s.key} className="btn ghost sm" type="button" onClick={() => setCreating({
-                      types: (s.credentialTypes?.length ? s.credentialTypes : ['token', 'password']) as Credential['type'][],
-                      apply: (c) => setValues((cur) => ({ ...cur, [s.key]: c.id })),
-                    })}><IconPlus />{t('integSetup.newFor', { name: tx(s.label, lang) })}</button>
-                  ))}
-                </div>
-              )}
             </fieldset>
           )}
 
@@ -229,7 +267,7 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
           {saved && <div className="alert ok">{t('integSetup.saved')}</div>}
         </form>
       )}
-      {creating && <CredentialModal cred={null} types={creating.types} onClose={() => setCreating(null)} onSaved={(c) => {
+      {creating && <CredentialModal cred={null} types={creating.types} fromSetting={creating.fromSetting} tokenUserLabel={creating.tokenUserLabel} defaultName={creating.defaultName} onClose={() => setCreating(null)} onSaved={(c) => {
         setCreds((cur) => [...cur.filter((x) => x.id !== c.id), c]);
         creating.apply(c);
         setCreating(null);
