@@ -242,6 +242,16 @@ func (s *Scanner) inspect(ctx context.Context, ip string) Found {
 		cancel()
 	}
 	if d, err := s.st.DeviceByMACOrHost(ctx, f.MAC, ip); err == nil {
+		// Entries from before a better name was known (a container id, an IP) get it now.
+		if f.Name != d.Name && !LooksGenerated(f.Name) && f.Name != ip && LooksGenerated(d.Name) {
+			d.Name = f.Name
+			if d.MAC == "" {
+				d.MAC = f.MAC
+			}
+			if s.st.UpdateDevice(ctx, d) == nil {
+				s.events.Publish("device.changed", map[string]int64{"id": d.ID})
+			}
+		}
 		f.DeviceID, f.DeviceName = d.ID, d.Name
 		switch d.Status {
 		case store.StatusDiscovered:

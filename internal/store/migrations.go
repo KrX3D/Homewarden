@@ -280,4 +280,15 @@ CREATE INDEX metrics_device ON metrics(device_id, at);
 `,
 	// 11: roles limited to device groups (empty list = all devices).
 	`ALTER TABLE roles ADD COLUMN device_groups TEXT NOT NULL DEFAULT '[]';`,
+	// 12: network details other devices report about a device (UniFi: switch port,
+	// access point, signal), one row per reporting device.
+	`
+CREATE TABLE network_info (
+	device_id  INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	source_id  INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	data       TEXT NOT NULL,
+	updated_at INTEGER NOT NULL,
+	PRIMARY KEY (device_id, source_id)
+);
+`,
 }

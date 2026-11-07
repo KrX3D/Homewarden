@@ -42,8 +42,19 @@ function authHeaders(ctx) {
 }
 
 function call(ctx, method, path, body) {
-  var r = ctx.http.request({ method: method, url: apiBase(ctx) + path, body: body, headers: authHeaders(ctx),
-    insecure: !!setting(ctx, 'insecure', true), timeout: 60 });
+  var r;
+  try {
+    r = ctx.http.request({ method: method, url: apiBase(ctx) + path, body: body, headers: authHeaders(ctx),
+      insecure: !!setting(ctx, 'insecure', true), timeout: 60 });
+  } catch (e) {
+    var msg = String(e && e.message || e);
+    if (/refused|no such host|timeout|unreachable|no route/i.test(msg)) {
+      throw new Error('No UniFi console answers at ' + apiBase(ctx) + ' (' + msg.replace(/^.*: /, '') + '). ' +
+        'Pick UniFi Network only on the console itself (UDM, UCG, Cloud Key, or the host of a self-hosted controller). ' +
+        'Other devices get their network details (switch port, access point, signal) from it automatically.');
+    }
+    throw e;
+  }
   if (r.status === 401) throw new Error('UniFi refused the credentials (HTTP 401).');
   if (r.status === 404) throw new Error('UniFi API not found at ' + apiBase(ctx) + '. Check UniFi OS console, port and site.');
   if (r.status >= 400) throw new Error('UniFi ' + method + ' ' + path + ': HTTP ' + r.status);
@@ -77,18 +88,42 @@ function detect(ctx) {
   return { facts: facts, components: comps };
 }
 
+// Network details for one client, shown in the Network card of the matching device.
+function networkOf(c, names) {
+  var n = { source: 'UniFi', via: c.is_wired ? 'wired' : 'wifi', ip: c.ip || '', mac: c.mac,
+    network: c.network || '', vlan: c.vlan || null, uptime: c.uptime || null, lastSeen: c.last_seen || null,
+    alias: c.name || '', hostname: c.hostname || '' };
+  if (c.is_wired) {
+    n.uplink = names[c.sw_mac] || c.sw_mac || '';
+    n.port = c.sw_port || null;
+  } else {
+    n.uplink = names[c.ap_mac] || c.ap_mac || '';
+    n.ssid = c.essid || '';
+    n.signal = c.signal || c.rssi || null;
+    n.channel = c.channel || null;
+    n.radio = c.radio_proto || '';
+    if (c.tx_rate) n.txMbps = Math.round(c.tx_rate / 1000);
+    if (c.rx_rate) n.rxMbps = Math.round(c.rx_rate / 1000);
+  }
+  return n;
+}
+
 function discover(ctx) {
-  var out = call(ctx, 'GET', '/stat/device').map(function (d) {
+  var devs = call(ctx, 'GET', '/stat/device');
+  var names = {};
+  devs.forEach(function (d) { names[d.mac] = d.name || d.model || d.mac; });
+  var out = devs.map(function (d) {
     return { externalId: 'dev:' + d.mac, name: d.name || d.model || d.mac, host: d.ip || '', mac: d.mac, kind: 'generic',
       state: d.state === 1 ? 'running' : 'stopped', group: 'UniFi' };
   });
-  if (setting(ctx, 'importClients', false)) {
-    call(ctx, 'GET', '/stat/sta').forEach(function (c) {
-      out.push({ externalId: 'client:' + c.mac, name: c.name || c.hostname || c.oui || c.mac, host: c.ip || '', mac: c.mac, kind: 'generic',
-        state: 'running', group: 'Clients',
-        presence: c.ip ? { reach: { method: 'ping' }, ready: { method: 'none' }, settleSeconds: 0, intervalSeconds: 60 } : null });
-    });
-  }
+  // Clients always feed the Network card of devices Homewarden already has; with
+  // importClients they also land in the inbox.
+  var importClients = !!setting(ctx, 'importClients', false);
+  call(ctx, 'GET', '/stat/sta').forEach(function (c) {
+    out.push({ externalId: 'client:' + c.mac, name: c.name || c.hostname || c.oui || c.mac, host: c.ip || '', mac: c.mac, kind: 'generic',
+      state: 'running', group: 'Clients', enrichOnly: !importClients, network: networkOf(c, names),
+      presence: c.ip ? { reach: { method: 'ping' }, ready: { method: 'none' }, settleSeconds: 0, intervalSeconds: 60 } : null });
+  });
   return out;
 }
 

@@ -104,6 +104,18 @@ decision is made or changed, update it in the same PR.
   list, optional network scan) plus manual adding.
 - Discovered devices land in an inbox: Add (then configure) or Ignore. Ignored devices
   are hidden in a list and can be re-added later.
+- One integration per device = what the device is and what gets updated on it.
+  Information about a device from elsewhere is not a second integration: discover
+  entries may carry `network` (stored in table `network_info`, one row per reporting
+  device, shown in the Network card) and `enrichOnly` (never creates devices, only
+  enriches matches by MAC/IP). UniFi reports every client this way (switch port or AP,
+  SSID, signal, VLAN, uptime) on each scan of the console; `importClients` only decides
+  whether unknown clients also land in the inbox. A discovered entry matching the
+  parent itself (the UDM in its own device list) is skipped.
+- UniFi `call()` turns connection errors into a hint that UniFi belongs on the console
+  (users picked it on other devices to get network info).
+- Network scan renames known devices whose name looks generated (container id, IP)
+  when it finds a better one (fixes entries from before LooksGenerated existed).
 - Inbox "Add" has an "as" select: picks the integration and takes over its presence
   config (`applyPresence` on PUT `/api/devices/{id}/integration`).
 - Network scan: several ranges per scan (max 1024 addresses each, 4096 total, stored
