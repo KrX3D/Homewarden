@@ -13,7 +13,8 @@ import { ConfirmButton, ErrorAlert, Modal, Spinner, useAction } from '../compone
 import { IconJobs, IconPuzzle, IconRefresh, IconUpdates } from '../components/icons';
 import { deviceSections, navItems } from '../extensions';
 import { PortsList, type Port } from './network';
-import { IntegrationSetupModal, SettingField, cleanSettings, useIntegrationDefaults } from './integrationSetup';
+import { Howto, IntegrationSetupModal, SettingField, cleanSettings, credentialTypesOf, useIntegrationDefaults } from './integrationSetup';
+import { CredentialModal } from './credentials';
 
 export const tx = (text: Text | undefined, lang: Lang) => (text ? text[lang] || text.en || '' : '');
 
@@ -165,6 +166,7 @@ function IntegrationCard({ device }: { device: Device }) {
   const [howto, setHowto] = useState(false);
   const [saved, setSaved] = useState(false);
   const [setup, setSetup] = useState(false);
+  const [newCredFor, setNewCredFor] = useState<IntegrationSetting | null>(null);
   const { busy, error, run } = useAction();
   const manage = can('devices.manage');
   const def = useIntegrationDefaults(kind, manage && !setup);
@@ -222,7 +224,8 @@ function IntegrationCard({ device }: { device: Device }) {
               <summary>{ownShared > 0 ? t('integ.overridesSet', { n: ownShared }) : t('integ.overrides')}</summary>
               <div className="stack" style={{ marginTop: 10 }}>
                 <p className="small muted" style={{ margin: 0 }}>{t('integ.overridesHint')}</p>
-                {sharedSettings.map((s) => <SettingField key={s.key} s={s} value={values[s.key]} creds={creds} inherited={inherited(s)} onChange={(v) => setValues({ ...values, [s.key]: v })} />)}
+                {sharedSettings.map((s) => <SettingField key={s.key} s={s} value={values[s.key]} creds={creds} inherited={inherited(s)} onChange={(v) => setValues({ ...values, [s.key]: v })}
+                  onNewCredential={can('credentials.manage') ? () => setNewCredFor(s) : undefined} />)}
               </div>
             </details>
           )}
@@ -239,7 +242,7 @@ function IntegrationCard({ device }: { device: Device }) {
       ) : (
         <p>{integ ? tx(integ.name, lang) : t('integ.generic')}</p>
       )}
-      {howto && integ?.howto && <pre className="howto">{tx(integ.howto, lang)}</pre>}
+      {howto && integ?.howto && <Howto text={tx(integ.howto, lang)} />}
       {integ && (integ as Integration & { ports?: Port[] }).ports?.length ? (
         <details>
           <summary className="small" style={{ cursor: 'pointer' }}>{t('net.needs')}</summary>
@@ -247,6 +250,13 @@ function IntegrationCard({ device }: { device: Device }) {
         </details>
       ) : null}
       {setup && integ && <IntegrationSetupModal integ={integ} onClose={() => setSetup(false)} />}
+      {newCredFor && integ && <CredentialModal cred={null} types={credentialTypesOf(newCredFor)} fromSetting
+        tokenUserLabel={tx(newCredFor.credentialUsername, lang) || undefined} defaultName={`${tx(integ.name, lang)} ${tx(newCredFor.label, lang)}`}
+        onClose={() => setNewCredFor(null)} onSaved={(c) => {
+          setCreds((cur) => [...cur.filter((x) => x.id !== c.id), c]);
+          setValues((cur) => ({ ...cur, [newCredFor.key]: c.id }));
+          setNewCredFor(null);
+        }} />}
     </section>
   );
 }

@@ -1,6 +1,6 @@
 {
   "id": "unifi",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "minCore": "0.1.0",
   "name": {
     "en": "UniFi Network",
@@ -11,8 +11,8 @@
     "de": "Beta. UniFi-Controller (UDM, UCG, Cloud Key oder die selbst gehostete App): Firmware jedes Access Points, Switches und Gateways, aktualisiert über den Controller; Version der Network-Anwendung (nur Hinweis). UniFi-Geräte und optional alle Clients erscheinen im Posteingang, so fallen neue Geräte im Netz auf."
   },
   "howto": {
-    "en": "Option A, API key (UniFi Network 9.0 or newer): UniFi, Settings, Control Plane, Integrations, Create API Key. In Homewarden add it as an API token credential and pick it under API key in the integration setup.\nOption B, local account: create a local admin in UniFi OS (not a ui.com cloud account, 2FA off for that user). Add it as a Password credential and pick it under Login.\nAddress: the device address of this Homewarden device is the console (e.g. 192.168.90.1). Self-hosted controller: turn off UniFi OS console and set the port (usually 8443).\nSuggested online detection: ping, ready when TCP 443 (or 8443) answers.",
-    "de": "Variante A, API-Schlüssel (UniFi Network 9.0 oder neuer): UniFi, Settings, Control Plane, Integrations, Create API Key. In Homewarden als Zugangsdaten vom Typ API-Token anlegen und in der Integrations-Einrichtung unter API-Schlüssel auswählen.\nVariante B, lokales Konto: in UniFi OS einen lokalen Admin anlegen (kein ui.com-Cloudkonto, 2FA für diesen Benutzer aus). Als Zugangsdaten vom Typ Passwort anlegen und unter Anmeldung auswählen.\nAdresse: Die Adresse dieses Homewarden-Geräts ist die Konsole (z. B. 192.168.90.1). Selbst gehosteter Controller: UniFi-OS-Konsole ausschalten und den Port setzen (meist 8443).\nEmpfohlene Online-Erkennung: Ping, bereit wenn TCP 443 (oder 8443) antwortet."
+    "en": "API key (recommended, UniFi Network 9.0 or newer):\n1. Open the UniFi Network app on the console.\n2. In the left sidebar click Integrations, the icon just below Settings. On older versions: Settings, Control Plane, Integrations.\n3. Click Create New API Key, name it Homewarden and copy the key. It is shown only once.\n4. In Homewarden: Integrations, UniFi Network, Set up. Under API key click New credential, paste the key and save.\n\nWithout API key (older consoles):\n1. In UniFi OS create a local admin: not a ui.com cloud account, 2FA off for that user.\n2. In the setup under Login click New credential, choose Password and enter that user and password.\n\nThe console as a device:\n1. Add the console (e.g. 192.168.90.1) as a device and pick UniFi Network in its Integration card.\n2. Self-hosted controller instead of a UniFi OS console: in the setup turn off UniFi OS console and set the port, usually 8443.\n3. Suggested online detection: ping, ready when TCP 443 (or 8443) answers.",
+    "de": "API-Schlüssel (empfohlen, UniFi Network 9.0 oder neuer):\n1. Die UniFi-Network-App auf der Konsole öffnen.\n2. In der linken Leiste auf Integrations klicken, das Symbol direkt unter Settings. Bei älteren Versionen: Settings, Control Plane, Integrations.\n3. Create New API Key klicken, Homewarden als Namen eingeben und den Schlüssel kopieren. Er wird nur einmal angezeigt.\n4. In Homewarden: Integrationen, UniFi Network, Einrichten. Unter API-Schlüssel auf Neue Zugangsdaten klicken, Schlüssel einfügen und speichern.\n\nOhne API-Schlüssel (ältere Konsolen):\n1. In UniFi OS einen lokalen Admin anlegen: kein ui.com-Cloudkonto, 2FA für diesen Benutzer aus.\n2. In der Einrichtung unter Anmeldung auf Neue Zugangsdaten klicken, Passwort wählen und Benutzer und Passwort eingeben.\n\nDie Konsole als Gerät:\n1. Die Konsole (z. B. 192.168.90.1) als Gerät hinzufügen und in ihrer Integrations-Karte UniFi Network wählen.\n2. Selbst gehosteter Controller statt UniFi-OS-Konsole: in der Einrichtung UniFi-OS-Konsole ausschalten und den Port setzen, meist 8443.\n3. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 443 (oder 8443) antwortet."
   },
   "connection": "http",
   "permissions": {
@@ -33,8 +33,8 @@
         "de": "API-Schlüssel"
       },
       "help": {
-        "en": "UniFi Network 9.0 or newer: Settings, Control Plane, Integrations, Create API Key. Add it as an API token credential.",
-        "de": "UniFi Network 9.0 oder neuer: Settings, Control Plane, Integrations, Create API Key. Als Zugangsdaten vom Typ API-Token anlegen."
+        "en": "UniFi Network app: Integrations in the left sidebar (below Settings), Create New API Key.",
+        "de": "UniFi-Network-App: Integrations in der linken Leiste (unter Settings), Create New API Key."
       }
     },
     {

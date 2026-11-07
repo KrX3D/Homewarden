@@ -746,7 +746,6 @@
  "integSetup.noConnection": "No shared connection",
  "integSetup.settings": "Settings",
  "integSetup.settingsHint": "Empty fields use the integration's built-in default.",
- "integSetup.newFor": "New credential for {name}",
  "integSetup.nothing": "This integration has nothing to set up.",
  "integSetup.devices": "Devices using it ({n})",
  "integSetup.noDevices": "No device uses this integration yet. Pick it in a device's Integration card.",
@@ -758,5 +757,7 @@
  "integSetup.perDevice": "Set per device in its Integration card: {list}.",
  "integ.overrides": "Override shared settings for this device",
  "integ.overridesSet": "Overrides for this device ({n} set)",
- "integ.overridesHint": "Leave a field on Default to use the integration setup."
+ "integ.overridesHint": "Leave a field on Default to use the integration setup.",
+ "cred.tokenId": "Token ID (only for Proxmox and PBS)",
+ "cred.tokenIdHint": "Leave empty for API keys that are a single value, like OctoPrint or UniFi."
 }

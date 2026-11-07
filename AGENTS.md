@@ -63,6 +63,11 @@ decision is made or changed, update it in the same PR.
   on the device only inside a collapsed "override" section. The setup page shows the
   manifest howto (open until something is set up); credential settings carry a help
   text saying where the key comes from. Howtos refer to the setup page, not the device.
+- Howto text is rendered structured (`Howto` in integrationSetup.tsx): "1." lines are
+  numbered lists, "- " bullets, short lines ending in ":" headings. Write guides that way.
+- Setting `credentialUsername` (Text) labels the user name of a token credential when the
+  API needs one (Proxmox/PBS token id). Without it, the New credential dialog opened from
+  that setting does not ask for a user name for tokens.
 - Credentials can be created inline: Connection card and integration setup open the
   vault's `CredentialModal` (export, `types` limits the kinds).
 
