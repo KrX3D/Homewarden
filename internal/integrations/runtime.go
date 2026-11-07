@@ -145,7 +145,13 @@ func (h *Host) Call(ctx context.Context, in *Integration, dev store.Device, fn s
 func scriptErr(err error) error {
 	var ex *goja.Exception
 	if errors.As(err, &ex) {
-		return &ScriptError{Msg: ex.Value().String()}
+		// JS adds "Error: " to thrown errors and "GoError: " to ones raised from Go;
+		// users only need the message.
+		msg := ex.Value().String()
+		for _, p := range []string{"GoError: ", "Error: "} {
+			msg = strings.TrimPrefix(msg, p)
+		}
+		return &ScriptError{Msg: msg}
 	}
 	var intr *goja.InterruptedError
 	if errors.As(err, &intr) {

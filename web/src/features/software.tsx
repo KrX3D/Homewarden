@@ -1,10 +1,9 @@
-// Integrations (marketplace), device software (scan/update), the Updates overview and
-// the job log.
+// Integrations (marketplace), device software (scan/update) and the Updates overview.
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   del, get, post, put, type CatalogEntry, type Component, type Credential, type Device, type Integration,
-  type IntegrationSetting, type Job, type JobStatus, type Software, type Text,
+  type IntegrationSetting, type Job, type Software, type Text,
 } from '../api';
 import { formatAgo, formatTime, useLang, useT, type Lang } from '../i18n';
 import { useSession } from '../session';
@@ -13,6 +12,7 @@ import { ConfirmButton, ErrorAlert, Modal, Spinner, useAction } from '../compone
 import { IconJobs, IconPuzzle, IconRefresh, IconUpdates } from '../components/icons';
 import { deviceSections, navItems } from '../extensions';
 import { PortsList, type Port } from './network';
+import { ActivityPage, JobPill } from './activity';
 import { Howto, IntegrationSetupModal, SettingField, cleanSettings, credentialTypesOf, useIntegrationDefaults } from './integrationSetup';
 import { CredentialModal } from './credentials';
 
@@ -35,11 +35,7 @@ export function IntegrationIcon({ svg, size = 28 }: { svg?: string; size?: numbe
   return <img src={src} width={size} height={size} alt="" style={{ flex: 'none' }} />;
 }
 
-const jobClass: Record<JobStatus, string> = { queued: 'off', running: 'accent', success: 'ok', failed: 'crit', blocked: 'warn', cancelled: 'off' };
-export function JobPill({ status }: { status: JobStatus }) {
-  const t = useT();
-  return <span className={'pill dot ' + jobClass[status]}>{t('job.' + status)}</span>;
-}
+export { JobPill };
 
 /** Counts shown next to sidebar entries. */
 export function useBadges(): Record<string, number> {
@@ -307,7 +303,7 @@ function SoftwareCard({ device }: { device: Device }) {
         {sw.facts.scannedAt > 0 && <span className="small muted">{t('sw.scanned', { ago: formatAgo(lang, sw.facts.scannedAt) })}</span>}
         <button className="btn ghost sm" type="button" onClick={scan} disabled={busy || !!running}><IconRefresh />{t('sw.scanNow')}</button>
       </div>
-      {running && <div className="alert info row"><Spinner /><span>{running.title}</span><Link to={`/jobs/${running.id}`} className="small">{t('sw.showLog')}</Link></div>}
+      {running && <div className="alert info row"><Spinner /><span>{running.title}</span><Link to={`/activity/${running.id}`} className="small">{t('sw.showLog')}</Link></div>}
       {sw.facts.error && <div className="alert error">{t('sw.scanFailed')}: {sw.facts.error}</div>}
       {facts.eolPassed && <div className="alert warn">{t('sw.eol', { date: facts.eol })}</div>}
       {facts.rebootRequired && <div className="alert warn">{t('sw.rebootRequired')}</div>}
@@ -422,7 +418,7 @@ function JobList({ jobs, compact }: { jobs: Job[]; compact?: boolean }) {
         <thead><tr><th>{t('jobs.what')}</th>{!compact && <th>{t('jobs.by')}</th>}<th>{t('jobs.when')}</th><th>{t('jobs.status')}</th></tr></thead>
         <tbody>
           {jobs.map((j) => (
-            <tr key={j.id} className="clickable" onClick={() => nav(`/jobs/${j.id}`)}>
+            <tr key={j.id} className="clickable" onClick={() => nav(`/activity/${j.id}`)}>
               <td>{j.title}</td>
               {!compact && <td className="small muted">{j.createdBy}</td>}
               <td className="small muted">{formatAgo(lang, j.createdAt)}</td>
@@ -432,64 +428,6 @@ function JobList({ jobs, compact }: { jobs: Job[]; compact?: boolean }) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function JobsPage() {
-  return (
-    <Routes>
-      <Route index element={<JobsList />} />
-      <Route path=":id" element={<JobDetail />} />
-    </Routes>
-  );
-}
-
-function JobsList() {
-  const t = useT();
-  const [jobs, setJobs] = useState<Job[] | null>(null);
-  const load = useCallback(() => { get<Job[]>('/api/jobs').then(setJobs).catch(() => {}); }, []);
-  useEffect(() => { load(); }, [load]);
-  useEvents({ 'job.status': load }, load);
-  return (
-    <>
-      <div className="page-head"><h1>{t('jobs.title')}</h1></div>
-      {!jobs ? <Spinner /> : jobs.length === 0 ? (
-        <div className="card empty"><IconJobs /><h2>{t('jobs.emptyTitle')}</h2><p>{t('jobs.emptyText')}</p></div>
-      ) : <JobList jobs={jobs} />}
-    </>
-  );
-}
-
-function JobDetail() {
-  const t = useT();
-  const lang = useLang();
-  const { id } = useParams();
-  const { can } = useSession();
-  const [job, setJob] = useState<Job | null>(null);
-  const load = useCallback(() => { get<Job>(`/api/jobs/${id}`).then(setJob).catch(() => {}); }, [id]);
-  useEffect(() => { load(); }, [load]);
-  useEvents({
-    'job.log': (e: { id: number; text: string }) => { if (String(e.id) === id) setJob((j) => (j ? { ...j, log: (j.log ?? '') + e.text } : j)); },
-    'job.status': (e: { id: number }) => { if (String(e.id) === id) load(); },
-  }, load);
-  if (!job) return <Spinner />;
-  const live = job.status === 'running' || job.status === 'queued';
-  return (
-    <>
-      <div className="page-head">
-        <div className="grow stack" style={{ gap: 4 }}>
-          <Link to="/jobs" className="small">{t('jobs.back')}</Link>
-          <div className="row"><h1>{job.title}</h1><JobPill status={job.status} /></div>
-        </div>
-        {live && can('updates.run') && <button className="btn ghost" type="button" onClick={() => post(`/api/jobs/${job.id}/cancel`)}>{t('jobs.cancel')}</button>}
-      </div>
-      <p className="small muted">
-        {t('jobs.meta', { by: job.createdBy || '–', when: formatTime(lang, job.createdAt) })}
-        {job.deviceId && <> · <Link to={`/devices/${job.deviceId}`}>{job.deviceName}</Link></>}
-      </p>
-      {job.status === 'blocked' && job.result?.reason && <div className="alert warn">{t('jobs.blocked', { reason: job.result.reason })}</div>}
-      <pre className="log">{job.log || t('jobs.noOutput')}</pre>
-    </>
   );
 }
 
@@ -668,7 +606,7 @@ function ReviewModal({ entry, onClose, onInstalled }: { entry: CatalogEntry; onC
 
 navItems.push(
   { path: 'updates', labelKey: 'nav.updates', perm: 'devices.view', icon: <IconUpdates />, element: <UpdatesPage /> },
-  { path: 'jobs', labelKey: 'nav.jobs', perm: 'jobs.view', icon: <IconJobs />, element: <JobsPage /> },
+  { path: 'activity', labelKey: 'nav.activity', perm: 'jobs.view', icon: <IconJobs />, element: <ActivityPage /> },
   { path: 'integrations', labelKey: 'nav.integrations', perm: 'integrations.manage', icon: <IconPuzzle />, element: <IntegrationsPage /> },
 );
 // Software first, then which integration, then how to connect.

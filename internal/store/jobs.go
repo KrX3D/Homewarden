@@ -75,11 +75,21 @@ func (s *Store) Job(ctx context.Context, id int64) (Job, error) {
 
 // Jobs lists recent jobs without logs, optionally for one device.
 func (s *Store) Jobs(ctx context.Context, deviceID int64, limit int) ([]Job, error) {
-	q := "SELECT " + jobCols + " FROM jobs"
+	return s.JobsBefore(ctx, deviceID, 0, limit)
+}
+
+// JobsBefore pages backwards through the job list: jobs with an id below before
+// (0 = from the newest), newest first.
+func (s *Store) JobsBefore(ctx context.Context, deviceID, before int64, limit int) ([]Job, error) {
+	q := "SELECT " + jobCols + " FROM jobs WHERE 1=1"
 	args := []any{}
 	if deviceID > 0 {
-		q += " WHERE device_id = ?"
+		q += " AND device_id = ?"
 		args = append(args, deviceID)
+	}
+	if before > 0 {
+		q += " AND id < ?"
+		args = append(args, before)
 	}
 	q += " ORDER BY id DESC LIMIT ?"
 	args = append(args, limit)

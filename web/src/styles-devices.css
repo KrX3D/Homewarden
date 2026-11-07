@@ -69,3 +69,20 @@ svg.chart .line-2 { fill: none; stroke: var(--ok); stroke-width: 1.4; opacity: .
 .meter { flex: 1; height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; min-width: 60px; }
 .meter span { display: block; height: 100%; }
 .meter-ok { background: var(--ok); } .meter-warn { background: var(--warn); } .meter-crit { background: var(--crit); }
+
+/* Activity */
+.text-crit { color: var(--crit); }
+.text-warn { color: var(--warn); }
+.activity-filters { gap: 8px; align-items: center; }
+.activity-filters select { width: auto; min-width: 150px; }
+.activity-filters input[type=search] { width: auto; flex: 1 1 200px; max-width: 320px; }
+.activity-day { font-size: 15px; margin: 8px 0 0; }
+.activity-live { display: grid; gap: 6px; padding: 12px 16px; cursor: pointer; border-left: 3px solid var(--accent); }
+.activity-live:hover { border-color: var(--accent); }
+.activity-lastline { background: var(--sunk); border-radius: 6px; padding: 4px 8px; color: var(--muted); }
+.activity-tbl td { vertical-align: top; }
+.activity-meta { grid-template-columns: max-content 1fr; }
+pre.activity-log { max-height: 65vh; }
+pre.log .log-err { color: var(--crit); }
+pre.log .log-warn { color: var(--warn); }
+pre.log .log-ts { color: var(--muted); }

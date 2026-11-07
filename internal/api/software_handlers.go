@@ -402,8 +402,14 @@ func (s *Server) pendingUpdates(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
-	dev, _ := strconv.ParseInt(r.URL.Query().Get("device"), 10, 64)
-	js, err := s.Store.Jobs(r.Context(), dev, 200)
+	q := r.URL.Query()
+	dev, _ := strconv.ParseInt(q.Get("device"), 10, 64)
+	before, _ := strconv.ParseInt(q.Get("before"), 10, 64)
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	js, err := s.Store.JobsBefore(r.Context(), dev, before, limit)
 	if err != nil {
 		internal(w, err)
 		return

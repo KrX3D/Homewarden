@@ -79,6 +79,7 @@ function Shell() {
             <Route path="/" element={<Navigate to={can('devices.view') ? '/devices' : '/settings'} replace />} />
             <Route path="/devices/*" element={<DevicesPage />} />
             <Route path="/settings/*" element={<SettingsPage />} />
+            <Route path="/jobs/*" element={<JobsRedirect />} />
             {navItems.map((n) => <Route key={n.path} path={'/' + n.path + '/*'} element={n.element} />)}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -86,4 +87,10 @@ function Shell() {
       </div>
     </div>
   );
+}
+
+/** /jobs was renamed to /activity; old links still land on the right page. */
+function JobsRedirect() {
+  const loc = useLocation();
+  return <Navigate to={loc.pathname.replace(/^\/jobs/, '/activity') + loc.search} replace />;
 }

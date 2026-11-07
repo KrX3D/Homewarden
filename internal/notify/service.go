@@ -273,7 +273,7 @@ func (s *Service) onJob(ctx context.Context, jobID int64) {
 	}
 	link := ""
 	if set.BaseURL != "" {
-		link = strings.TrimRight(set.BaseURL, "/") + fmt.Sprintf("/jobs/%d", j.ID)
+		link = strings.TrimRight(set.BaseURL, "/") + fmt.Sprintf("/activity/%d", j.ID)
 	}
 	s.Dispatch(ctx, EvJobs, Message{Title: title, Body: strings.Join(lines, "\n"), Priority: 1, Link: link})
 }
