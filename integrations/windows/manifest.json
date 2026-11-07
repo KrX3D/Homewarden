@@ -1,6 +1,6 @@
 {
   "id": "windows",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "minCore": "0.1.0",
   "name": {
     "en": "Windows (agent)",
@@ -11,8 +11,8 @@
     "de": "Beta. Windows-PCs und -Server über den Homewarden-Agent: ausstehende Windows-Updates (Sicherheitsupdates markiert), winget-App-Updates und deine eigenen PowerShell-Update-Skripte von der Freigabe (die DeployDeck-Skripte): bei welchem Programm dieser PC zurückliegt, und das Ausführen seines Update-Skripts hier. Jeder Teil einzeln installierbar."
   },
   "howto": {
-    "en": "1. In the Connection card switch to Agent, create the install command and run the Windows line in an administrator PowerShell on the PC.\n2. Set online detection to Agent heartbeat.\n3. winget must be installed (App Installer from the Microsoft Store; included in Windows 11). Apps installed only for one user may not be visible to the agent, which runs as SYSTEM.\n4. Your update scripts: set Scripts folder to the UNC path of InstallationScripts on the share. The agent runs as SYSTEM, which has no access to most shares: pick a Password credential with the share user under Share login. Turn on Share checks on one PC only, to also see when the installer on the share is behind the vendor.",
-    "de": "1. In der Karte Verbindung auf Agent umstellen, den Installationsbefehl erstellen und die Windows-Zeile in einer Administrator-PowerShell auf dem PC ausführen.\n2. Online-Erkennung auf Agent-Lebenszeichen stellen.\n3. winget muss installiert sein (App-Installer aus dem Microsoft Store; in Windows 11 enthalten). Nur für einen Benutzer installierte Apps sieht der Agent, der als SYSTEM läuft, eventuell nicht.\n4. Deine Update-Skripte: Skriptordner auf den UNC-Pfad von InstallationScripts auf der Freigabe setzen. Der Agent läuft als SYSTEM und hat auf die meisten Freigaben keinen Zugriff: unter Freigabe-Anmeldung Zugangsdaten vom Typ Passwort mit dem Freigabe-Benutzer wählen. Freigabe-Prüfung nur auf einem PC einschalten, um zusätzlich zu sehen, wann der Installer auf der Freigabe hinter dem Hersteller liegt."
+    "en": "1. In the Connection card switch to Agent, create the install command and run the Windows line in an administrator PowerShell on the PC.\n2. Set online detection to Agent heartbeat.\n3. winget must be installed (App Installer from the Microsoft Store; included in Windows 11). Apps installed only for one user may not be visible to the agent, which runs as SYSTEM.\n4. Your update scripts: in the integration setup (Integrations, Set up) set Scripts folder to the UNC path of InstallationScripts on the share. The agent runs as SYSTEM, which has no access to most shares: pick a Password credential with the share user under Share login. Turn on Share checks on one PC only, to also see when the installer on the share is behind the vendor.",
+    "de": "1. In der Karte Verbindung auf Agent umstellen, den Installationsbefehl erstellen und die Windows-Zeile in einer Administrator-PowerShell auf dem PC ausführen.\n2. Online-Erkennung auf Agent-Lebenszeichen stellen.\n3. winget muss installiert sein (App-Installer aus dem Microsoft Store; in Windows 11 enthalten). Nur für einen Benutzer installierte Apps sieht der Agent, der als SYSTEM läuft, eventuell nicht.\n4. Deine Update-Skripte: in der Integrations-Einrichtung (Integrationen, Einrichten) den Skriptordner auf den UNC-Pfad von InstallationScripts auf der Freigabe setzen. Der Agent läuft als SYSTEM und hat auf die meisten Freigaben keinen Zugriff: unter Freigabe-Anmeldung Zugangsdaten vom Typ Passwort mit dem Freigabe-Benutzer wählen. Freigabe-Prüfung nur auf einem PC einschalten, um zusätzlich zu sehen, wann der Installer auf der Freigabe hinter dem Hersteller liegt."
   },
   "connection": "agent",
   "permissions": {
@@ -85,6 +85,10 @@
       "label": {
         "en": "Share login",
         "de": "Freigabe-Anmeldung"
+      },
+      "help": {
+        "en": "A share user with read access, as a Password credential. The agent runs as SYSTEM and cannot open most shares by itself.",
+        "de": "Ein Freigabe-Benutzer mit Leserecht, als Zugangsdaten vom Typ Passwort. Der Agent läuft als SYSTEM und kann die meisten Freigaben selbst nicht öffnen."
       }
     },
     {
@@ -98,7 +102,8 @@
       "help": {
         "en": "Empty = the same as the scripts use (GetPcByUUID.ps1, then the hardware UUID).",
         "de": "Leer = wie die Skripte selbst (GetPcByUUID.ps1, sonst die Hardware-UUID)."
-      }
+      },
+      "scope": "device"
     },
     {
       "key": "showShare",
@@ -111,7 +116,8 @@
       "help": {
         "en": "Also list programs whose installer on the share is behind the vendor. Turn on for one PC.",
         "de": "Zusätzlich Programme zeigen, deren Installer auf der Freigabe hinter dem Hersteller liegt. Für einen PC einschalten."
-      }
+      },
+      "scope": "device"
     }
   ],
   "presence": {

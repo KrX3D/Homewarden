@@ -188,6 +188,8 @@ function IntegrationCard({ device }: { device: Device }) {
     await put(`/api/devices/${device.id}`, { ...device, presence: integ!.presence });
   });
   const inherited = (s: IntegrationSetting) => def?.settings?.[s.key] ?? s.default;
+  const sharedSettings = integ?.settings?.filter((s) => s.scope !== 'device') ?? [];
+  const ownShared = sharedSettings.filter((s) => values[s.key] !== undefined && values[s.key] !== null && values[s.key] !== '').length;
 
   return (
     <section className="card">
@@ -214,7 +216,16 @@ function IntegrationCard({ device }: { device: Device }) {
               {can('integrations.manage') && <button className="btn ghost sm" type="button" onClick={() => setSetup(true)}>{t('integSetup.open')}</button>}
             </div>
           )}
-          {integ?.settings?.map((s) => <SettingField key={s.key} s={s} value={values[s.key]} creds={creds} inherited={inherited(s)} onChange={(v) => setValues({ ...values, [s.key]: v })} />)}
+          {integ?.settings?.filter((s) => s.scope === 'device').map((s) => <SettingField key={s.key} s={s} value={values[s.key]} creds={creds} inherited={s.default} onChange={(v) => setValues({ ...values, [s.key]: v })} />)}
+          {sharedSettings.length > 0 && (
+            <details open={ownShared > 0} className="howto-box">
+              <summary>{ownShared > 0 ? t('integ.overridesSet', { n: ownShared }) : t('integ.overrides')}</summary>
+              <div className="stack" style={{ marginTop: 10 }}>
+                <p className="small muted" style={{ margin: 0 }}>{t('integ.overridesHint')}</p>
+                {sharedSettings.map((s) => <SettingField key={s.key} s={s} value={values[s.key]} creds={creds} inherited={inherited(s)} onChange={(v) => setValues({ ...values, [s.key]: v })} />)}
+              </div>
+            </details>
+          )}
           <ErrorAlert error={error} />
           {saved && <div className="alert ok">{t('conn.saved')}</div>}
           <div className="row">

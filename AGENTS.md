@@ -57,6 +57,12 @@ decision is made or changed, update it in the same PR.
   read time in `Host.Call`, `conn.Target` and the backup/restore jobs; never save its
   result. Devices set up before this still carry the manifest defaults the old card
   saved; those win until cleared. Credentials used by a setup count in "used by".
+- Manifest setting `scope: "device"` marks values that differ per device (OctoPrint
+  url, Proxmox node, Docker endpoint, Windows hostKey/showShare). They only appear in
+  the device's Integration card; all other settings live in the setup page and appear
+  on the device only inside a collapsed "override" section. The setup page shows the
+  manifest howto (open until something is set up); credential settings carry a help
+  text saying where the key comes from. Howtos refer to the setup page, not the device.
 - Credentials can be created inline: Connection card and integration setup open the
   vault's `CredentialModal` (export, `types` limits the kinds).
 

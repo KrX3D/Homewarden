@@ -1,6 +1,6 @@
 {
   "id": "proxmox-backup",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "minCore": "0.1.0",
   "name": {
     "en": "Proxmox Backup Server",
@@ -11,8 +11,8 @@
     "de": "Beta. Belegung der Datastores, Alter des neuesten Backups je Datastore, fehlgeschlagene Tasks der letzten 7 Tage und Paketupdates bei installiertem PBS. Updates warten, solange Backups, Verify oder Garbage Collection laufen."
   },
   "howto": {
-    "en": "1. In PBS: Configuration, Access Control, API Token, Add. User root@pam, Token name homewarden. Then Permissions: give the token Audit on / (and Datastore.Audit on /datastore).\n2. In Homewarden: Settings, Credentials, API token. Username = the token id, e.g. root@pam!homewarden. Token = the secret shown once.\n3. Pick it under API token here.\n4. PBS running as a Docker container (e.g. on Unraid): turn off Show package updates; the image is updated by the Docker host integration.\n5. Installed PBS: for package updates set up the Connection card with SSH as root.\n6. Suggested online detection: ping, ready when TCP 8007 answers.",
-    "de": "1. In PBS: Configuration, Access Control, API Token, Add. Benutzer root@pam, Token-Name homewarden. Dann Permissions: dem Token Audit auf / geben (und Datastore.Audit auf /datastore).\n2. In Homewarden: Einstellungen, Zugangsdaten, API-Token. Benutzername = Token-ID, z. B. root@pam!homewarden. Token = das einmal angezeigte Geheimnis.\n3. Hier unter API-Token auswählen.\n4. PBS als Docker-Container (z. B. auf Unraid): Paketupdates anzeigen ausschalten; das Image aktualisiert die Docker-Host-Integration.\n5. Installierter PBS: für Paketupdates die Karte Verbindung mit SSH als root einrichten.\n6. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 8007 antwortet."
+    "en": "1. In PBS: Configuration, Access Control, API Token, Add. User root@pam, Token name homewarden. Then Permissions: give the token Audit on / (and Datastore.Audit on /datastore).\n2. In Homewarden: Settings, Credentials, API token. Username = the token id, e.g. root@pam!homewarden. Token = the secret shown once.\n3. Pick it under API token in the integration setup (Integrations, Set up).\n4. PBS running as a Docker container (e.g. on Unraid): turn off Show package updates; the image is updated by the Docker host integration.\n5. Installed PBS: for package updates set up the Connection card with SSH as root.\n6. Suggested online detection: ping, ready when TCP 8007 answers.",
+    "de": "1. In PBS: Configuration, Access Control, API Token, Add. Benutzer root@pam, Token-Name homewarden. Dann Permissions: dem Token Audit auf / geben (und Datastore.Audit auf /datastore).\n2. In Homewarden: Einstellungen, Zugangsdaten, API-Token. Benutzername = Token-ID, z. B. root@pam!homewarden. Token = das einmal angezeigte Geheimnis.\n3. In der Integrations-Einrichtung (Integrationen, Einrichten) unter API-Token auswählen.\n4. PBS als Docker-Container (z. B. auf Unraid): Paketupdates anzeigen ausschalten; das Image aktualisiert die Docker-Host-Integration.\n5. Installierter PBS: für Paketupdates die Karte Verbindung mit SSH als root einrichten.\n6. Empfohlene Online-Erkennung: Ping, bereit wenn TCP 8007 antwortet."
   },
   "connection": "http",
   "permissions": {

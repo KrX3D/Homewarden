@@ -128,7 +128,11 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
     });
   };
   const sshCreds = creds.filter((c) => c.type !== 'token');
-  const credSettings = (integ.settings ?? []).filter((s) => s.type === 'credential');
+  const shared = (integ.settings ?? []).filter((s) => s.scope !== 'device');
+  const perDevice = (integ.settings ?? []).filter((s) => s.scope === 'device');
+  const credSettings = shared.filter((s) => s.type === 'credential');
+  // The guide starts open until something is set up.
+  const fresh = !!def && Object.keys(def.settings ?? {}).length === 0 && !def.connection?.credentialId;
 
   return (
     <Modal wide title={t('integSetup.title', { name: tx(integ.name, lang) })} onClose={onClose} footer={
@@ -140,6 +144,12 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
       {!def ? <Spinner /> : (
         <form id="integ-setup-form" className="stack" onSubmit={save}>
           <p className="small muted">{t('integSetup.intro')}</p>
+          {integ.howto && (
+            <details open={fresh} className="howto-box">
+              <summary>{t('integSetup.guide')}</summary>
+              <pre className="howto">{tx(integ.howto, lang)}</pre>
+            </details>
+          )}
 
           {ssh && (
             <fieldset className="stack" style={{ gap: 10 }}>
@@ -171,11 +181,11 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
             </fieldset>
           )}
 
-          {(integ.settings?.length ?? 0) > 0 && (
+          {shared.length > 0 && (
             <fieldset className="stack" style={{ gap: 10 }}>
               <legend><strong>{t('integSetup.settings')}</strong></legend>
               <p className="small muted" style={{ margin: 0 }}>{t('integSetup.settingsHint')}</p>
-              {integ.settings!.map((s) => (
+              {shared.map((s) => (
                 <SettingField key={s.key} idPrefix="setup-" s={s} value={values[s.key]} creds={creds} inherited={s.default}
                   onChange={(v) => setValues({ ...values, [s.key]: v })} />
               ))}
@@ -192,7 +202,10 @@ export function IntegrationSetupModal({ integ, onClose }: { integ: Integration; 
             </fieldset>
           )}
 
-          {!ssh && !(integ.settings?.length) && <p className="small muted">{t('integSetup.nothing')}</p>}
+          {perDevice.length > 0 && (
+            <p className="small muted" style={{ margin: 0 }}>{t('integSetup.perDevice', { list: perDevice.map((s) => tx(s.label, lang)).join(', ') })}</p>
+          )}
+          {!ssh && shared.length === 0 && <p className="small muted">{t('integSetup.nothing')}</p>}
 
           <div className="stack" style={{ gap: 6 }}>
             <strong>{t('integSetup.devices', { n: def.devices.length })}</strong>
