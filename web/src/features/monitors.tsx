@@ -101,10 +101,90 @@ function MonitorsPage() {
           </table>
         </div>
       )}
+      {manage && <SuggestedMonitors monitors={list} onAdded={load} />}
       {sel && <MonitorDetail m={sel} />}
       <MaintenanceCard />
       {editing && <MonitorModal monitor={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </>
+  );
+}
+
+// ---------------------------------------------------------------- suggestions from devices
+
+// Web interfaces of known integrations get an HTTP check (status and certificate);
+// everything else the device's own ready check, or ping.
+const WEB: Record<string, (h: string) => MonitorConfig> = {
+  'home-assistant': (h) => ({ url: `http://${h}:8123/`, expectStatus: '200-399' }),
+  octoprint: (h) => ({ url: `http://${h}/`, expectStatus: '200-399' }),
+  proxmox: (h) => ({ url: `https://${h}:8006/`, expectStatus: '200-399', insecure: true }),
+  'proxmox-backup': (h) => ({ url: `https://${h}:8007/`, expectStatus: '200-399', insecure: true }),
+  unifi: (h) => ({ url: `https://${h}/`, expectStatus: '200-399', insecure: true }),
+  deploydeck: (h) => ({ url: `http://${h}:8080/`, expectStatus: '200-399' }),
+};
+
+type Suggestion = { device: Device; type: MonitorType; config: MonitorConfig; label: string };
+
+function suggestFor(d: Device): Suggestion | null {
+  if (!d.host) return null;
+  const web = WEB[d.kind];
+  if (web) { const c = web(d.host); return { device: d, type: 'http', config: c, label: c.url! }; }
+  const ready = d.presence?.ready;
+  if (ready?.method === 'tcp' && ready.port) return { device: d, type: 'tcp', config: { host: d.host, port: ready.port }, label: `${d.host}:${ready.port}` };
+  return { device: d, type: 'ping', config: { host: d.host }, label: `ping ${d.host}` };
+}
+
+const HIDDEN_KEY = 'hw.monitorSuggestions.hidden';
+function readHidden(): number[] {
+  try { return JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'); } catch { return []; }
+}
+
+function SuggestedMonitors({ monitors, onAdded }: { monitors: Monitor[]; onAdded: () => void }) {
+  const t = useT();
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [hidden, setHidden] = useState<number[]>(readHidden);
+  const [picked, setPicked] = useState<Record<number, boolean>>({});
+  const { busy, error, run } = useAction();
+  useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
+  const covered = new Set(monitors.map((m) => m.deviceId).filter((x): x is number => x != null));
+  const list = devices.filter((d) => !covered.has(d.id) && !hidden.includes(d.id)).map(suggestFor).filter((s): s is Suggestion => !!s);
+  if (list.length === 0) return null;
+  // Online devices are preselected; ones that are off now (a printer Pi) would start "down".
+  const isPicked = (s: Suggestion) => picked[s.device.id] ?? (s.device.state === 'ready' || s.device.state === 'reachable');
+  const chosen = list.filter(isPicked);
+  const hide = (ids: number[]) => {
+    const next = [...hidden, ...ids];
+    setHidden(next);
+    try { localStorage.setItem(HIDDEN_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+  };
+  const add = () => run(async () => {
+    for (const s of chosen) {
+      await post('/api/monitors', { name: s.device.name, type: s.type, config: { ...s.config, certDays: s.type === 'http' ? 14 : undefined }, interval: 60, enabled: true, public: false, deviceId: s.device.id });
+    }
+    onAdded();
+  });
+  return (
+    <section className="card stack">
+      <div className="card-head">
+        <h2 className="grow">{t('mon.suggestTitle')}</h2>
+        <button className="btn subtle sm" type="button" onClick={() => hide(list.map((s) => s.device.id))}>{t('mon.suggestHideAll')}</button>
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>{t('mon.suggestIntro')}</p>
+      <div className="table-wrap">
+        <table className="tbl">
+          <tbody>{list.map((s) => (
+            <tr key={s.device.id}>
+              <td style={{ width: 32 }}><input type="checkbox" aria-label={s.device.name} checked={isPicked(s)} onChange={(e) => setPicked({ ...picked, [s.device.id]: e.target.checked })} /></td>
+              <td><strong>{s.device.name}</strong>{!(s.device.state === 'ready' || s.device.state === 'reachable') && <span className="muted small"> · {t('mon.suggestOffline')}</span>}</td>
+              <td><span className="chip">{s.type.toUpperCase()}</span></td>
+              <td className="mono small ellipsis" style={{ maxWidth: 320 }}>{s.label}</td>
+              <td style={{ textAlign: 'right' }}><button className="btn subtle sm" type="button" onClick={() => hide([s.device.id])}>{t('mon.suggestHide')}</button></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <ErrorAlert error={error} />
+      <div><button className="btn" type="button" disabled={busy || chosen.length === 0} onClick={add}>{t('mon.suggestAdd', { n: chosen.length })}</button></div>
+    </section>
   );
 }
 
@@ -175,6 +255,7 @@ function MonitorModal({ monitor, onClose, onSaved }: { monitor: Monitor | null; 
       <>
         {monitor && <ConfirmButton label={t('common.delete')} onConfirm={() => run(async () => { await del(`/api/monitors/${monitor.id}`); onSaved(); })} />}
         <span style={{ flex: 1 }} />
+        <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
         {type !== 'push' && <button className="btn ghost" type="button" disabled={busy} onClick={() => run(async () => setTest(await post('/api/monitors/test', body())))}>{t('mon.test')}</button>}
         <button className="btn" type="submit" form="mon-form" disabled={busy}>{t('common.save')}</button>
       </>

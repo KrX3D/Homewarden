@@ -184,6 +184,11 @@ decision is made or changed, update it in the same PR.
   `assets/mark.svg` is the line mark (currentColor), `assets/icon.svg`/`icon.png` the
   app icon (white mark on accent #2f56c9, rounded square). Unraid template points at
   the raw `assets/icon.png` on main.
+- Every `Modal` has a close X in its title bar; edit dialogs also have Cancel.
+- Monitors page suggests one monitor per active device without one (frontend only,
+  `suggestFor` in monitors.tsx): known web UIs (HA, OctoPrint, Proxmox, PBS, UniFi,
+  DeployDeck) get HTTP, else the device's tcp ready port, else ping. Online devices are
+  preselected; hidden suggestions are a per-browser convenience in localStorage.
 - `Modal`: fixed title, own-scrolling body (`min-width: 0`, so wide `pre`/tables stay
   inside), footer always visible. `wide` for scripts, changelogs, scan results.
 

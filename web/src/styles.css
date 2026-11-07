@@ -151,7 +151,11 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .modal-back { position: fixed; inset: 0; background: rgb(10 14 20 / 45%); display: grid; place-items: center; z-index: 50; padding: 16px; }
 .modal { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); width: min(560px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden; }
 .modal.wide { width: min(1040px, 100%); }
-.modal-head { padding: 20px 20px 0; margin: 0; }
+.modal-head { padding: 16px 12px 0 20px; margin: 0; display: flex; align-items: center; gap: 12px; }
+.modal-head h2 { margin: 0; flex: 1; min-width: 0; }
+.modal-x { all: unset; cursor: pointer; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--muted); flex-shrink: 0; }
+.modal-x:hover { background: var(--sunk); color: var(--fg); }
+.modal-x:focus-visible { outline: 2px solid var(--accent); }
 /* Only the body scrolls; min-width: 0 keeps wide content (scripts, tables) inside it. */
 .modal-body { padding: 16px 20px; overflow: auto; min-height: 0; min-width: 0; display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
 .modal-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 12px 20px 16px; border-top: 1px solid var(--line); }
