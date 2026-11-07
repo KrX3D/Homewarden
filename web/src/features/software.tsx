@@ -41,13 +41,19 @@ export { JobPill };
 export function useBadges(): Record<string, number> {
   const { can } = useSession();
   const [updates, setUpdates] = useState(0);
+  const [integ, setInteg] = useState(0);
   const load = useCallback(() => {
     if (!can('devices.view')) return;
     get<{ components: Component[] }>('/api/updates').then((r) => setUpdates(r.components.length)).catch(() => {});
   }, [can]);
-  useEffect(() => { load(); }, [load]);
-  useEvents({ 'device.software': load, 'device.changed': load }, load);
-  return { updates };
+  // Integrations with a newer catalog version (server caches the catalog for 30 min).
+  const loadInteg = useCallback(() => {
+    if (!can('integrations.manage')) return;
+    get<{ updates: unknown[] }>('/api/integrations/updates').then((r) => setInteg(r.updates.length)).catch(() => {});
+  }, [can]);
+  useEffect(() => { load(); loadInteg(); }, [load, loadInteg]);
+  useEvents({ 'device.software': load, 'device.changed': load, 'integrations.changed': loadInteg, 'integrations.updates': loadInteg }, load);
+  return { updates, integrations: integ };
 }
 
 // ---------------------------------------------------------------- updates page
@@ -543,17 +549,21 @@ function IntegrationsPage() {
   const t = useT();
   const lang = useLang();
   const installed = useIntegrations();
-  const [catalog, setCatalog] = useState<{ entries: CatalogEntry[]; errors: { source: string; error: string }[] } | null>(null);
+  const [catalog, setCatalog] = useState<{ entries: CatalogEntry[]; errors: { source: string; error: string }[]; checkedAt: number } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [sources, setSources] = useState<string[]>([]);
   const [review, setReview] = useState<CatalogEntry | null>(null);
   const [setupId, setSetupId] = useState<string | null>(null);
   const setupInteg = installed.find((i) => i.id === setupId);
   const { error, run } = useAction();
-  const loadCatalog = useCallback(() => {
-    get<typeof catalog>('/api/integrations/catalog').then(setCatalog).catch(() => {});
+  // The server keeps the last check (at start, every 6 h); "Check now" asks again.
+  const loadCatalog = useCallback((refresh = false) => {
+    if (refresh) setChecking(true);
+    get<typeof catalog>('/api/integrations/catalog' + (refresh ? '?refresh=1' : '')).then(setCatalog).catch(() => {}).finally(() => setChecking(false));
     get<{ sources: string[] }>('/api/settings/catalog-sources').then((r) => setSources(r.sources)).catch(() => {});
   }, []);
   useEffect(() => { loadCatalog(); }, [loadCatalog]);
+  useEvents({ 'integrations.updates': () => loadCatalog() });
 
   const byId = new Map<string, CatalogEntry[]>();
   for (const e of catalog?.entries ?? []) byId.set(e.id, [...(byId.get(e.id) ?? []), e]);
@@ -570,7 +580,11 @@ function IntegrationsPage() {
 
   return (
     <>
-      <div className="page-head"><h1 className="grow">{t('market.title')}</h1></div>
+      <div className="page-head">
+        <h1 className="grow">{t('market.title')}</h1>
+        {catalog && catalog.checkedAt > 0 && <span className="small muted">{t('market.checked', { ago: formatAgo(lang, catalog.checkedAt) })}</span>}
+        <button className="btn ghost sm" type="button" disabled={checking} onClick={() => loadCatalog(true)}><IconRefresh />{checking ? t('market.checking') : t('market.checkNow')}</button>
+      </div>
       <p className="muted">{t('market.intro')}</p>
       <ErrorAlert error={error} />
 
@@ -633,7 +647,7 @@ function IntegrationsPage() {
         {catalog?.errors.map((e) => <div key={e.source} className="alert warn small">{t('market.sourceError', { source: e.source })} <span className="mono">{e.error}</span></div>)}
       </section>
 
-      <SourcesCard sources={sources} onSaved={(s) => { setSources(s); loadCatalog(); }} />
+      <SourcesCard sources={sources} onSaved={(s) => { setSources(s); loadCatalog(true); }} />
       {review && <ReviewModal entry={review} onClose={() => setReview(null)} onInstalled={() => { if (!installed.some((i) => i.id === review.id)) setSetupId(review.id); setReview(null); loadCatalog(); }} />}
       {setupInteg && <IntegrationSetupModal integ={setupInteg} onClose={() => setSetupId(null)} />}
     </>

@@ -842,5 +842,8 @@
  "agentSsh.start": "Agent installieren",
  "agentSsh.running": "Wird installiert ...",
  "agentSsh.ok": "Agent installiert. Er registriert sich in wenigen Sekunden; danach nutzt das Gerät den Agent statt SSH.",
- "agentSsh.output": "Ausgabe des Installers"
+ "agentSsh.output": "Ausgabe des Installers",
+ "market.checked": "Geprüft {ago}",
+ "market.checking": "Prüfe ...",
+ "market.checkNow": "Jetzt prüfen"
 }
