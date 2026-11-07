@@ -1,6 +1,6 @@
 {
   "id": "octoprint",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "minCore": "0.1.0",
   "name": {
     "en": "OctoPrint / OctoPi",
@@ -11,8 +11,8 @@
     "de": "OctoPrint und jedes Plugin einzeln über OctoPrints eigenes Update-System, optional die OctoPi-Systempakete per SSH. Updates sind gesperrt, solange ein Druckjob läuft, inklusive Aufheizen."
   },
   "howto": {
-    "en": "1. In OctoPrint: Settings, Application Keys (or API in older versions). Create a key named Homewarden for an admin user and copy it.\n2. In Homewarden: Settings, Credentials, Add credential, type API token, paste the key.\n3. On this device pick that credential under API key. Leave the address empty to use http://<device address>/.\n4. Optional, for the OctoPi system packages: set up the Connection card with SSH (user pi, Install key) and turn on Include OctoPi system packages. For updates the pi user needs the sudoers rule from the Linux (apt) guide; OctoPi's pi user usually has full sudo already.\n5. Suggested online detection: ping, ready when port 80 answers.",
-    "de": "1. In OctoPrint: Einstellungen, Application Keys (in älteren Versionen API). Einen Schlüssel namens Homewarden für einen Admin-Benutzer anlegen und kopieren.\n2. In Homewarden: Einstellungen, Zugangsdaten, hinzufügen, Typ API-Token, Schlüssel einfügen.\n3. Bei diesem Gerät die Zugangsdaten unter API-Schlüssel wählen. Adresse leer lassen für http://<Geräteadresse>/.\n4. Optional für die OctoPi-Systempakete: Karte Verbindung mit SSH einrichten (Benutzer pi, Schlüssel installieren) und OctoPi-Systempakete einbeziehen einschalten. Für Updates braucht pi die sudoers-Regel aus der Linux-(apt)-Anleitung; der pi-Benutzer von OctoPi hat meist schon volles sudo.\n5. Empfohlene Online-Erkennung: Ping, bereit wenn Port 80 antwortet."
+    "en": "1. In OctoPrint: Settings, Application Keys (or API in older versions). Create a key named Homewarden for an admin user and copy it.\n2. In Homewarden: Settings, Credentials, Add credential, type API token, paste the key.\n3. In the integration setup (Integrations, Set up) pick that credential under API key. It then applies to every OctoPrint device. The address is set per device; leave it empty to use http://<device address>/.\n4. Optional, for the OctoPi system packages: set up the Connection card with SSH (user pi, Install key) and turn on Include OctoPi system packages. For updates the pi user needs the sudoers rule from the Linux (apt) guide; OctoPi's pi user usually has full sudo already.\n5. Suggested online detection: ping, ready when port 80 answers.",
+    "de": "1. In OctoPrint: Einstellungen, Application Keys (in älteren Versionen API). Einen Schlüssel namens Homewarden für einen Admin-Benutzer anlegen und kopieren.\n2. In Homewarden: Einstellungen, Zugangsdaten, hinzufügen, Typ API-Token, Schlüssel einfügen.\n3. In der Integrations-Einrichtung (Integrationen, Einrichten) die Zugangsdaten unter API-Schlüssel wählen. Sie gelten dann für jedes OctoPrint-Gerät. Die Adresse wird pro Gerät gesetzt; leer lassen für http://<Geräteadresse>/.\n4. Optional für die OctoPi-Systempakete: Karte Verbindung mit SSH einrichten (Benutzer pi, Schlüssel installieren) und OctoPi-Systempakete einbeziehen einschalten. Für Updates braucht pi die sudoers-Regel aus der Linux-(apt)-Anleitung; der pi-Benutzer von OctoPi hat meist schon volles sudo.\n5. Empfohlene Online-Erkennung: Ping, bereit wenn Port 80 antwortet."
   },
   "connection": "http",
   "permissions": {
@@ -34,6 +34,10 @@
       "label": {
         "en": "API key",
         "de": "API-Schlüssel"
+      },
+      "help": {
+        "en": "In OctoPrint: Settings, Application Keys (older versions: API). Create a key for an admin user and add it here as an API token credential.",
+        "de": "In OctoPrint: Einstellungen, Application Keys (ältere Versionen: API). Einen Schlüssel für einen Admin-Benutzer erzeugen und hier als Zugangsdaten vom Typ API-Token anlegen."
       }
     },
     {
@@ -48,7 +52,8 @@
       "help": {
         "en": "Empty = http://<device address>/. Must point at the device itself.",
         "de": "Leer = http://<Geräteadresse>/. Muss auf das Gerät selbst zeigen."
-      }
+      },
+      "scope": "device"
     },
     {
       "key": "includeOS",

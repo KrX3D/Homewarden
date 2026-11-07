@@ -737,7 +737,7 @@
  "conn.inheritedHint": "This device uses the connection from the integration setup (credential, user, port and sudo). Pick a credential here only if this device needs its own.",
  "integ.useDefault": "Default: {v}",
  "integ.defaultPlaceholder": "Default: {v}",
- "integ.sharedHint": "Shared values for all {name} devices are set once in the integration setup. Fields left empty here use them.",
+ "integ.sharedHint": "Credentials and shared options for all {name} devices are set once in the integration setup. Here you only set what belongs to this device.",
  "integSetup.open": "Set up",
  "integSetup.title": "Set up {name}",
  "integSetup.intro": "These values apply to every device that uses this integration. A device only needs its own value where it differs.",
@@ -753,5 +753,10 @@
  "integSetup.ownValues": "own: {list}",
  "integSetup.saved": "Saved. All devices of this integration use the new values from the next run.",
  "inbox.addAs": "Add as",
- "inbox.asGeneric": "Generic device"
+ "inbox.asGeneric": "Generic device",
+ "integSetup.guide": "Setup guide: where to get keys and tokens",
+ "integSetup.perDevice": "Set per device in its Integration card: {list}.",
+ "integ.overrides": "Override shared settings for this device",
+ "integ.overridesSet": "Overrides for this device ({n} set)",
+ "integ.overridesHint": "Leave a field on Default to use the integration setup."
 }

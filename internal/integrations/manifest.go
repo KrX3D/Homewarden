@@ -32,6 +32,10 @@ type Setting struct {
 	Options         []Option `json:"options,omitempty"`
 	CredentialTypes []string `json:"credentialTypes,omitempty"`
 	Placeholder     string   `json:"placeholder,omitempty"`
+	// Scope "device" marks values that differ per device (an address, a node name).
+	// They are set in the device's Integration card only; all others are shared in the
+	// integration setup and can be overridden per device.
+	Scope string `json:"scope,omitempty"`
 }
 
 // Port is one network requirement. Target: device (Homewarden reaches the device),

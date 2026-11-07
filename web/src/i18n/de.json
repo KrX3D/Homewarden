@@ -737,7 +737,7 @@
  "conn.inheritedHint": "Dieses Gerät nutzt die Verbindung aus der Integrations-Einrichtung (Zugangsdaten, Benutzer, Port und sudo). Wähle hier nur Zugangsdaten, wenn dieses Gerät eigene braucht.",
  "integ.useDefault": "Standard: {v}",
  "integ.defaultPlaceholder": "Standard: {v}",
- "integ.sharedHint": "Gemeinsame Werte für alle {name}-Geräte werden einmal in der Integrations-Einrichtung festgelegt. Hier leer gelassene Felder verwenden sie.",
+ "integ.sharedHint": "Zugangsdaten und gemeinsame Optionen für alle {name}-Geräte werden einmal in der Integrations-Einrichtung festgelegt. Hier nur, was zu diesem Gerät gehört.",
  "integSetup.open": "Einrichten",
  "integSetup.title": "{name} einrichten",
  "integSetup.intro": "Diese Werte gelten für jedes Gerät, das diese Integration nutzt. Ein Gerät braucht nur dort einen eigenen Wert, wo es abweicht.",
@@ -753,5 +753,10 @@
  "integSetup.ownValues": "eigene: {list}",
  "integSetup.saved": "Gespeichert. Alle Geräte dieser Integration verwenden die neuen Werte ab dem nächsten Lauf.",
  "inbox.addAs": "Hinzufügen als",
- "inbox.asGeneric": "Allgemeines Gerät"
+ "inbox.asGeneric": "Allgemeines Gerät",
+ "integSetup.guide": "Anleitung: woher Schlüssel und Tokens kommen",
+ "integSetup.perDevice": "Pro Gerät in dessen Integrations-Karte gesetzt: {list}.",
+ "integ.overrides": "Gemeinsame Einstellungen für dieses Gerät abweichend setzen",
+ "integ.overridesSet": "Abweichungen für dieses Gerät ({n} gesetzt)",
+ "integ.overridesHint": "Ein Feld auf Standard lassen, um die Integrations-Einrichtung zu verwenden."
 }

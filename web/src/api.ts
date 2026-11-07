@@ -98,7 +98,7 @@ export type Text = Record<string, string>;
 export type IntegrationSetting = {
   key: string; type: 'string' | 'number' | 'bool' | 'select' | 'credential' | 'password';
   label: Text; help?: Text; default?: unknown; required?: boolean; options?: { value: string; label: Text }[];
-  credentialTypes?: string[]; placeholder?: string;
+  credentialTypes?: string[]; placeholder?: string; scope?: 'device';
 };
 export type Permissions = { ssh: boolean; docker: boolean; httpDevice: boolean; httpHosts: string[] | null };
 export type Integration = {

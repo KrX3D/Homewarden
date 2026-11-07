@@ -220,6 +220,9 @@ func (s *Server) putIntegrationDefaults(w http.ResponseWriter, r *http.Request) 
 	}
 	out := store.IntegrationDefaults{Settings: map[string]any{}}
 	for _, st := range in.Settings {
+		if st.Scope == "device" {
+			continue
+		}
 		if v, ok := body.Settings[st.Key]; ok && v != nil && v != "" {
 			out.Settings[st.Key] = v
 		}

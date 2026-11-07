@@ -1,6 +1,6 @@
 {
   "id": "docker",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "minCore": "0.1.0",
   "name": {
     "en": "Docker host",
@@ -51,7 +51,8 @@
       "help": {
         "en": "unix:///var/run/docker.sock for this host, tcp://host:2375 for a socket proxy on another host.",
         "de": "unix:///var/run/docker.sock für diesen Host, tcp://host:2375 für einen Socket-Proxy auf einem anderen Host."
-      }
+      },
+      "scope": "device"
     },
     {
       "key": "checkTags",
