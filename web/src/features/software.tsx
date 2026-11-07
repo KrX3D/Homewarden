@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link, useNavigate } from 'react-router-dom';
 import {
   del, get, post, put, type CatalogEntry, type Component, type Credential, type Device, type Integration,
-  type IntegrationSetting, type Job, type Software, type Text,
+  type IntegrationSetting, type Job, type JobStatus, type Software, type Text,
 } from '../api';
 import { formatAgo, formatTime, useLang, useT, type Lang } from '../i18n';
 import { useSession } from '../session';
@@ -55,19 +55,32 @@ export function useBadges(): Record<string, number> {
 function UpdatesPage() {
   const t = useT();
   const { can } = useSession();
+  const integrations = useIntegrations();
   const [data, setData] = useState<{ components: Component[]; devices: Device[] } | null>(null);
-  const { error, run } = useAction();
+  const [selected, setSelected] = useState<Record<number, Set<string>>>({});
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [confirm, setConfirm] = useState<{ device: Device; comps: Component[]; all: boolean } | null>(null);
+  const [started, setStarted] = useState<Record<number, Job>>({});
   const load = useCallback(() => { get<{ components: Component[]; devices: Device[] }>('/api/updates').then(setData).catch(() => {}); }, []);
   useEffect(() => { load(); }, [load]);
-  useEvents({ 'device.software': load }, load);
+  useEvents({
+    'device.software': load,
+    'job.status': (e: { id: number; status: JobStatus }) => setStarted((cur) => {
+      const hit = Object.entries(cur).find(([, j]) => j.id === e.id);
+      return hit ? { ...cur, [hit[0]]: { ...hit[1], status: e.status } } : cur;
+    }),
+  }, load);
 
   if (!data) return <Spinner />;
   const byDevice = new Map<number, Component[]>();
   for (const c of data.components) byDevice.set(c.deviceId, [...(byDevice.get(c.deviceId) ?? []), c]);
   const devices = data.devices.filter((d) => byDevice.has(d.id));
   const security = data.components.filter((c) => c.security).length;
-
-  const start = (d: Device, ids: string[]) => run(async () => { await post(`/api/devices/${d.id}/update`, { components: ids }); });
+  const toggle = (d: number, id: string) => setSelected((cur) => {
+    const n = new Set(cur[d] ?? []);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return { ...cur, [d]: n };
+  });
 
   return (
     <>
@@ -75,26 +88,52 @@ function UpdatesPage() {
         <h1 className="grow">{t('updates.title')}</h1>
         {data.components.length > 0 && <span className="muted">{t('updates.summary', { n: data.components.length, d: devices.length, s: security })}</span>}
       </div>
-      <ErrorAlert error={error} />
+      {/* Started here: stays visible even when the device has no updates left afterwards. */}
+      {Object.values(started).map((job) => (
+        <div key={job.id} className={'alert row ' + (job.status === 'failed' ? 'error' : job.status === 'blocked' ? 'warn' : job.status === 'success' ? 'ok' : 'info')}>
+          {(job.status === 'running' || job.status === 'queued') && <Spinner />}
+          <span className="grow"><strong>{job.deviceName}</strong>: {t('upd.started.' + job.status)}</span>
+          <Link to={`/activity/${job.id}`} className="small">{t('sw.showLog')}</Link>
+          {job.status !== 'running' && job.status !== 'queued' && (
+            <button className="btn subtle sm" type="button" aria-label={t('common.close')} onClick={() => setStarted((cur) => { const n = { ...cur }; delete n[job.deviceId!]; return n; })}>×</button>
+          )}
+        </div>
+      ))}
       {devices.length === 0 ? (
         <div className="card empty"><IconUpdates /><h2>{t('updates.emptyTitle')}</h2><p>{t('updates.emptyText')}</p></div>
       ) : devices.map((d) => {
         const comps = byDevice.get(d.id)!;
         const updatable = comps.filter((c) => c.updatable && c.group !== 'action');
+        const sel = selected[d.id] ?? new Set<string>();
+        const shown = expanded[d.id] ? comps : comps.slice(0, 12);
         return (
           <section className="card" key={d.id}>
             <div className="card-head">
               <h2 className="grow"><Link to={`/devices/${d.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>{d.name}</Link></h2>
               <span className="muted small">{t('updates.count', { n: comps.length })}</span>
-              {can('updates.run') && updatable.length > 0 && (
-                <ConfirmButton className="btn sm" label={t('updates.updateAll')} confirmLabel={t('updates.confirmAll', { name: d.name })} onConfirm={() => start(d, ['*'])} />
-              )}
             </div>
-            <ComponentTable comps={comps.slice(0, 12)} />
-            {comps.length > 12 && <Link to={`/devices/${d.id}`} className="small">{t('updates.more', { n: comps.length - 12 })}</Link>}
+            <ComponentTable comps={shown} selected={sel} onToggle={can('updates.run') ? (id) => toggle(d.id, id) : undefined} />
+            {comps.length > 12 && (
+              <button className="btn subtle sm" type="button" onClick={() => setExpanded((c) => ({ ...c, [d.id]: !c[d.id] }))}>
+                {expanded[d.id] ? t('updates.less') : t('updates.more', { n: comps.length - 12 })}
+              </button>
+            )}
+            {can('updates.run') && updatable.length > 0 && (
+              <div className="row">
+                <button className="btn" type="button" disabled={sel.size === 0} onClick={() => setConfirm({ device: d, comps: updatable.filter((c) => sel.has(c.id)), all: false })}>{t('sw.updateSelected', { n: sel.size })}</button>
+                <button className="btn ghost" type="button" onClick={() => setConfirm({ device: d, comps: updatable, all: true })}>{t('updates.updateAll')}</button>
+              </div>
+            )}
           </section>
         );
       })}
+      {confirm && <UpdateModal device={confirm.device} comps={confirm.comps} all={confirm.all}
+        busyCheck={!!integrations.find((i) => i.id === confirm.device.kind)?.capabilities.includes('busy')}
+        onClose={() => setConfirm(null)} onStarted={(job) => {
+          setStarted((cur) => ({ ...cur, [confirm.device.id]: job }));
+          setSelected((cur) => ({ ...cur, [confirm.device.id]: new Set() }));
+          setConfirm(null);
+        }} />}
     </>
   );
 }
@@ -104,6 +143,72 @@ function WarningPill({ c }: { c: Component }) {
   const w = c.meta?.warning as string | undefined;
   if (!w) return null;
   return <span className="pill warn" title={t('warnHint.' + w)}>{t('warn.' + w)}</span>;
+}
+
+/**
+ * Confirms an update: what will be updated, what the warnings mean, and the busy
+ * override. Starting it returns the job, so the caller can link to its log.
+ */
+export function UpdateModal({ device, comps, all, busyCheck, onClose, onStarted }: {
+  device: { id: number; name: string }; comps: Component[]; all: boolean; busyCheck: boolean;
+  onClose: () => void; onStarted: (job: Job) => void;
+}) {
+  const t = useT();
+  const [force, setForce] = useState(false);
+  const { busy, error, run } = useAction();
+  const warnings = [...new Set(comps.map((c) => c.meta?.warning as string | undefined).filter((w): w is string => !!w))];
+  const start = () => run(async () => {
+    const job = await post<Job>(`/api/devices/${device.id}/update`, { components: all ? ['*'] : comps.map((c) => c.id), force });
+    onStarted(job);
+  });
+  return (
+    <Modal wide title={t('upd.title', { name: device.name })} onClose={onClose} footer={
+      <>
+        <button className="btn subtle" type="button" onClick={onClose}>{t('common.cancel')}</button>
+        <button id="upd-start" className="btn" type="button" disabled={busy || comps.length === 0} onClick={start}>{t('upd.start', { n: comps.length })}</button>
+      </>
+    }>
+      <p className="small muted" style={{ margin: 0 }}>{all ? t('upd.introAll', { n: comps.length }) : t('upd.intro', { n: comps.length })}</p>
+      <div className="table-wrap" style={{ maxHeight: '40vh', overflow: 'auto' }}>
+        <table className="tbl"><tbody>
+          {comps.map((c) => (
+            <tr key={c.id}>
+              <td><strong>{c.name}</strong>{c.meta?.summary && <span className="muted small"> · {c.meta.summary}</span>}</td>
+              <td className="mono small">{c.installed || '–'} → {c.available || c.meta?.summary || t('sw.yes')}</td>
+              <td style={{ textAlign: 'right' }}><span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
+                {c.security && <span className="pill crit">{t('sw.security')}</span>}<WarningPill c={c} />
+              </span></td>
+            </tr>
+          ))}
+        </tbody></table>
+      </div>
+      {warnings.length > 0 && (
+        <div className="stack" style={{ gap: 6 }}>
+          <strong className="small">{t('upd.whatHappens')}</strong>
+          <ul className="plain small">
+            {warnings.map((w) => <li key={w}><span className="pill warn">{t('warn.' + w)}</span> {t('warnHint.' + w)}</li>)}
+          </ul>
+        </div>
+      )}
+      {busyCheck && <label className="check small"><input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />{t('sw.force')}</label>}
+      <ErrorAlert error={error} />
+    </Modal>
+  );
+}
+
+/** The outcome of the newest update job, when it did not succeed. */
+export function LastUpdateProblem({ jobs }: { jobs: Job[] }) {
+  const t = useT();
+  const last = [...jobs].filter((j) => j.type === 'update').sort((a, b) => b.id - a.id)[0];
+  if (!last || (last.status !== 'failed' && last.status !== 'blocked')) return null;
+  const r = last.result as { error?: string; reason?: string } | null;
+  const why = (r && (r.error || r.reason)) || '';
+  return (
+    <div className={'alert ' + (last.status === 'blocked' ? 'warn' : 'error')}>
+      <strong>{last.status === 'blocked' ? t('upd.lastBlocked') : t('upd.lastFailed')}</strong>{why && <>: {why}</>}{' '}
+      <Link to={`/activity/${last.id}`} className="small">{t('sw.showLog')}</Link>
+    </div>
+  );
 }
 
 function ComponentTable({ comps, selected, onToggle, onChangelog, onChoose }: {
@@ -267,7 +372,7 @@ function SoftwareCard({ device }: { device: Device }) {
   const [onlyUpdates, setOnlyUpdates] = useState(true);
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [force, setForce] = useState(false);
+  const [confirm, setConfirm] = useState<{ comps: Component[]; all: boolean } | null>(null);
   const [logFor, setLogFor] = useState<Component | null>(null);
   const [chooseFor, setChooseFor] = useState<Component | null>(null);
   const { busy, error, run } = useAction();
@@ -293,7 +398,6 @@ function SoftwareCard({ device }: { device: Device }) {
   const pending = sw.components.filter((c) => c.updateAvailable && c.updatable);
   const facts = sw.facts.facts ?? {};
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const update = (ids: string[]) => run(async () => { await post(`/api/devices/${device.id}/update`, { components: ids, force }); setSelected(new Set()); load(); });
   const scan = () => run(async () => { await post(`/api/devices/${device.id}/scan`); load(); });
 
   return (
@@ -305,6 +409,7 @@ function SoftwareCard({ device }: { device: Device }) {
       </div>
       {running && <div className="alert info row"><Spinner /><span>{running.title}</span><Link to={`/activity/${running.id}`} className="small">{t('sw.showLog')}</Link></div>}
       {sw.facts.error && <div className="alert error">{t('sw.scanFailed')}: {sw.facts.error}</div>}
+      {!running && <LastUpdateProblem jobs={sw.jobs} />}
       {facts.eolPassed && <div className="alert warn">{t('sw.eol', { date: facts.eol })}</div>}
       {facts.rebootRequired && <div className="alert warn">{t('sw.rebootRequired')}</div>}
       {Array.isArray(facts.warnings) && facts.warnings.map((w: string) => <div key={w} className="alert warn">{t('factWarn.' + w) !== 'factWarn.' + w ? t('factWarn.' + w) : w}</div>)}
@@ -323,9 +428,8 @@ function SoftwareCard({ device }: { device: Device }) {
             onChoose={integ.capabilities.includes('choose') && can('updates.run') ? setChooseFor : undefined} />
           {can('updates.run') && pending.length > 0 && (
             <div className="row">
-              <button className="btn" type="button" disabled={busy || selected.size === 0 || !!running} onClick={() => update([...selected])}>{t('sw.updateSelected', { n: selected.size })}</button>
-              <ConfirmButton className="btn ghost" label={t('sw.updateAll')} confirmLabel={t('updates.confirmAll', { name: device.name })} onConfirm={() => update(['*'])} disabled={busy || !!running} />
-              {integ.capabilities.includes('busy') && <label className="check small"><input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />{t('sw.force')}</label>}
+              <button className="btn" type="button" disabled={busy || selected.size === 0 || !!running} onClick={() => setConfirm({ comps: pending.filter((c) => selected.has(c.id)), all: false })}>{t('sw.updateSelected', { n: selected.size })}</button>
+              <button className="btn ghost" type="button" disabled={busy || !!running} onClick={() => setConfirm({ comps: pending, all: true })}>{t('sw.updateAll')}</button>
             </div>
           )}
         </>
@@ -357,6 +461,8 @@ function SoftwareCard({ device }: { device: Device }) {
           <JobList jobs={sw.jobs} compact />
         </details>
       )}
+      {confirm && <UpdateModal device={device} comps={confirm.comps} all={confirm.all} busyCheck={integ.capabilities.includes('busy')}
+        onClose={() => setConfirm(null)} onStarted={() => { setConfirm(null); setSelected(new Set()); load(); }} />}
       {logFor && <ChangelogModal device={device} comp={logFor} onClose={() => setLogFor(null)} />}
       {chooseFor && <ChooseModal device={device} comp={chooseFor} onClose={() => setChooseFor(null)} onDone={() => { setChooseFor(null); load(); }} />}
     </section>

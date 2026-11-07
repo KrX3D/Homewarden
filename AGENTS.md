@@ -121,6 +121,13 @@ decision is made or changed, update it in the same PR.
 - Proxmox token privileges (Privilege Separation on): Sys.Audit, Sys.Modify (GET
   apt/update needs it; PVEAuditor is not enough), VM.Audit, Datastore.Audit, VM.Snapshot.
   A 403 names the missing one and both ways to fix it (`missingPrivilege` in main.js).
+- Updates always go through `UpdateModal` (software.tsx): list, what the warning pills
+  mean, busy override, then start; device card shows `LastUpdateProblem` (newest update
+  job failed/blocked with result.error/reason). Updates page has per-device selection and
+  shows started jobs at the top (the device card vanishes once nothing is left).
+- Proxmox: detect tests SSH (`sshProblem`); without it packages are notify-only with a
+  note, LXC checks are skipped and facts.warnings has `ssh_needed`; update() fails early
+  with the same hint. `restarts-services` only on packages in SERVICE_PKGS, kernels `reboots`.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting

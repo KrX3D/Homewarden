@@ -74,8 +74,26 @@ function guests(ctx, n) {
   return lxc.concat(vms).sort(function (a, b) { return a.vmid - b.vmid; });
 }
 
+// Packages whose upgrade restarts a service Homewarden or the user would notice.
+var SERVICE_PKGS = /^(pve-manager|pve-cluster|pve-ha-manager|qemu-server|pve-container|pve-firewall|pve-qemu-kvm|lxc-pve|corosync|proxmox-widget-toolkit|libpve-.*|openssh-server|systemd|ceph.*|frr.*|proxmox-backup-client)$/;
+
+// The Proxmox API lists updates but cannot install them; that needs SSH. Returns ''
+// when SSH works, else the reason.
+function sshProblem(ctx) {
+  try {
+    var r = ctx.ssh.exec('true', { timeout: 20 });
+    return r.code === 0 ? '' : 'SSH test command failed';
+  } catch (e) {
+    return String(e && e.message || e);
+  }
+}
+
+var SSH_HINT = 'Installing needs SSH: the Proxmox API can only list updates. Set up the Connection card with SSH as root, or a shared connection in the integration setup.';
+
 function detect(ctx) {
   var n = node(ctx);
+  var noSSH = sshProblem(ctx);
+  if (noSSH) ctx.log('SSH not available (' + noSSH + '). Updates are listed but cannot be installed, LXC checks are skipped.');
   var ver = pve(ctx, 'GET', '/version') || {};
   if (setting(ctx, 'refreshLists', false)) {
     try { waitTask(ctx, n, pve(ctx, 'POST', '/nodes/' + n + '/apt/update'), 10); ctx.log('Package lists refreshed.'); }
@@ -87,18 +105,19 @@ function detect(ctx) {
     return {
       id: 'pkg:' + p.Package, name: p.Package, group: 'package', installed: p.OldVersion || '', available: p.Version,
       updateAvailable: true, security: /security/i.test((p.Origin || '') + ' ' + (p.Title || '')),
-      meta: { warning: kernel ? 'reboots' : 'restarts-services', repo: p.Origin }
+      updatable: !noSSH,
+      meta: { warning: kernel ? 'reboots' : SERVICE_PKGS.test(p.Package) ? 'restarts-services' : undefined, repo: p.Origin, note: noSSH ? SSH_HINT : undefined }
     };
   });
   var status = pve(ctx, 'GET', '/nodes/' + n + '/status') || {};
   comps.unshift({
     id: 'os', name: 'Proxmox VE ' + (ver.version || ''), group: 'os', installed: ver.version || '', available: '',
-    updateAvailable: pkgs.length > 0, security: comps.some(function (c) { return c.security; }),
-    meta: { summary: pkgs.length + ' packages', warning: 'restarts-services' }
+    updateAvailable: pkgs.length > 0, security: comps.some(function (c) { return c.security; }), updatable: !noSSH,
+    meta: { summary: pkgs.length + ' packages', warning: comps.some(function (c) { return c.meta.warning === 'reboots'; }) ? 'reboots' : 'restarts-services' }
   });
 
   var list = guests(ctx, n);
-  if (setting(ctx, 'includeLXC', true)) {
+  if (setting(ctx, 'includeLXC', true) && !noSSH) {
     list.filter(function (g) { return g.type === 'lxc' && g.status === 'running'; }).forEach(function (g) {
       try {
         var u = lxcUpdates(ctx, g.vmid);
@@ -113,8 +132,9 @@ function detect(ctx) {
   }
   var mem = status.memory ? Math.round(100 * status.memory.used / status.memory.total) : null;
   ctx.log('Proxmox VE ' + ver.version + ' on ' + n + ': ' + pkgs.length + ' host packages, ' + list.length + ' guests.');
+  var warnings = noSSH && pkgs.length ? ['ssh_needed'] : [];
   return {
-    facts: { version: ver.version, node: n, kernel: status.kversion || '', cpuPercent: status.cpu != null ? Math.round(status.cpu * 100) : null,
+    facts: { warnings: warnings, version: ver.version, node: n, kernel: status.kversion || '', cpuPercent: status.cpu != null ? Math.round(status.cpu * 100) : null,
       memoryPercent: mem, uptimeSeconds: status.uptime || 0, guests: list.length,
       running: list.filter(function (g) { return g.status === 'running'; }).length },
     components: comps
@@ -154,6 +174,8 @@ var OPTS = '-y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-con
 
 function update(ctx, ids) {
   var n = node(ctx);
+  var why = sshProblem(ctx);
+  if (why) throw new Error(SSH_HINT + ' (' + why + ')');
   var all = ids.indexOf('*') >= 0;
   var host = all || ids.indexOf('os') >= 0;
   var pkgs = ids.filter(function (i) { return i.indexOf('pkg:') === 0; }).map(function (i) { return i.slice(4); });

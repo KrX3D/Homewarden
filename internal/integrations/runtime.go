@@ -279,11 +279,15 @@ func (c *call) sshExec(cmd string, opts *execOpts) map[string]any {
 	}
 	c.sshMu.Lock()
 	if c.client == nil {
+		if c.host.Conn == nil { // no connection service (tests, tools)
+			c.sshMu.Unlock()
+			c.throw("SSH is not set up for this device: pick a credential in its Connection card, or a shared connection in the integration setup")
+		}
 		cl, set, err := c.host.Conn.Dial(c.ctx, c.dev)
 		if err != nil {
 			c.sshMu.Unlock()
 			if errors.Is(err, conn.ErrNotConfigured) {
-				c.throw("SSH is not set up for this device: pick a credential in the Connection card")
+				c.throw("SSH is not set up for this device: pick a credential in its Connection card, or a shared connection in the integration setup")
 			}
 			c.throw("SSH: %v", err)
 		}
