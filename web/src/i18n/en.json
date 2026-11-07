@@ -713,5 +713,14 @@
  "roles.onlyGroups": "Only devices in: {groups}",
  "error.oidc_incomplete": "Enter the issuer URL and client ID.",
  "error.oidc_discovery": "The provider could not be reached or is not an OpenID Connect issuer.",
- "devices.colMac": "MAC / vendor"
+ "devices.colMac": "MAC / vendor",
+ "settings.network": "Network",
+ "net.intro": "What your firewall and VLAN rules have to allow. Rules go from the Homewarden container address to the devices, not the other way round, except the web port.",
+ "net.vlan": "Devices in another VLAN: allow the Homewarden container IP to reach that VLAN on the ports below. On Unraid with bridge networking that is the Unraid server IP; with br0 or a custom network it is the container’s own IP.",
+ "net.none": "Needs no extra network access.",
+ "net.needs": "Network access this integration needs",
+ "net.dir.device": "Homewarden → device",
+ "net.dir.internet": "Homewarden → internet",
+ "net.dir.homewarden": "Device → Homewarden",
+ "market.alsoIn": "also in {list}"
 }

@@ -1,6 +1,6 @@
 {
   "id": "linux-apt",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "minCore": "0.1.0",
   "name": {
     "en": "Linux (apt)",
@@ -71,5 +71,25 @@
     "main.js"
   ],
   "icon": "icon.svg",
-  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot, /usr/sbin/smartctl"
+  "sudoers": "$USER ALL=(root) NOPASSWD:SETENV: /usr/bin/apt-get, /sbin/reboot, /usr/sbin/reboot, /usr/sbin/smartctl",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "icmp",
+      "port": "",
+      "note": {
+        "en": "online check (ping)",
+        "de": "Online-Prüfung (Ping)"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "22",
+      "note": {
+        "en": "SSH: versions and updates",
+        "de": "SSH: Versionen und Updates"
+      }
+    }
+  ]
 }

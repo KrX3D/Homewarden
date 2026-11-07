@@ -279,6 +279,12 @@ Plain ES5-ish JS (goja), synchronous. Functions, each `(ctx, arg)`:
 - `choices(ctx, componentId)` (capability `choose`) -> `{current, choices[{value, label,
   note}]}`; picking one runs an update of `"<componentId>@<value>"` (Docker: switch or
   roll back the tag).
+- Manifest `ports`: [{target device|internet|homewarden, proto, port, note}] shown in
+  the Integration card and Settings, Network (keep in sync with README "Network and
+  firewall").
+- Discovered devices are merged into an existing device with the same MAC or address
+  (`mergeDiscovered`): MAC filled in, name replaced only if generated (IP, container id)
+  or still an untouched scan result in the inbox.
 - `discover(ctx)` (capability `discover`) -> `[{externalId, name, host, kind, state:
   running|stopped, group, presence?}]`; new ones land in the inbox as children.
 ctx: `device`, `settings`, `log()`, `sleep(ms)`, `now()`, `secret(settingKey)` ->

@@ -262,3 +262,21 @@ func (s *Store) PrunePresence(ctx context.Context, before int64) error {
 	_, err := s.DB.ExecContext(ctx, "DELETE FROM presence_events WHERE at < ?", before)
 	return err
 }
+
+// DeviceByMACOrHost finds a device with the same MAC address, or else the same
+// address, to merge discoveries from different sources into one device.
+func (s *Store) DeviceByMACOrHost(ctx context.Context, mac, host string) (Device, error) {
+	if mac = strings.ToLower(strings.TrimSpace(mac)); mac != "" {
+		d, err := scanDevice(s.DB.QueryRowContext(ctx, "SELECT "+deviceCols+" FROM devices WHERE lower(mac) = ? ORDER BY id LIMIT 1", mac))
+		if err == nil {
+			return d, nil
+		}
+	}
+	if host = strings.ToLower(strings.TrimSpace(host)); host != "" {
+		d, err := scanDevice(s.DB.QueryRowContext(ctx, "SELECT "+deviceCols+" FROM devices WHERE lower(host) = ? ORDER BY id LIMIT 1", host))
+		if err == nil {
+			return d, nil
+		}
+	}
+	return Device{}, ErrNotFound
+}

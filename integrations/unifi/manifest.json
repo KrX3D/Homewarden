@@ -1,6 +1,6 @@
 {
   "id": "unifi",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "minCore": "0.1.0",
   "name": {
     "en": "UniFi Network",
@@ -118,5 +118,25 @@
   "files": [
     "main.js"
   ],
-  "icon": "icon.svg"
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "icmp",
+      "port": "",
+      "note": {
+        "en": "online check (ping)",
+        "de": "Online-Prüfung (Ping)"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "443",
+      "note": {
+        "en": "UniFi API on the console (8443 for a self-hosted controller)",
+        "de": "UniFi-API auf der Konsole (8443 bei selbst gehostetem Controller)"
+      }
+    }
+  ]
 }

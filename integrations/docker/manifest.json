@@ -1,6 +1,6 @@
 {
   "id": "docker",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "minCore": "0.1.0",
   "name": {
     "en": "Docker host",
@@ -183,5 +183,25 @@
   "files": [
     "main.js"
   ],
-  "icon": "icon.svg"
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "2375",
+      "note": {
+        "en": "Docker API through a socket proxy (only for remote hosts; the local socket needs no port)",
+        "de": "Docker-API über einen Socket-Proxy (nur bei entfernten Hosts; der lokale Socket braucht keinen Port)"
+      }
+    },
+    {
+      "target": "internet",
+      "proto": "tcp",
+      "port": "443",
+      "note": {
+        "en": "image registries (Docker Hub, GHCR, lscr.io, Quay ...) and your private registry",
+        "de": "Image-Registries (Docker Hub, GHCR, lscr.io, Quay ...) und deine private Registry"
+      }
+    }
+  ]
 }

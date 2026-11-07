@@ -101,7 +101,7 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 
 label.field { display: grid; gap: 5px; font-weight: 500; font-size: 14px; }
 label.field .hint { font-weight: 400; color: var(--muted); font-size: 12.5px; }
-input[type=text], input[type=password], input[type=number], input[type=url], select, textarea {
+input[type=text], input[type=password], input[type=number], input[type=url], input[type=datetime-local], select, textarea {
   font: 15px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0;
 }
 textarea { font-family: var(--mono); font-size: 13px; resize: vertical; }

@@ -1,6 +1,6 @@
 {
   "id": "windows",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "minCore": "0.1.0",
   "name": {
     "en": "Windows (agent)",
@@ -133,5 +133,25 @@
   "files": [
     "main.js"
   ],
-  "icon": "icon.svg"
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "homewarden",
+      "proto": "tcp",
+      "port": "8080",
+      "note": {
+        "en": "the agent on the PC connects to Homewarden's web address (8080, or 443 through your reverse proxy); nothing needs to be open on the PC",
+        "de": "der Agent auf dem PC verbindet sich zur Webadresse von Homewarden (8080, oder 443 über deinen Reverse Proxy); auf dem PC muss nichts offen sein"
+      }
+    },
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "445",
+      "note": {
+        "en": "the PC itself reaches the share for your update scripts (SMB)",
+        "de": "der PC selbst erreicht die Freigabe für deine Update-Skripte (SMB)"
+      }
+    }
+  ]
 }

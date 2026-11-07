@@ -12,8 +12,19 @@ import { useEvents } from '../useEvents';
 import { ConfirmButton, ErrorAlert, Modal, Spinner, useAction } from '../components/ui';
 import { IconJobs, IconPuzzle, IconRefresh, IconUpdates } from '../components/icons';
 import { deviceSections, navItems } from '../extensions';
+import { PortsList, type Port } from './network';
 
 export const tx = (text: Text | undefined, lang: Lang) => (text ? text[lang] || text.en || '' : '');
+
+/** Compares dotted versions numerically (1.10.0 > 1.9.3). */
+export function cmpVersion(a: string, b: string): number {
+  const pa = a.split('.').map(Number), pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0);
+    if (d) return d > 0 ? 1 : -1;
+  }
+  return 0;
+}
 
 /** Integration icons come from catalogs, so they render as images, where scripts cannot run. */
 export function IntegrationIcon({ svg, size = 28 }: { svg?: string; size?: number }) {
@@ -245,6 +256,12 @@ function IntegrationCard({ device }: { device: Device }) {
         <p>{integ ? tx(integ.name, lang) : t('integ.generic')}</p>
       )}
       {howto && integ?.howto && <pre className="howto">{tx(integ.howto, lang)}</pre>}
+      {integ && (integ as Integration & { ports?: Port[] }).ports?.length ? (
+        <details>
+          <summary className="small" style={{ cursor: 'pointer' }}>{t('net.needs')}</summary>
+          <div style={{ marginTop: 8 }}><PortsList ports={(integ as Integration & { ports?: Port[] }).ports} /></div>
+        </details>
+      ) : null}
     </section>
   );
 }
@@ -544,18 +561,21 @@ function IntegrationsPage() {
                     {inst && <span className="pill ok">{t('market.isInstalled')}</span>}
                   </div>
                   <p className="small muted">{tx(first.description, lang)}</p>
-                  <div className="stack" style={{ gap: 6 }}>
-                    {offers.map((o) => {
-                      const newer = inst && o.version !== inst.version;
-                      return (
-                        <div className="row small" key={o.source}>
-                          <span className="chip">{o.version}</span><span className="muted">{srcLabel(o.source)}</span>
-                          <span style={{ flex: 1 }} />
-                          {(!inst || newer) && <button className="btn sm" type="button" onClick={() => setReview(o)}>{inst ? t('market.updateTo', { v: o.version }) : t('market.install')}</button>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {(() => {
+                    // One row per integration: the newest version wins; on a tie the
+                    // built-in copy, since it needs no network.
+                    const best = [...offers].sort((a, b) => cmpVersion(b.version, a.version) || (a.source === 'builtin' ? -1 : b.source === 'builtin' ? 1 : 0))[0];
+                    const also = offers.filter((o) => o !== best && o.version === best.version).map((o) => srcLabel(o.source));
+                    const newer = inst && cmpVersion(best.version, inst.version) > 0;
+                    return (
+                      <div className="row small">
+                        <span className="chip">{best.version}</span>
+                        <span className="muted">{srcLabel(best.source)}{also.length > 0 && ' · ' + t('market.alsoIn', { list: also.join(', ') })}</span>
+                        <span style={{ flex: 1 }} />
+                        {(!inst || newer) && <button className="btn sm" type="button" onClick={() => setReview(best)}>{inst ? t('market.updateTo', { v: best.version }) : t('market.install')}</button>}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
