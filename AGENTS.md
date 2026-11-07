@@ -113,6 +113,9 @@ decision is made or changed, update it in the same PR.
   Release notes: release_summary, GitHub release body when release_url is a GitHub tag.
 - Integrations page: installed ones are not listed under Available (uninstalling brings
   them back); a newer catalog version shows as a pill + Update button on the installed card.
+- Proxmox token privileges (Privilege Separation on): Sys.Audit, Sys.Modify (GET
+  apt/update needs it; PVEAuditor is not enough), VM.Audit, Datastore.Audit, VM.Snapshot.
+  A 403 names the missing one and both ways to fix it (`missingPrivilege` in main.js).
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting

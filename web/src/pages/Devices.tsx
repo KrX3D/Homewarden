@@ -155,8 +155,8 @@ function DeviceCards({ devices }: { devices: Device[] }) {
     <div className="device-grid">
       {devices.map((d) => (
         <button key={d.id} type="button" className="device-card" onClick={() => nav(`/devices/${d.id}`)}>
-          <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-            <strong className="ellipsis">{d.name}</strong>
+          <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+            <strong className="card-name">{d.name}</strong>
             <StatePill state={d.state} />
           </div>
           <span className="mono muted small ellipsis">{d.host || ' '}</span>
