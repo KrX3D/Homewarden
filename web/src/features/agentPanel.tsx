@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { del, get, post, put, type AgentStatus, type Device } from '../api';
 import { formatAgo, useLang, useT } from '../i18n';
 import { useSession } from '../session';
-import { ConfirmButton, ErrorAlert, useAction } from '../components/ui';
+import { ConfirmButton, ErrorAlert, copyText, useAction } from '../components/ui';
 
 function Copyable({ text }: { text: string }) {
   const t = useT();
@@ -10,7 +10,7 @@ function Copyable({ text }: { text: string }) {
   return (
     <div className="stack" style={{ gap: 6 }}>
       <pre className="log" style={{ whiteSpace: 'pre-wrap' }}>{text}</pre>
-      <div><button type="button" className="btn ghost sm" onClick={() => navigator.clipboard?.writeText(text).then(() => { setDone(true); setTimeout(() => setDone(false), 1500); }, () => {})}>{done ? t('common.copied') : t('common.copy')}</button></div>
+      <div><button type="button" className="btn ghost sm" onClick={() => copyText(text).then((ok) => { if (ok) { setDone(true); setTimeout(() => setDone(false), 1500); } })}>{done ? t('common.copied') : t('common.copy')}</button></div>
     </div>
   );
 }
