@@ -215,9 +215,17 @@ func (s *Server) Authed(perm string, h http.HandlerFunc) http.Handler { return s
 func (s *Server) authed(perm string, h http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
-			u, err := s.Store.TokenUser(r.Context(), auth.HashToken(strings.TrimSpace(bearer)))
+			if !s.Store.APIEnabled(r.Context()) {
+				FailMsg(w, http.StatusForbidden, "api_disabled", "API access is turned off in Settings, API")
+				return
+			}
+			u, readOnly, err := s.Store.TokenUser(r.Context(), auth.HashToken(strings.TrimSpace(bearer)))
 			if err != nil || u.Disabled {
 				fail(w, http.StatusUnauthorized, "unauthorized")
+				return
+			}
+			if readOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+				FailMsg(w, http.StatusForbidden, "read_only_token", "this token may only read")
 				return
 			}
 			role, err := s.Store.Role(r.Context(), u.RoleID)

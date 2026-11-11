@@ -291,4 +291,6 @@ CREATE TABLE network_info (
 	PRIMARY KEY (device_id, source_id)
 );
 `,
+	// 13: read-only API tokens (only GET requests).
+	`ALTER TABLE api_tokens ADD COLUMN read_only INTEGER NOT NULL DEFAULT 0;`,
 }

@@ -495,7 +495,7 @@
  "auto.external": "Trigger from outside (scripts, Home Assistant)",
  "auto.apiHint": "Create an API token under Settings, API tokens, then:",
  "auto.mqttHint": "Or with MQTT enabled, publish scan, backup, update or update security to {topic}.",
- "tokens.intro": "Personal tokens for scripts and Home Assistant. A token can do what your role allows. Send it as Authorization: Bearer <token>.",
+ "tokens.intro": "Personal tokens for scripts, Home Assistant or an assistant that checks your setup. A token may do what your role may do; a read-only token can only look. Send it as Authorization: Bearer <token>.",
  "tokens.create": "Create token",
  "tokens.copyNow": "Copy this token now. It is not shown again.",
  "tokens.created": "Created",
@@ -845,5 +845,12 @@
  "agentSsh.output": "Installer output",
  "market.checked": "Checked {ago}",
  "market.checking": "Checking...",
- "market.checkNow": "Check now"
+ "market.checkNow": "Check now",
+ "api.enabled": "Allow API access with tokens",
+ "api.enabledHint": "Scripts, Home Assistant and other tools can use the tokens below. Turning this off rejects every token at once; the web interface, agents and push monitors keep working.",
+ "api.disabledHint": "API access is off: every token is rejected, including Home Assistant triggers. The web interface, agents and push monitors keep working.",
+ "tokens.readOnly": "Read only",
+ "tokens.readOnlyShort": "Read only",
+ "tokens.full": "Full",
+ "tokens.access": "Access"
 }

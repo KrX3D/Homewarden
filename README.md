@@ -88,6 +88,18 @@ card.
 
 The agent needs nothing open on the device: it connects to Homewarden.
 
+## API
+
+Everything the web interface does is available over HTTP. Create a token under
+Settings, API tokens and send it as `Authorization: Bearer hw_...`. A token has its
+user's rights; a **read-only** token can only send GET requests, which is enough to
+review a setup. Settings, API tokens also has a switch that turns token access off
+for everyone at once (the web interface, agents and push monitors keep working).
+
+```sh
+curl -H "Authorization: Bearer hw_..." http://homewarden:8080/api/devices
+```
+
 ## License
 
 [MIT](LICENSE)

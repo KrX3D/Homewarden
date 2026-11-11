@@ -82,24 +82,39 @@ function TokensTab() {
   const lang = useLang();
   const [list, setList] = useState<APIToken[]>([]);
   const [name, setName] = useState('');
+  const [readOnly, setReadOnly] = useState(false);
   const [created, setCreated] = useState('');
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const { can } = useSession();
+  const admin = can('settings.manage');
   const { busy, error, run } = useAction();
   const load = () => get<APIToken[]>('/api/me/tokens').then(setList).catch(() => {});
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    if (admin) get<{ enabled: boolean }>('/api/settings/api').then((r) => setEnabled(r.enabled)).catch(() => {});
+  }, [admin]);
+  const toggle = (on: boolean) => run(async () => { const r = await put<{ enabled: boolean }>('/api/settings/api', { enabled: on }); setEnabled(r.enabled); });
   return (
     <section className="stack">
+      {admin && enabled !== null && (
+        <div className={'card stack' + (enabled ? '' : ' api-off')} style={{ gap: 6 }}>
+          <label className="check"><input id="api-enabled" type="checkbox" checked={enabled} disabled={busy} onChange={(e) => toggle(e.target.checked)} /><strong>{t('api.enabled')}</strong></label>
+          <span className="small muted">{enabled ? t('api.enabledHint') : t('api.disabledHint')}</span>
+        </div>
+      )}
       <p className="muted">{t('tokens.intro')}</p>
-      <form className="row" onSubmit={(e) => { e.preventDefault(); run(async () => { const r = await post<{ token: string }>('/api/me/tokens', { name }); setCreated(r.token); setName(''); load(); }); }}>
+      <form className="row" onSubmit={(e) => { e.preventDefault(); run(async () => { const r = await post<{ token: string }>('/api/me/tokens', { name, readOnly }); setCreated(r.token); setName(''); setReadOnly(false); load(); }); }}>
         <input id="token-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Home Assistant" required style={{ maxWidth: 280 }} />
+        <label className="check small"><input id="token-readonly" type="checkbox" checked={readOnly} onChange={(e) => setReadOnly(e.target.checked)} />{t('tokens.readOnly')}</label>
         <button className="btn" type="submit" disabled={busy}><IconPlus />{t('tokens.create')}</button>
       </form>
       {created && <div className="alert ok stack" style={{ gap: 6 }}><strong>{t('tokens.copyNow')}</strong><code style={{ overflowWrap: 'anywhere' }}>{created}</code></div>}
       <ErrorAlert error={error} />
       {list.length > 0 && (
         <div className="table-wrap"><table className="tbl">
-          <thead><tr><th>{t('cred.name')}</th><th>{t('tokens.created')}</th><th>{t('tokens.lastUsed')}</th><th></th></tr></thead>
+          <thead><tr><th>{t('cred.name')}</th><th>{t('tokens.access')}</th><th>{t('tokens.created')}</th><th>{t('tokens.lastUsed')}</th><th></th></tr></thead>
           <tbody>{list.map((x) => (
-            <tr key={x.id}><td>{x.name}</td><td className="small muted">{formatTime(lang, x.createdAt)}</td><td className="small muted">{x.lastUsed ? formatAgo(lang, x.lastUsed) : t('users.never')}</td>
+            <tr key={x.id}><td>{x.name}</td><td><span className={'pill ' + (x.readOnly ? 'off' : 'accent')}>{x.readOnly ? t('tokens.readOnlyShort') : t('tokens.full')}</span></td><td className="small muted">{formatTime(lang, x.createdAt)}</td><td className="small muted">{x.lastUsed ? formatAgo(lang, x.lastUsed) : t('users.never')}</td>
               <td style={{ textAlign: 'right' }}><ConfirmButton label={t('tokens.revoke')} onConfirm={() => run(async () => { await del(`/api/me/tokens/${x.id}`); load(); })} /></td></tr>
           ))}</tbody>
         </table></div>
