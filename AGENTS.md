@@ -151,6 +151,10 @@ decision is made or changed, update it in the same PR.
   the inbox gives way to an added scan/manual device, which takes over source,
   external id and the parent link; a new guest matching a scan entry adopts it. Two
   added devices are never merged automatically.
+- API tokens: setting \`api.enabled\` (default on, Settings, API tokens; GET/PUT
+  \`/api/settings/api\`) rejects every Bearer request with 403 \`api_disabled\` when off;
+  sessions, agents and push are unaffected. Tokens can be \`read_only\` (migration 13):
+  anything but GET/HEAD gets 403 \`read_only_token\`.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting

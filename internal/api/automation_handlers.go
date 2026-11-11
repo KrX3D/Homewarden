@@ -21,6 +21,8 @@ func (s *Server) AttachAutomation(a *automation.Service, m *automation.MQTT) {
 	mux.Handle("GET /api/devices/{id}/pending", s.authed(auth.PermDevicesView, s.devicePending))
 	mux.Handle("POST /api/devices/{id}/trigger", s.authed(auth.PermUpdatesRun, s.triggerDevice))
 	mux.Handle("GET /api/settings/mqtt", s.authed(auth.PermSettingsManage, s.getMQTT))
+	mux.Handle("GET /api/settings/api", s.authed(auth.PermSettingsManage, s.getAPISettings))
+	mux.Handle("PUT /api/settings/api", s.authed(auth.PermSettingsManage, s.putAPISettings))
 	mux.Handle("PUT /api/settings/mqtt", s.authed(auth.PermSettingsManage, s.putMQTT))
 }
 
@@ -34,7 +36,10 @@ func (s *Server) listTokens(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createToken(w http.ResponseWriter, r *http.Request) {
-	var in struct{ Name string }
+	var in struct {
+		Name     string
+		ReadOnly bool
+	}
 	if !readJSON(w, r, &in) {
 		return
 	}
@@ -45,13 +50,35 @@ func (s *Server) createToken(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, _ := auth.NewToken()
 	token := "hw_" + raw
-	t, err := s.Store.CreateAPIToken(r.Context(), PrincipalFrom(r).User.ID, in.Name, auth.HashToken(token))
+	t, err := s.Store.CreateAPIToken(r.Context(), PrincipalFrom(r).User.ID, in.Name, auth.HashToken(token), in.ReadOnly)
 	if err != nil {
 		internal(w, err)
 		return
 	}
 	// The token itself is only ever shown in this response.
 	writeJSON(w, http.StatusCreated, map[string]any{"token": token, "info": t})
+}
+
+func (s *Server) getAPISettings(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": s.Store.APIEnabled(r.Context())})
+}
+
+// putAPISettings turns token access on or off for everyone. Sessions (the web
+// interface), agents and push monitors are not affected.
+func (s *Server) putAPISettings(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Enabled bool }
+	if !readJSON(w, r, &in) {
+		return
+	}
+	v := "0"
+	if in.Enabled {
+		v = "1"
+	}
+	if err := s.Store.SetSetting(r.Context(), "api.enabled", v); err != nil {
+		internal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"enabled": in.Enabled})
 }
 
 func (s *Server) deleteToken(w http.ResponseWriter, r *http.Request) {

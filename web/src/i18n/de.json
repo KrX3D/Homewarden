@@ -495,7 +495,7 @@
  "auto.external": "Von außen auslösen (Skripte, Home Assistant)",
  "auto.apiHint": "Lege unter Einstellungen, API-Tokens einen Token an, dann:",
  "auto.mqttHint": "Oder mit aktivem MQTT scan, backup, update oder update security an {topic} senden.",
- "tokens.intro": "Persönliche Tokens für Skripte und Home Assistant. Ein Token darf, was deine Rolle darf. Sende ihn als Authorization: Bearer <token>.",
+ "tokens.intro": "Persönliche Tokens für Skripte, Home Assistant oder einen Assistenten, der deine Einrichtung prüft. Ein Token darf, was deine Rolle darf; ein Nur-lesen-Token kann nur schauen. Sende ihn als Authorization: Bearer <token>.",
  "tokens.create": "Token erstellen",
  "tokens.copyNow": "Kopiere den Token jetzt. Er wird nicht wieder angezeigt.",
  "tokens.created": "Erstellt",
@@ -845,5 +845,12 @@
  "agentSsh.output": "Ausgabe des Installers",
  "market.checked": "Geprüft {ago}",
  "market.checking": "Prüfe ...",
- "market.checkNow": "Jetzt prüfen"
+ "market.checkNow": "Jetzt prüfen",
+ "api.enabled": "API-Zugriff mit Tokens erlauben",
+ "api.enabledHint": "Skripte, Home Assistant und andere Werkzeuge können die Tokens unten nutzen. Ausschalten weist alle Tokens auf einmal ab; Weboberfläche, Agents und Push-Monitore laufen weiter.",
+ "api.disabledHint": "API-Zugriff ist aus: Jeder Token wird abgewiesen, auch Auslöser aus Home Assistant. Weboberfläche, Agents und Push-Monitore laufen weiter.",
+ "tokens.readOnly": "Nur lesen",
+ "tokens.readOnlyShort": "Nur lesen",
+ "tokens.full": "Voll",
+ "tokens.access": "Zugriff"
 }

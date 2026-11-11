@@ -14,21 +14,23 @@ type APIToken struct {
 	Name      string `json:"name"`
 	CreatedAt int64  `json:"createdAt"`
 	LastUsed  *int64 `json:"lastUsed"`
+	// ReadOnly tokens may only read (GET); for checking a setup without changing it.
+	ReadOnly bool `json:"readOnly"`
 }
 
 // CreateAPIToken stores a token hash.
-func (s *Store) CreateAPIToken(ctx context.Context, userID int64, name, hash string) (APIToken, error) {
-	res, err := s.DB.ExecContext(ctx, "INSERT INTO api_tokens(user_id, name, token_hash, created_at) VALUES(?, ?, ?, ?)", userID, name, hash, now())
+func (s *Store) CreateAPIToken(ctx context.Context, userID int64, name, hash string, readOnly bool) (APIToken, error) {
+	res, err := s.DB.ExecContext(ctx, "INSERT INTO api_tokens(user_id, name, token_hash, created_at, read_only) VALUES(?, ?, ?, ?, ?)", userID, name, hash, now(), readOnly)
 	if err != nil {
 		return APIToken{}, err
 	}
 	id, _ := res.LastInsertId()
-	return APIToken{ID: id, UserID: userID, Name: name, CreatedAt: now()}, nil
+	return APIToken{ID: id, UserID: userID, Name: name, CreatedAt: now(), ReadOnly: readOnly}, nil
 }
 
 // APITokens lists a user's tokens.
 func (s *Store) APITokens(ctx context.Context, userID int64) ([]APIToken, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id, user_id, name, created_at, last_used FROM api_tokens WHERE user_id = ? ORDER BY id", userID)
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, user_id, name, created_at, last_used, read_only FROM api_tokens WHERE user_id = ? ORDER BY id", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +38,7 @@ func (s *Store) APITokens(ctx context.Context, userID int64) ([]APIToken, error)
 	out := []APIToken{}
 	for rows.Next() {
 		var t APIToken
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.CreatedAt, &t.LastUsed); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.CreatedAt, &t.LastUsed, &t.ReadOnly); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -50,18 +52,26 @@ func (s *Store) DeleteAPIToken(ctx context.Context, userID, id int64) error {
 	return err
 }
 
-// TokenUser resolves a token hash to its user and records the use.
-func (s *Store) TokenUser(ctx context.Context, hash string) (User, error) {
+// TokenUser resolves a token hash to its user and records the use. readOnly reports
+// a token that may only read.
+func (s *Store) TokenUser(ctx context.Context, hash string) (u User, readOnly bool, err error) {
 	var uid int64
-	err := s.DB.QueryRowContext(ctx, "SELECT user_id FROM api_tokens WHERE token_hash = ?", hash).Scan(&uid)
+	err = s.DB.QueryRowContext(ctx, "SELECT user_id, read_only FROM api_tokens WHERE token_hash = ?", hash).Scan(&uid, &readOnly)
 	if errors.Is(err, sql.ErrNoRows) {
-		return User{}, ErrNotFound
+		return User{}, false, ErrNotFound
 	}
 	if err != nil {
-		return User{}, err
+		return User{}, false, err
 	}
 	_, _ = s.DB.ExecContext(ctx, "UPDATE api_tokens SET last_used = ? WHERE token_hash = ?", now(), hash)
-	return s.User(ctx, uid)
+	u, err = s.User(ctx, uid)
+	return u, readOnly, err
+}
+
+// APIEnabled reports whether API tokens are accepted (setting api.enabled, default on).
+func (s *Store) APIEnabled(ctx context.Context) bool {
+	v, _ := s.GetSetting(ctx, "api.enabled", "1")
+	return v != "0"
 }
 
 // PendingAction is something scheduled while the device was offline.
