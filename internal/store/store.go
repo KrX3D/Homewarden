@@ -18,6 +18,9 @@ var ErrNotFound = errors.New("not found")
 // Store wraps the database handle.
 type Store struct {
 	DB *sql.DB
+	// CredentialKeys returns the setting keys of type credential of all installed
+	// integrations (e.g. apiToken, apiKey), so credential usage counts them too.
+	CredentialKeys func() []string
 }
 
 // Open opens (and creates) the database at path and brings the schema up to date.

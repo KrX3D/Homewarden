@@ -78,3 +78,22 @@ func TestNetworkInfo(t *testing.T) {
 		t.Fatalf("got %+v, %v", got, err)
 	}
 }
+
+func TestCredentialUsageCountsSettings(t *testing.T) {
+	ctx := context.Background()
+	st, err := Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	st.CredentialKeys = func() []string { return []string{"apiToken", "apiKey"} }
+	_ = st.SetIntegrationDefaults(ctx, "proxmox", IntegrationDefaults{Settings: map[string]any{"apiToken": float64(2)}})
+	st.CreateDevice(ctx, Device{Name: "a", Config: json.RawMessage(`{"settings":{"apiKey":7}}`)})
+	st.CreateDevice(ctx, Device{Name: "b", Config: json.RawMessage(`{"settings":{"port":2}}`)})
+	if n, _ := st.CredentialUsage(ctx, 2); n != 1 {
+		t.Fatalf("token in integration setup: %d", n)
+	}
+	if n, _ := st.CredentialUsage(ctx, 7); n != 1 {
+		t.Fatalf("token in device settings: %d", n)
+	}
+}

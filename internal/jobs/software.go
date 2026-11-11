@@ -350,6 +350,26 @@ func (s *Software) combine(ctx context.Context, child, parent store.Device, sour
 		return child
 	}
 	switch {
+	case child.Status == store.StatusDiscovered && other.Status == store.StatusDiscovered && other.Source != source &&
+		other.Source != "scan" && other.Source != "manual" && other.ParentID != nil && *other.ParentID != parent.ID:
+		// Both in the inbox, found by two integrations: a guest list (Proxmox, Docker)
+		// and a client list (UniFi). The guest entry stays, it knows the real host; the
+		// client list only observes (it reports network details). A name someone chose
+		// in the client list (a UniFi alias) is kept.
+		keep, drop := other, child
+		if len(f.Network) == 0 {
+			keep, drop = child, other
+		}
+		if !discovery.LooksGenerated(drop.Name) && drop.Name != drop.Host && drop.Name != keep.Name {
+			keep.Name = drop.Name
+			_ = s.St.UpdateDevice(ctx, keep)
+		}
+		_ = s.St.DeleteDevice(ctx, drop.ID)
+		s.Events.Publish("device.changed", map[string]int64{"id": drop.ID})
+		if keep.ID != child.ID && len(f.Network) > 0 {
+			_ = s.St.SetNetworkInfo(ctx, keep.ID, parent.ID, f.Network)
+		}
+		return keep
 	case other.Status == store.StatusDiscovered && other.Source == "scan":
 		_ = s.St.DeleteDevice(ctx, other.ID)
 		s.Events.Publish("device.changed", map[string]int64{"id": other.ID})
