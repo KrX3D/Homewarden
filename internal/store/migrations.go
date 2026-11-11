@@ -293,4 +293,6 @@ CREATE TABLE network_info (
 `,
 	// 13: read-only API tokens (only GET requests).
 	`ALTER TABLE api_tokens ADD COLUMN read_only INTEGER NOT NULL DEFAULT 0;`,
+	// 14: last characters of a token, to tell tokens apart in the list.
+	`ALTER TABLE api_tokens ADD COLUMN hint TEXT NOT NULL DEFAULT '';`,
 }

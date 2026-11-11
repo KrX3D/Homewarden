@@ -108,6 +108,27 @@ function networkOf(c, names) {
   return n;
 }
 
+// Names given in UniFi stick to a MAC. Containers on a macvlan/br0 network get a new
+// random MAC when they are recreated, so the connected client has no name while the
+// old, now offline record still has it. Known clients (/rest/user) with a name are
+// matched by their fixed IP, else by their last IP when that record is not online.
+function aliasesByIP(ctx, sta) {
+  var online = {};
+  sta.forEach(function (c) { online[c.mac] = true; });
+  var users = [];
+  try { users = call(ctx, 'GET', '/rest/user'); } catch (e) { return {}; }
+  var fixed = {}, last = {};
+  users.forEach(function (u) {
+    if (!u.name) return;
+    if (u.use_fixedip && u.fixed_ip) fixed[u.fixed_ip] = u.name;
+    else if (u.last_ip && !online[u.mac] && !last[u.last_ip]) last[u.last_ip] = u.name;
+  });
+  var out = {};
+  Object.keys(last).forEach(function (ip) { out[ip] = last[ip]; });
+  Object.keys(fixed).forEach(function (ip) { out[ip] = fixed[ip]; });
+  return out;
+}
+
 function discover(ctx) {
   var devs = call(ctx, 'GET', '/stat/device');
   var names = {};
@@ -119,8 +140,10 @@ function discover(ctx) {
   // Clients always feed the Network card of devices Homewarden already has; with
   // importClients they also land in the inbox.
   var importClients = !!setting(ctx, 'importClients', false);
-  call(ctx, 'GET', '/stat/sta').forEach(function (c) {
-    out.push({ externalId: 'client:' + c.mac, name: c.name || c.hostname || c.oui || c.mac, host: c.ip || '', mac: c.mac, kind: 'generic',
+  var sta = call(ctx, 'GET', '/stat/sta');
+  var alias = aliasesByIP(ctx, sta);
+  sta.forEach(function (c) {
+    out.push({ externalId: 'client:' + c.mac, name: c.name || alias[c.ip] || c.hostname || c.oui || c.mac, host: c.ip || '', mac: c.mac, kind: 'generic',
       state: 'running', group: 'Clients', enrichOnly: !importClients, network: networkOf(c, names),
       presence: c.ip ? { reach: { method: 'ping' }, ready: { method: 'none' }, settleSeconds: 0, intervalSeconds: 60 } : null });
   });

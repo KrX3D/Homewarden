@@ -131,7 +131,7 @@ export type BackupSettings = { targetId: number; beforeUpdate: boolean; keep: nu
 export type Guard = { name: string; type: 'ssh' | 'http'; command?: string; url?: string; contains?: string; mode: 'block' | 'warn' };
 
 export type Policy = { mode: 'manual' | 'auto' | 'scheduled'; schedule: string; scope: 'security' | 'all' };
-export type APIToken = { id: number; name: string; createdAt: number; lastUsed: number | null; readOnly: boolean };
+export type APIToken = { id: number; name: string; createdAt: number; lastUsed: number | null; readOnly: boolean; hint: string };
 export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: number; baseTopic: string; haDiscovery?: boolean };
 
 export type AgentStatus = { enrolled: boolean; online: boolean; pendingEnrollment?: boolean;

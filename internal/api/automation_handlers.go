@@ -50,7 +50,7 @@ func (s *Server) createToken(w http.ResponseWriter, r *http.Request) {
 	}
 	raw, _ := auth.NewToken()
 	token := "hw_" + raw
-	t, err := s.Store.CreateAPIToken(r.Context(), PrincipalFrom(r).User.ID, in.Name, auth.HashToken(token), in.ReadOnly)
+	t, err := s.Store.CreateAPIToken(r.Context(), PrincipalFrom(r).User.ID, in.Name, auth.HashToken(token), token[len(token)-5:], in.ReadOnly)
 	if err != nil {
 		internal(w, err)
 		return

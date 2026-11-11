@@ -155,6 +155,15 @@ decision is made or changed, update it in the same PR.
   \`/api/settings/api\`) rejects every Bearer request with 403 \`api_disabled\` when off;
   sessions, agents and push are unaffected. Tokens can be \`read_only\` (migration 13):
   anything but GET/HEAD gets 403 \`read_only_token\`.
+- Cross-integration duplicates in the inbox (UniFi client + Proxmox/Docker guest):
+  the guest entry stays, the client-list copy (the one carrying \`network\`) is deleted,
+  and a chosen name (UniFi alias) moves to the kept entry. Added devices are never merged.
+- Credential usage counts integration settings of type credential (\`Store.CredentialKeys\`,
+  set in AttachSoftware), in device settings and integration setups.
+- UniFi: clients without a name take the alias of a known client (/rest/user) with the
+  same fixed IP, else same last IP when that record is offline (br0 containers get a
+  new MAC when recreated, the alias stays on the old one).
+- API tokens store their last 5 characters (\`hint\`, migration 14) for the list.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover
   entries may carry `network` (stored in table `network_info`, one row per reporting

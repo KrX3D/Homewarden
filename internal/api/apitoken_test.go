@@ -17,10 +17,10 @@ func TestAPITokensReadOnlyAndSwitch(t *testing.T) {
 	}
 	ctx := context.Background()
 	u, _ := h.api.Store.UserByName(ctx, "krx")
-	if _, err := h.api.Store.CreateAPIToken(ctx, u.ID, "full", auth.HashToken("hw_full"), false); err != nil {
+	if _, err := h.api.Store.CreateAPIToken(ctx, u.ID, "full", auth.HashToken("hw_full"), "_full", false); err != nil {
 		t.Fatal(err)
 	}
-	h.api.Store.CreateAPIToken(ctx, u.ID, "ro", auth.HashToken("hw_ro"), true)
+	h.api.Store.CreateAPIToken(ctx, u.ID, "ro", auth.HashToken("hw_ro"), "hw_ro", true)
 
 	call := func(method, path, tok string) (int, string) {
 		req, _ := http.NewRequest(method, h.srv.URL+path, nil)

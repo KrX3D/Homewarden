@@ -16,21 +16,23 @@ type APIToken struct {
 	LastUsed  *int64 `json:"lastUsed"`
 	// ReadOnly tokens may only read (GET); for checking a setup without changing it.
 	ReadOnly bool `json:"readOnly"`
+	// Hint is the token's last characters (the token itself is only stored hashed).
+	Hint string `json:"hint"`
 }
 
 // CreateAPIToken stores a token hash.
-func (s *Store) CreateAPIToken(ctx context.Context, userID int64, name, hash string, readOnly bool) (APIToken, error) {
-	res, err := s.DB.ExecContext(ctx, "INSERT INTO api_tokens(user_id, name, token_hash, created_at, read_only) VALUES(?, ?, ?, ?, ?)", userID, name, hash, now(), readOnly)
+func (s *Store) CreateAPIToken(ctx context.Context, userID int64, name, hash, hint string, readOnly bool) (APIToken, error) {
+	res, err := s.DB.ExecContext(ctx, "INSERT INTO api_tokens(user_id, name, token_hash, created_at, read_only, hint) VALUES(?, ?, ?, ?, ?, ?)", userID, name, hash, now(), readOnly, hint)
 	if err != nil {
 		return APIToken{}, err
 	}
 	id, _ := res.LastInsertId()
-	return APIToken{ID: id, UserID: userID, Name: name, CreatedAt: now(), ReadOnly: readOnly}, nil
+	return APIToken{ID: id, UserID: userID, Name: name, CreatedAt: now(), ReadOnly: readOnly, Hint: hint}, nil
 }
 
 // APITokens lists a user's tokens.
 func (s *Store) APITokens(ctx context.Context, userID int64) ([]APIToken, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id, user_id, name, created_at, last_used, read_only FROM api_tokens WHERE user_id = ? ORDER BY id", userID)
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, user_id, name, created_at, last_used, read_only, hint FROM api_tokens WHERE user_id = ? ORDER BY id", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +40,7 @@ func (s *Store) APITokens(ctx context.Context, userID int64) ([]APIToken, error)
 	out := []APIToken{}
 	for rows.Next() {
 		var t APIToken
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.CreatedAt, &t.LastUsed, &t.ReadOnly); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.CreatedAt, &t.LastUsed, &t.ReadOnly, &t.Hint); err != nil {
 			return nil, err
 		}
 		out = append(out, t)

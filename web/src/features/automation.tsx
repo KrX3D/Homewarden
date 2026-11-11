@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { del, get, post, put, type APIToken, type Credential, type Device, type MQTTSettings, type Policy } from '../api';
 import { formatAgo, formatTime, useLang, useT } from '../i18n';
 import { useSession } from '../session';
-import { ConfirmButton, ErrorAlert, useAction } from '../components/ui';
+import { ConfirmButton, ErrorAlert, copyText, useAction } from '../components/ui';
 import { IconPlus } from '../components/icons';
 import { deviceSections, settingsTabs } from '../extensions';
 
@@ -84,6 +84,7 @@ function TokensTab() {
   const [name, setName] = useState('');
   const [readOnly, setReadOnly] = useState(false);
   const [created, setCreated] = useState('');
+  const [copied, setCopied] = useState(false);
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const { can } = useSession();
   const admin = can('settings.manage');
@@ -108,13 +109,21 @@ function TokensTab() {
         <label className="check small"><input id="token-readonly" type="checkbox" checked={readOnly} onChange={(e) => setReadOnly(e.target.checked)} />{t('tokens.readOnly')}</label>
         <button className="btn" type="submit" disabled={busy}><IconPlus />{t('tokens.create')}</button>
       </form>
-      {created && <div className="alert ok stack" style={{ gap: 6 }}><strong>{t('tokens.copyNow')}</strong><code style={{ overflowWrap: 'anywhere' }}>{created}</code></div>}
+      {created && (
+        <div className="alert ok stack" style={{ gap: 6 }}>
+          <strong>{t('tokens.copyNow')}</strong>
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <code className="grow" style={{ overflowWrap: 'anywhere' }}>{created}</code>
+            <button id="token-copy" className="btn ghost sm" type="button" onClick={() => copyText(created).then((ok) => { if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); } })}>{copied ? t('common.copied') : t('common.copy')}</button>
+          </div>
+        </div>
+      )}
       <ErrorAlert error={error} />
       {list.length > 0 && (
         <div className="table-wrap"><table className="tbl">
           <thead><tr><th>{t('cred.name')}</th><th>{t('tokens.access')}</th><th>{t('tokens.created')}</th><th>{t('tokens.lastUsed')}</th><th></th></tr></thead>
           <tbody>{list.map((x) => (
-            <tr key={x.id}><td>{x.name}</td><td><span className={'pill ' + (x.readOnly ? 'off' : 'accent')}>{x.readOnly ? t('tokens.readOnlyShort') : t('tokens.full')}</span></td><td className="small muted">{formatTime(lang, x.createdAt)}</td><td className="small muted">{x.lastUsed ? formatAgo(lang, x.lastUsed) : t('users.never')}</td>
+            <tr key={x.id}><td>{x.name}{x.hint && <span className="mono muted small"> · hw_…{x.hint}</span>}</td><td><span className={'pill ' + (x.readOnly ? 'off' : 'accent')}>{x.readOnly ? t('tokens.readOnlyShort') : t('tokens.full')}</span></td><td className="small muted">{formatTime(lang, x.createdAt)}</td><td className="small muted">{x.lastUsed ? formatAgo(lang, x.lastUsed) : t('users.never')}</td>
               <td style={{ textAlign: 'right' }}><ConfirmButton label={t('tokens.revoke')} onConfirm={() => run(async () => { await del(`/api/me/tokens/${x.id}`); load(); })} /></td></tr>
           ))}</tbody>
         </table></div>

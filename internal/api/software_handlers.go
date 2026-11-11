@@ -28,6 +28,19 @@ type SoftwareDeps struct {
 // AttachSoftware registers integration, scan/update and job routes.
 func (s *Server) AttachSoftware(d SoftwareDeps) {
 	s.sw = d
+	s.Store.CredentialKeys = func() []string {
+		seen := map[string]bool{}
+		out := []string{}
+		for _, in := range d.Registry.All() {
+			for _, st := range in.Settings {
+				if st.Type == "credential" && !seen[st.Key] {
+					seen[st.Key] = true
+					out = append(out, st.Key)
+				}
+			}
+		}
+		return out
+	}
 	m := s.mux
 	m.Handle("GET /api/integrations", s.authed(auth.PermDevicesView, s.listIntegrations))
 	m.Handle("GET /api/integrations/catalog", s.authed(auth.PermIntegrationsManage, s.integrationCatalog))

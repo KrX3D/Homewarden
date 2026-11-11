@@ -94,10 +94,21 @@ func (s *Store) DeleteCredential(ctx context.Context, id int64) error {
 // CredentialUsage counts devices whose config references the credential in any
 // field named ...credentialId.
 func (s *Store) CredentialUsage(ctx context.Context, id int64) (int, error) {
+	// A reference is a ...credentialId field, or an integration setting of type
+	// credential (apiToken, apiKey, ...) inside "settings".
+	match := `(key LIKE '%credentialId'`
+	args := []any{}
+	if s.CredentialKeys != nil {
+		for _, k := range s.CredentialKeys() {
+			match += ` OR (key = ? AND path LIKE '%.settings')`
+			args = append(args, k)
+		}
+	}
+	match += `) AND type IN ('integer', 'real', 'text') AND CAST(value AS INTEGER) = ?`
+	args = append(args, id)
 	var n int
 	err := s.DB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM devices d WHERE EXISTS (
-			SELECT 1 FROM json_tree(d.config) WHERE key LIKE '%credentialId' AND CAST(value AS INTEGER) = ?)`, id).Scan(&n)
+		`SELECT COUNT(*) FROM devices d WHERE EXISTS (SELECT 1 FROM json_tree(d.config) WHERE `+match+`)`, args...).Scan(&n)
 	if err != nil {
 		return n, err
 	}
@@ -105,7 +116,7 @@ func (s *Store) CredentialUsage(ctx context.Context, id int64) (int, error) {
 	var m int
 	err = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM settings st WHERE st.key LIKE 'integration.defaults.%' AND json_valid(st.value) AND EXISTS (
-			SELECT 1 FROM json_tree(st.value) WHERE key LIKE '%credentialId' AND CAST(value AS INTEGER) = ?)`, id).Scan(&m)
+			SELECT 1 FROM json_tree(st.value) WHERE `+match+`)`, args...).Scan(&m)
 	return n + m, err
 }
 
