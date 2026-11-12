@@ -86,6 +86,7 @@ function TokensTab() {
   const [created, setCreated] = useState('');
   const [copied, setCopied] = useState(false);
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [mcp, setMcp] = useState<boolean | null>(null);
   const { can } = useSession();
   const admin = can('settings.manage');
   const { busy, error, run } = useAction();
@@ -93,7 +94,9 @@ function TokensTab() {
   useEffect(() => {
     load();
     if (admin) get<{ enabled: boolean }>('/api/settings/api').then((r) => setEnabled(r.enabled)).catch(() => {});
+    if (admin) get<{ enabled: boolean }>('/api/settings/mcp').then((r) => setMcp(r.enabled)).catch(() => {});
   }, [admin]);
+  const toggleMcp = (on: boolean) => run(async () => { const r = await put<{ enabled: boolean }>('/api/settings/mcp', { enabled: on }); setMcp(r.enabled); });
   const toggle = (on: boolean) => run(async () => { const r = await put<{ enabled: boolean }>('/api/settings/api', { enabled: on }); setEnabled(r.enabled); });
   return (
     <section className="stack">
@@ -101,6 +104,13 @@ function TokensTab() {
         <div className={'card stack' + (enabled ? '' : ' api-off')} style={{ gap: 6 }}>
           <label className="check"><input id="api-enabled" type="checkbox" checked={enabled} disabled={busy} onChange={(e) => toggle(e.target.checked)} /><strong>{t('api.enabled')}</strong></label>
           <span className="small muted">{enabled ? t('api.enabledHint') : t('api.disabledHint')}</span>
+        </div>
+      )}
+      {admin && mcp !== null && (
+        <div className="card stack" style={{ gap: 6 }}>
+          <label className="check"><input id="mcp-enabled" type="checkbox" checked={mcp} disabled={busy || !enabled} onChange={(e) => toggleMcp(e.target.checked)} /><strong>{t('mcp.enabled')}</strong></label>
+          <span className="small muted">{t('mcp.hint')}</span>
+          {mcp && <code className="small" style={{ overflowWrap: 'anywhere' }}>claude mcp add --transport http homewarden {location.origin}/api/mcp --header "Authorization: Bearer hw_…"</code>}
         </div>
       )}
       <p className="muted">{t('tokens.intro')}</p>

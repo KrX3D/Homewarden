@@ -983,5 +983,8 @@
  "watch.hostHint": "Zum Beispiel das NAS. Die Meldung sagt dann, ob nur Homewarden oder der ganze Server ausgefallen ist.",
  "error.invalid_url": "Gib eine URL mit http:// oder https:// ein.",
  "error.watch_host": "Gib die zusätzliche Prüfung als Host:Port an, zum Beispiel 192.168.90.114:445.",
- "error.watch_channel": "Wähle den Kanal, über den die Agents melden sollen."
+ "error.watch_channel": "Wähle den Kanal, über den die Agents melden sollen.",
+ "mcp.enabled": "MCP-Schnittstelle für KI-Assistenten (nur lesen)",
+ "mcp.hint": "Ein Assistent wie Claude kann fragen, was los ist, und Geräte, Monitore und Updates abrufen. Er kann nur lesen. Nimm einen Nur-lesen-Token. API-Zugriff muss an sein.",
+ "error.mcp_disabled": "Die MCP-Schnittstelle ist aus (Einstellungen, API-Tokens)."
 }

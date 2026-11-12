@@ -163,6 +163,12 @@ decision is made or changed, update it in the same PR.
 - UniFi: clients without a name take the alias of a known client (/rest/user) with the
   same fixed IP, else same last IP when that record is offline (br0 containers get a
   new MAC when recreated, the alias stays on the old one).
+- MCP (internal/api/mcp.go): `POST /api/mcp`, JSON-RPC over streamable HTTP with
+  plain JSON answers, off by default (setting `mcp.enabled`, toggle under API tokens).
+  Bearer token auth; read-only tokens may POST there. Tools overview, devices,
+  monitors, updates (read only, no configs or secrets). Foreign Origin = 403.
+- PWA: `web/public/manifest.webmanifest` (start /overview) and a pass-through `sw.js`
+  (no caching), registered only in secure contexts.
 - API tokens store their last 5 characters (\`hint\`, migration 14) for the list.
 - One integration per device = what the device is and what gets updated on it.
   Information about a device from elsewhere is not a second integration: discover

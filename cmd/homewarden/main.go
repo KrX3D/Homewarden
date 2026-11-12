@@ -116,6 +116,7 @@ func main() {
 	go monRunner.Run(ctx)
 	srv.AttachMonitors(monRunner)
 	srv.AttachOverview()
+	srv.AttachMCP()
 
 	go engine.Run(ctx)
 
