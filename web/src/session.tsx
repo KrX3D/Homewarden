@@ -30,8 +30,10 @@ function writeLocal(key: string, v: string) {
   }
 }
 
-function applyTheme(theme: Prefs['theme']) {
+function applyTheme(theme: Prefs['theme'], palette: Prefs['palette']) {
   const root = document.documentElement;
+  root.dataset.palette = palette ?? 'violet';
+  writeLocal('hw.palette', palette ?? 'violet');
   if (theme === 'light' || theme === 'dark') root.dataset.theme = theme;
   else delete root.dataset.theme;
   writeLocal('hw.theme', theme ?? 'system');
@@ -45,6 +47,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [localPrefs, setLocalPrefs] = useState<Prefs>(() => ({
     theme: (readLocal('hw.theme') as Prefs['theme']) ?? 'system',
     lang: (readLocal('hw.lang') as Prefs['lang']) ?? 'auto',
+    palette: (readLocal('hw.palette') as Prefs['palette']) ?? 'violet',
   }));
 
   const refresh = useCallback(async () => {
@@ -72,7 +75,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const prefs: Prefs = { ...localPrefs, ...(me?.user.prefs ?? {}) };
 
-  useEffect(() => applyTheme(prefs.theme), [prefs.theme]);
+  useEffect(() => applyTheme(prefs.theme, prefs.palette), [prefs.theme, prefs.palette]);
 
   const setPrefs = useCallback(
     async (p: Partial<Prefs>) => {

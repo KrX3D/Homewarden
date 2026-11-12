@@ -50,6 +50,9 @@ type Config struct {
 	ResendEvery   int    `json:"resendEvery,omitempty"`   // repeat the down alert every N failed checks (0 = once)
 	UpsideDown    bool   `json:"upsideDown,omitempty"`    // up when the check fails (something must stay unreachable)
 	CertWarn      string `json:"certWarn,omitempty"`      // notify this many days before the certificate expires, e.g. "14,7"
+
+	// Area on the overview (servers, network, storage, apps); empty = from the device.
+	Area string `json:"area,omitempty"`
 }
 
 // FailuresForDown is how many failed checks in a row mark the monitor down.

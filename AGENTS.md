@@ -229,8 +229,18 @@ decision is made or changed, update it in the same PR.
 ### UI
 
 - Device view default: card grid (A), switchable to fleet table (B) and host tree (C)
-  via small icons top right. Remembered per user. An "Overview" summary page (counts,
-  needs attention, recent jobs) may come later.
+  via small icons top right. Remembered per user.
+- Overview (`/overview`, start page; web/src/features/overview.tsx, data from
+  `GET /api/overview` in internal/api/overview.go): problems (down monitors, devices
+  offline past their offline alert, fact warnings, resource warnings, failed scans,
+  newest failed update/backup job of the last 24 h), "waiting for you" (updates, inbox,
+  integration updates, restart needed, certificates within 30 days), today tiles, areas
+  (servers/network/storage/apps from the device kind, or monitor config `area`) with
+  the last 30 results, and a 7-day timeline (monitor outages from results, update and
+  backup jobs). Offline devices without an offline alert count as "only sometimes on".
+- Colour palettes: user pref `palette` violet (default, near-black, accent #7170ff) or
+  classic (slate/cobalt). `data-palette` on <html>, set before first paint from
+  localStorage `hw.palette`; tokens in styles.css.
 - Icon: "Pulse house" variant 6 "Chimney" (house with chimney and a heartbeat line).
   `assets/mark.svg` is the line mark (currentColor), `assets/icon.svg`/`icon.png` the
   app icon (white mark on accent #2f56c9, rounded square). Unraid template points at

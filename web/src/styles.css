@@ -43,6 +43,32 @@
   color-scheme: dark;
 }
 
+/* Palette "violet" (default): near-black neutrals and a violet accent. "classic" keeps
+   the slate/cobalt values above. Light first, then the dark variants, so dark wins in
+   system dark mode (same specificity, later rule). */
+:root[data-palette="violet"]:not([data-theme="dark"]) {
+  --bg: #f4f5f8; --surface: #ffffff; --sunk: #eceef2; --fg: #17181c; --muted: #6b6f78; --line: #e1e3e8;
+  --accent: #5856e8; --accent-hover: #4745d0; --accent-soft: #ebebfd; --on-accent: #ffffff;
+  --ok: #33935f; --ok-soft: #def1e6; --warn: #b8860b; --warn-soft: #f7edd2; --crit: #e5484d; --crit-soft: #fbe1e2;
+  --off: #9a9ea6; --off-soft: #eceef1;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="violet"]:not([data-theme="light"]) {
+    --bg: #08090a; --surface: #141516; --sunk: #1a1b1e; --fg: #f7f8f8; --muted: #8a8f98; --line: #26282c;
+    --accent: #7170ff; --accent-hover: #8a89ff; --accent-soft: #1e1e3d; --on-accent: #ffffff;
+    --ok: #4cb782; --ok-soft: #13271d; --warn: #f2c94c; --warn-soft: #2e2812; --crit: #eb5757; --crit-soft: #351718;
+    --off: #6d727a; --off-soft: #1d1e21; --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 16px rgb(0 0 0 / 30%);
+    color-scheme: dark;
+  }
+}
+:root[data-palette="violet"][data-theme="dark"] {
+  --bg: #08090a; --surface: #141516; --sunk: #1a1b1e; --fg: #f7f8f8; --muted: #8a8f98; --line: #26282c;
+  --accent: #7170ff; --accent-hover: #8a89ff; --accent-soft: #1e1e3d; --on-accent: #ffffff;
+  --ok: #4cb782; --ok-soft: #13271d; --warn: #f2c94c; --warn-soft: #2e2812; --crit: #eb5757; --crit-soft: #351718;
+  --off: #6d727a; --off-soft: #1d1e21; --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 4px 16px rgb(0 0 0 / 30%);
+  color-scheme: dark;
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); }
