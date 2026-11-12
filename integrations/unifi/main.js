@@ -83,7 +83,21 @@ function detect(ctx) {
     });
   });
   var facts = { networkApp: sys.version || '', site: setting(ctx, 'site', 'default'), devices: devs.length, offlineDevices: offline };
-  if (offline) facts.warnings = ['unifi_offline'];
+  var warnings = [];
+  if (offline) warnings.push('unifi_offline');
+  // Internet: WAN state and the gateway's last speed test (overview "Internet" tile).
+  try {
+    var health = call(ctx, 'GET', '/stat/health') || [];
+    var wan = health.filter(function (h) { return h.subsystem === 'wan'; })[0];
+    var www = health.filter(function (h) { return h.subsystem === 'www'; })[0];
+    if (wan || www) {
+      facts.wan = { status: (wan && wan.status) || (www && www.status) || '', ip: (wan && wan.wan_ip) || '', isp: (wan && (wan.isp_name || wan.isp_organization)) || '',
+        latency: www ? www.latency || null : null, down: www ? www.xput_down || null : null, up: www ? www.xput_up || null : null,
+        speedtestAt: www ? www.speedtest_lastrun || null : null, uptime: www ? www.uptime || null : null };
+      if (wan && wan.status && wan.status !== 'ok') warnings.push('wan_down');
+    }
+  } catch (e) { ctx.log('WAN state: ' + (e.message || e)); }
+  if (warnings.length) facts.warnings = warnings;
   ctx.log('UniFi Network ' + (sys.version || '?') + ', ' + devs.length + ' devices, ' + comps.filter(function (c) { return c.updateAvailable; }).length + ' updates.');
   return { facts: facts, components: comps };
 }

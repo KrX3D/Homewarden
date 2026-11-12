@@ -1,0 +1,123 @@
+{
+  "id": "nginx-proxy-manager",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": {
+    "en": "Nginx Proxy Manager",
+    "de": "Nginx Proxy Manager"
+  },
+  "description": {
+    "en": "Beta. Proxy hosts (enabled, online in nginx) and certificate expiry; the newest NPM release as a notify-only update.",
+    "de": "Beta. Proxy-Hosts (aktiv, online in nginx) und Ablauf der Zertifikate; die neueste NPM-Version als Hinweis-Update."
+  },
+  "howto": {
+    "en": "1. The address of this device is the NPM container (e.g. 192.168.90.203), port is the admin port (81).\n2. In NPM, Users, add a user with View permission for Proxy Hosts and Certificates (no admin needed).\n3. In Homewarden add a Password credential: user name = that user's e-mail, password = its password. Pick it under Login in the integration setup (Integrations, Set up).",
+    "de": "1. Die Adresse dieses Geräts ist der NPM-Container (z. B. 192.168.90.203), Port ist der Admin-Port (81).\n2. In NPM unter Users einen Benutzer mit Leserecht (View) für Proxy Hosts und Certificates anlegen (kein Admin nötig).\n3. In Homewarden Zugangsdaten vom Typ Passwort anlegen: Benutzername = E-Mail dieses Benutzers, Passwort = sein Passwort. In der Integrations-Einrichtung (Integrationen, Einrichten) unter Anmeldung auswählen."
+  },
+  "connection": "http",
+  "permissions": {
+    "ssh": false,
+    "docker": false,
+    "httpDevice": true,
+    "httpHosts": [
+      "api.github.com"
+    ]
+  },
+  "settings": [
+    {
+      "key": "login",
+      "type": "credential",
+      "credentialTypes": [
+        "password"
+      ],
+      "required": true,
+      "label": {
+        "en": "Login",
+        "de": "Anmeldung"
+      },
+      "help": {
+        "en": "An NPM user (e-mail and password) as a Password credential.",
+        "de": "Ein NPM-Benutzer (E-Mail und Passwort) als Zugangsdaten vom Typ Passwort."
+      }
+    },
+    {
+      "key": "port",
+      "type": "number",
+      "default": 81,
+      "label": {
+        "en": "Admin port",
+        "de": "Admin-Port"
+      }
+    },
+    {
+      "key": "https",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Use HTTPS",
+        "de": "HTTPS verwenden"
+      }
+    },
+    {
+      "key": "certDays",
+      "type": "number",
+      "default": 14,
+      "label": {
+        "en": "Warn days before certificate expiry",
+        "de": "Tage vor Zertifikatsablauf warnen"
+      },
+      "help": {
+        "en": "Let's Encrypt renews 30 days before; a certificate inside this limit was not renewed. 0 = off.",
+        "de": "Let's Encrypt erneuert 30 Tage vorher; ein Zertifikat innerhalb dieser Grenze wurde nicht erneuert. 0 = aus."
+      }
+    },
+    {
+      "key": "releaseCheck",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Check GitHub for new releases",
+        "de": "GitHub auf neue Versionen prüfen"
+      }
+    }
+  ],
+  "presence": {
+    "reach": {
+      "method": "tcp",
+      "port": 81
+    },
+    "ready": {
+      "method": "none"
+    },
+    "settleSeconds": 0,
+    "intervalSeconds": 60
+  },
+  "capabilities": [
+    "detect"
+  ],
+  "entry": "main.js",
+  "files": [
+    "main.js"
+  ],
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "81",
+      "note": {
+        "en": "NPM admin API",
+        "de": "NPM-Admin-API"
+      }
+    },
+    {
+      "target": "internet",
+      "proto": "tcp",
+      "port": "443",
+      "note": {
+        "en": "api.github.com (release check)",
+        "de": "api.github.com (Versionsprüfung)"
+      }
+    }
+  ]
+}

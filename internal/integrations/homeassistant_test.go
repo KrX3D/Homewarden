@@ -78,6 +78,9 @@ func TestHomeAssistant(t *testing.T) {
 	srv := httptest.NewServer(fake)
 	defer srv.Close()
 	set := func() map[string]any { return map[string]any{"backupBeforeUpdate": true} }
+	fake.entities["sensor.door_battery"] = map[string]any{"entity_id": "sensor.door_battery", "state": "12", "attributes": map[string]any{"device_class": "battery", "unit_of_measurement": "%", "friendly_name": "Door battery"}}
+	fake.entities["sensor.remote_battery"] = map[string]any{"entity_id": "sensor.remote_battery", "state": "80", "attributes": map[string]any{"device_class": "battery", "unit_of_measurement": "%"}}
+	fake.entities["binary_sensor.smoke_battery_low"] = map[string]any{"entity_id": "binary_sensor.smoke_battery_low", "state": "on", "attributes": map[string]any{"device_class": "battery", "friendly_name": "Smoke detector"}}
 
 	out, err := runFn(t, "home-assistant", srv, set(), "detect")
 	if err != nil {
@@ -90,6 +93,9 @@ func TestHomeAssistant(t *testing.T) {
 	json.Unmarshal(out, &res)
 	if len(res.Components) != 4 || res.Facts["updates"] != float64(2) || res.Facts["version"] != "2026.10.1" {
 		t.Fatalf("detect: %+v", res)
+	}
+	if low, _ := json.Marshal(res.Facts["lowBatteries"]); string(low) != `[{"entity":"binary_sensor.smoke_battery_low","level":null,"name":"Smoke detector"},{"entity":"sensor.door_battery","level":12,"name":"Door battery"}]` {
+		t.Fatalf("low batteries: %s", low)
 	}
 	byID := map[string]map[string]any{}
 	for _, c := range res.Components {

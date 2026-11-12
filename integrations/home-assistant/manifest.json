@@ -1,6 +1,6 @@
 {
   "id": "home-assistant",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "minCore": "0.1.0",
   "name": {
     "en": "Home Assistant",
@@ -94,6 +94,19 @@
         "de": "Leer = die Geräteadresse mit dem Port oben. Muss auf das Gerät selbst zeigen."
       },
       "scope": "device"
+    },
+    {
+      "key": "batteryPercent",
+      "type": "number",
+      "default": 20,
+      "label": {
+        "en": "Low battery at or below (%)",
+        "de": "Batterie schwach ab (%)"
+      },
+      "help": {
+        "en": "Battery sensors at or below this show under Waiting for you on the overview. 0 = off.",
+        "de": "Batteriesensoren mit diesem Wert oder weniger erscheinen in der Übersicht unter Wartet auf dich. 0 = aus."
+      }
     }
   ],
   "presence": {

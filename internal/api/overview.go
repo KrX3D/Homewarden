@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/KrX3D/Homewarden/internal/auth"
@@ -29,7 +30,7 @@ func DeviceArea(kind string) string {
 	switch kind {
 	case "proxmox", "unraid", "linux-apt", "windows", "deploydeck", "docker":
 		return AreaServers
-	case "unifi":
+	case "unifi", "adguard", "nginx-proxy-manager":
 		return AreaNetwork
 	case "proxmox-backup":
 		return AreaStorage
@@ -70,19 +71,22 @@ type ovProblem struct {
 }
 
 type ovCert struct {
-	MonitorID int64  `json:"monitorId"`
+	MonitorID int64  `json:"monitorId,omitempty"`
 	Name      string `json:"name"`
 	Expires   int64  `json:"expires"`
+	DeviceID  int64  `json:"deviceId,omitempty"` // certificate from a device (Nginx Proxy Manager)
 }
 
 type ovChores struct {
-	Updates            int      `json:"updates"`
-	Security           int      `json:"security"`
-	UpdateDevices      int      `json:"updateDevices"`
-	Inbox              int      `json:"inbox"`
-	IntegrationUpdates int      `json:"integrationUpdates"`
-	Reboot             []string `json:"reboot"`
-	Certs              []ovCert `json:"certs"`
+	Batteries          []ovBattery `json:"batteries"`
+	PRs                ovPRs       `json:"prs"`
+	Updates            int         `json:"updates"`
+	Security           int         `json:"security"`
+	UpdateDevices      int         `json:"updateDevices"`
+	Inbox              int         `json:"inbox"`
+	IntegrationUpdates int         `json:"integrationUpdates"`
+	Reboot             []string    `json:"reboot"`
+	Certs              []ovCert    `json:"certs"`
 }
 
 type ovCount struct {
@@ -98,20 +102,24 @@ type ovDisk struct {
 }
 
 type ovToday struct {
-	Devices        ovCount   `json:"devices"`
-	Sometimes      int       `json:"sometimes"` // offline, but nobody expects them on (no offline alert)
-	Monitors       ovCount   `json:"monitors"`
-	AvgMs          *float64  `json:"avgMs"`
-	Uptime24h      float64   `json:"uptime24h"`
-	MsSeries       []float64 `json:"msSeries"` // average response per hour, last 24 h
-	Guests         ovCount   `json:"guests"`
-	Containers     ovCount   `json:"containers"`
-	Updates        int       `json:"updates"`
-	Security       int       `json:"security"`
-	InstalledToday int       `json:"installedToday"`
-	Backups        ovCount   `json:"backups"` // devices with a backup set up / with one in the last 8 days
-	LastBackup     *int64    `json:"lastBackup"`
-	Disks          []ovDisk  `json:"disks"` // fullest file systems
+	DNS            *ovDNS      `json:"dns"`
+	Internet       *ovInternet `json:"internet"`
+	Proxy          *ovProxy    `json:"proxy"`
+	PBS            *ovPBS      `json:"pbs"`
+	Devices        ovCount     `json:"devices"`
+	Sometimes      int         `json:"sometimes"` // offline, but nobody expects them on (no offline alert)
+	Monitors       ovCount     `json:"monitors"`
+	AvgMs          *float64    `json:"avgMs"`
+	Uptime24h      float64     `json:"uptime24h"`
+	MsSeries       []float64   `json:"msSeries"` // average response per hour, last 24 h
+	Guests         ovCount     `json:"guests"`
+	Containers     ovCount     `json:"containers"`
+	Updates        int         `json:"updates"`
+	Security       int         `json:"security"`
+	InstalledToday int         `json:"installedToday"`
+	Backups        ovCount     `json:"backups"` // devices with a backup set up / with one in the last 8 days
+	LastBackup     *int64      `json:"lastBackup"`
+	Disks          []ovDisk    `json:"disks"` // fullest file systems
 }
 
 type ovItem struct {
@@ -146,6 +154,7 @@ type ovEvent struct {
 // AttachOverview registers GET /api/overview. Call after software and monitors.
 func (s *Server) AttachOverview() {
 	s.mux.Handle("GET /api/overview", s.authed(auth.PermDevicesView, s.overview))
+	s.mux.Handle("GET /api/overview/nav", s.authed(auth.PermDevicesView, s.overviewNav))
 }
 
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
@@ -182,8 +191,9 @@ func (s *Server) buildOverview(r *http.Request) (map[string]any, error) {
 		}
 	}
 	problems := []ovProblem{}
-	chores := ovChores{Inbox: inbox, Reboot: []string{}, Certs: []ovCert{}}
+	chores := ovChores{Inbox: inbox, Reboot: []string{}, Certs: []ovCert{}, Batteries: []ovBattery{}}
 	today := ovToday{Disks: []ovDisk{}, MsSeries: []float64{}}
+	src := &sources{}
 
 	// Devices: presence, scan warnings, resource warnings.
 	for _, d := range active {
@@ -264,6 +274,7 @@ func (s *Server) buildOverview(r *http.Request) (map[string]any, error) {
 			if facts.RebootRequired {
 				chores.Reboot = append(chores.Reboot, d.Name)
 			}
+			src.add(d.Kind, d.Name, d.ID, f.Facts, now.Unix())
 		}
 		if mp, err := s.Store.LatestMetrics(ctx, d.ID); err == nil && now.Unix()-mp.At < 3600 {
 			var m struct {
@@ -361,7 +372,7 @@ func (s *Server) buildOverview(r *http.Request) (map[string]any, error) {
 			problems = append(problems, ovProblem{Kind: "monitor", Severity: "crit", Name: m.Name, Area: area, Why: m.LastMsg, Since: m.StatusSince, DeviceID: m.DeviceID})
 		}
 		if m.CertExpires != nil && *m.CertExpires-now.Unix() < 30*86400 {
-			chores.Certs = append(chores.Certs, ovCert{m.ID, m.Name, *m.CertExpires})
+			chores.Certs = append(chores.Certs, ovCert{MonitorID: m.ID, Name: m.Name, Expires: *m.CertExpires})
 		}
 		res, _ := s.Store.MonitorResults(ctx, m.ID, weekAgo)
 		if u, err := s.Store.MonitorUptime(ctx, m.ID, now.Add(-24*time.Hour).Unix()); err == nil && u >= 0 {
@@ -536,6 +547,7 @@ func (s *Server) buildOverview(r *http.Request) (map[string]any, error) {
 			}
 		}
 	}
+	src.finish(&chores, &today, &problems)
 	sort.SliceStable(events, func(i, j int) bool { return events[i].At > events[j].At })
 	sort.SliceStable(problems, func(i, j int) bool {
 		return problems[i].Severity == "crit" && problems[j].Severity != "crit"
@@ -543,4 +555,74 @@ func (s *Server) buildOverview(r *http.Request) (map[string]any, error) {
 	return map[string]any{
 		"problems": problems, "chores": chores, "today": today, "areas": outAreas, "events": events, "at": now.Unix(),
 	}, nil
+}
+
+// overviewNav is the light data for the sidebar: health per area and the web apps
+// (HTTP monitors) with their state. Computed from monitor states only, so the shell
+// can poll it cheaply.
+func (s *Server) overviewNav(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	p := PrincipalFrom(r)
+	all, err := s.Store.Devices(ctx, "")
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	devices := map[int64]store.Device{}
+	for _, d := range all {
+		devices[d.ID] = d
+	}
+	mons, _ := s.Store.Monitors(ctx)
+	type area struct {
+		ID     string `json:"id"`
+		Health string `json:"health"`
+		Down   int    `json:"down"`
+	}
+	type app struct {
+		ID     int64  `json:"id"`
+		Name   string `json:"name"`
+		URL    string `json:"url"`
+		Status string `json:"status"`
+	}
+	counts := map[string][2]int{} // total, not up
+	apps := []app{}
+	for _, m := range mons {
+		if !m.Enabled {
+			continue
+		}
+		if m.DeviceID != nil {
+			if d, ok := devices[*m.DeviceID]; ok && !p.SeesDevice(d) {
+				continue
+			}
+		}
+		var cfg monitor.Config
+		_ = json.Unmarshal(m.Config, &cfg)
+		a := monitorArea(m, cfg, devices)
+		c := counts[a]
+		c[0]++
+		if m.Status == "down" || m.Status == "dependency" {
+			c[1]++
+		}
+		counts[a] = c
+		if m.Type == "http" && cfg.URL != "" {
+			apps = append(apps, app{m.ID, m.Name, cfg.URL, m.Status})
+		}
+	}
+	areas := []area{}
+	for _, id := range areaOrder {
+		c, ok := counts[id]
+		if !ok {
+			continue
+		}
+		h := "up"
+		switch {
+		case c[1] == c[0]:
+			h = "down"
+		case c[1] > 0:
+			h = "degraded"
+		}
+		areas = append(areas, area{id, h, c[1]})
+	}
+	sort.Slice(apps, func(i, j int) bool { return strings.ToLower(apps[i].Name) < strings.ToLower(apps[j].Name) })
+	writeJSON(w, http.StatusOK, map[string]any{"areas": areas, "apps": apps})
 }

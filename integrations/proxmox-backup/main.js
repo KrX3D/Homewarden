@@ -44,6 +44,10 @@ function detect(ctx) {
   var full = Number(setting(ctx, 'fullPercent', 85));
   var maxAge = Number(setting(ctx, 'maxAgeHours', 48)) * 3600;
   var stores = pbs(ctx, 'GET', '/status/datastore-usage') || [];
+  // One entry per backup group (guest): newest snapshot, its verify state, count.
+  // Shown on the Backups page and in the overview.
+  var groups = {};
+  facts.maxAgeHours = maxAge / 3600;
   stores.forEach(function (s) {
     var pct = s.total ? Math.round(100 * s.used / s.total) : 0;
     facts['datastore ' + s.store] = pct + '% used';
@@ -51,12 +55,27 @@ function detect(ctx) {
     try {
       var snaps = pbs(ctx, 'GET', '/admin/datastore/' + encodeURIComponent(s.store) + '/snapshots') || [];
       var newest = snaps.reduce(function (a, x) { return Math.max(a, x['backup-time'] || 0); }, 0);
+      snaps.forEach(function (x) {
+        var key = s.store + '/' + x['backup-type'] + '/' + x['backup-id'];
+        var g = groups[key];
+        if (!g) g = groups[key] = { store: s.store, type: x['backup-type'], id: x['backup-id'], comment: '', last: 0, count: 0, verify: 'none', size: 0 };
+        g.count++;
+        if ((x['backup-time'] || 0) > g.last) {
+          g.last = x['backup-time'] || 0;
+          g.comment = x.comment || g.comment;
+          g.verify = (x.verification && x.verification.state) || 'none';
+          g.size = x.size || 0;
+        }
+      });
       if (newest) {
         facts['newest backup ' + s.store] = new Date(newest * 1000).toISOString().slice(0, 16).replace('T', ' ');
         if (ctx.now() - newest > maxAge) warnings.push('backup_old');
       }
     } catch (e) { ctx.log(s.store + ': ' + (e.message || e)); }
   });
+
+  facts.backupGroups = Object.keys(groups).sort().map(function (k) { return groups[k]; });
+  if (facts.backupGroups.some(function (g) { return g.verify === 'failed'; })) warnings.push('backup_verify_failed');
 
   try {
     var since = ctx.now() - 7 * 86400;
