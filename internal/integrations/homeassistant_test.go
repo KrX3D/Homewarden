@@ -78,6 +78,7 @@ func TestHomeAssistant(t *testing.T) {
 	srv := httptest.NewServer(fake)
 	defer srv.Close()
 	set := func() map[string]any { return map[string]any{"backupBeforeUpdate": true} }
+	fake.entities["update.orphaned_firmware"] = map[string]any{"entity_id": "update.orphaned_firmware", "state": "unavailable", "attributes": map[string]any{"friendly_name": "Orphaned firmware"}}
 	fake.entities["sensor.door_battery"] = map[string]any{"entity_id": "sensor.door_battery", "state": "12", "attributes": map[string]any{"device_class": "battery", "unit_of_measurement": "%", "friendly_name": "Door battery"}}
 	fake.entities["sensor.remote_battery"] = map[string]any{"entity_id": "sensor.remote_battery", "state": "80", "attributes": map[string]any{"device_class": "battery", "unit_of_measurement": "%"}}
 	fake.entities["binary_sensor.smoke_battery_low"] = map[string]any{"entity_id": "binary_sensor.smoke_battery_low", "state": "on", "attributes": map[string]any{"device_class": "battery", "friendly_name": "Smoke detector"}}
