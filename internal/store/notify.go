@@ -15,14 +15,15 @@ type NotifyChannel struct {
 	Type      string   `json:"type"`
 	Config    string   `json:"-"`
 	Events    []string `json:"events"`
+	Tags      []string `json:"tags"` // monitor events only for monitors with one of these tags; empty = all
 	Enabled   bool     `json:"enabled"`
 	CreatedAt int64    `json:"createdAt"`
 }
 
 func scanChannel(row interface{ Scan(...any) error }) (NotifyChannel, error) {
 	var c NotifyChannel
-	var ev string
-	err := row.Scan(&c.ID, &c.Name, &c.Type, &c.Config, &ev, &c.Enabled, &c.CreatedAt)
+	var ev, tags string
+	err := row.Scan(&c.ID, &c.Name, &c.Type, &c.Config, &ev, &c.Enabled, &c.CreatedAt, &tags)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c, ErrNotFound
 	}
@@ -30,10 +31,14 @@ func scanChannel(row interface{ Scan(...any) error }) (NotifyChannel, error) {
 	if c.Events == nil {
 		c.Events = []string{}
 	}
+	_ = json.Unmarshal([]byte(tags), &c.Tags)
+	if c.Tags == nil {
+		c.Tags = []string{}
+	}
 	return c, err
 }
 
-const chanCols = "id, name, type, config, events, enabled, created_at"
+const chanCols = "id, name, type, config, events, enabled, created_at, tags"
 
 // NotifyChannels lists channels.
 func (s *Store) NotifyChannels(ctx context.Context) ([]NotifyChannel, error) {
@@ -61,15 +66,19 @@ func (s *Store) NotifyChannel(ctx context.Context, id int64) (NotifyChannel, err
 // SaveNotifyChannel inserts (ID 0) or updates a channel.
 func (s *Store) SaveNotifyChannel(ctx context.Context, c NotifyChannel) (NotifyChannel, error) {
 	ev, _ := json.Marshal(c.Events)
+	if c.Tags == nil {
+		c.Tags = []string{}
+	}
+	tags, _ := json.Marshal(c.Tags)
 	if c.ID == 0 {
-		res, err := s.DB.ExecContext(ctx, "INSERT INTO notify_channels(name, type, config, events, enabled, created_at) VALUES(?, ?, ?, ?, ?, ?)",
-			c.Name, c.Type, c.Config, string(ev), c.Enabled, now())
+		res, err := s.DB.ExecContext(ctx, "INSERT INTO notify_channels(name, type, config, events, enabled, created_at, tags) VALUES(?, ?, ?, ?, ?, ?, ?)",
+			c.Name, c.Type, c.Config, string(ev), c.Enabled, now(), string(tags))
 		if err != nil {
 			return c, err
 		}
 		c.ID, _ = res.LastInsertId()
-	} else if _, err := s.DB.ExecContext(ctx, "UPDATE notify_channels SET name = ?, type = ?, config = ?, events = ?, enabled = ? WHERE id = ?",
-		c.Name, c.Type, c.Config, string(ev), c.Enabled, c.ID); err != nil {
+	} else if _, err := s.DB.ExecContext(ctx, "UPDATE notify_channels SET name = ?, type = ?, config = ?, events = ?, enabled = ?, tags = ? WHERE id = ?",
+		c.Name, c.Type, c.Config, string(ev), c.Enabled, string(tags), c.ID); err != nil {
 		return c, err
 	}
 	return s.NotifyChannel(ctx, c.ID)

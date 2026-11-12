@@ -37,6 +37,24 @@ func (s *Store) AgentFor(ctx context.Context, deviceID int64) (Agent, error) {
 	return scanAgent(s.DB.QueryRowContext(ctx, "SELECT "+agentCols+" FROM agents WHERE device_id = ?", deviceID))
 }
 
+// Agents lists enrolled agents.
+func (s *Store) Agents(ctx context.Context) ([]Agent, error) {
+	rows, err := s.DB.QueryContext(ctx, "SELECT "+agentCols+" FROM agents WHERE key_hash <> '' ORDER BY device_id")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Agent{}
+	for rows.Next() {
+		a, err := scanAgent(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 // AgentByKey finds an enrolled agent by its key hash.
 func (s *Store) AgentByKey(ctx context.Context, hash string) (Agent, error) {
 	return scanAgent(s.DB.QueryRowContext(ctx, "SELECT "+agentCols+" FROM agents WHERE key_hash = ? AND key_hash <> ''", hash))

@@ -16,6 +16,8 @@ import (
 type Runner struct {
 	St     *store.Store
 	Events *events.Broker
+	// Creds returns user and password of a password credential (set by main).
+	Creds func(ctx context.Context, id int64) (user, pass string, err error)
 
 	mu    sync.Mutex
 	state map[int64]*track
@@ -159,6 +161,9 @@ func (r *Runner) Test(ctx context.Context, typ string, cfg Config, deviceID *int
 // gives its endpoint, a container below a Docker host gives the host's endpoint and
 // its own name.
 func (r *Runner) resolve(ctx context.Context, typ string, cfg *Config, deviceID *int64) {
+	if cfg.CredentialID != 0 && r.Creds != nil {
+		cfg.user, cfg.pass, _ = r.Creds(ctx, cfg.CredentialID)
+	}
 	if typ != "container" || deviceID == nil || cfg.Endpoint != "" && cfg.Container != "" {
 		return
 	}

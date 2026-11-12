@@ -440,6 +440,14 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   security updates (deduplicated in `notify_sent` per component+version), failed or
   blocked jobs, fact warnings (sent once while present), offline after the device's
   `config.notify.offlineMinutes` (+ "back online"). Messages in en/de (global setting).
+- Watching Homewarden itself (Settings, Notifications, card at the bottom;
+  internal/notify/watch.go): setting `watch.heartbeat` {url, minutes} = GET to that URL
+  on the interval (healthchecks.io, Kuma push); `watch.agents` {deviceIds, channelId,
+  minutes, host}: those agents get `watch` (channel type + decrypted config, texts in the
+  notify language) in every poll answer and save it in their config file. When polls
+  fail for `minutes` the agent sends one alert itself (and tests `host`, e.g. the NAS),
+  and one "reachable again". Channel senders live in `internal/notify/channel`
+  (stdlib only, shared with the agent; notify re-exports Config/Message/Send). No email.
 - Home Assistant: MQTT discovery (setting `haDiscovery`) publishes per device a
   connectivity binary_sensor, an updates sensor and scan/update buttons.
 - `internal/monitor/` - uptime monitors (http status/keyword/JSON path/cert expiry, tcp,
@@ -450,7 +458,16 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   `certDays` still marks the monitor down). `parent_id` (migration 15): while the parent
   is down (or already failing) a child gets status `dependency`, is not checked, stores
   no result and sends nothing. Container monitors without endpoint/name take them from
-  the device (a docker device, or a container device below one: its external id). Maintenance windows (global or per device) mute monitor and
+  the device (a docker device, or a container device below one: its external id).
+- Service monitors (internal/monitor/services.go): `mqtt` (connect; with `topic` wait
+  for a message that contains `keyword`), `postgres`/`mysql` (SELECT 1), `redis` (AUTH +
+  PING over RESP). Login = password credential `credentialId`, decrypted by
+  `Runner.Creds` (set in main), never stored in the monitor; monitors count in the
+  credential's "used by". `TestServiceChecks` runs against real containers when
+  HW_SERVICES_HOST is set.
+- Monitor `tags` (config); notification channels have `tags` (migration 16): when set,
+  monitor events reach the channel only for monitors with one of them
+  (`DispatchTagged`); other events ignore tags. Maintenance windows (global or per device) mute monitor and
   offline notifications. Public status page `/status` (SPA route, data from
   `/api/public/status`: names, state, bars only) for monitors marked public.
 - Metrics: capability `metrics(ctx, {smart})` returns {cpu, memPct, memUsedMB,

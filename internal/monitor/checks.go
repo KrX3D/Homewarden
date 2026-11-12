@@ -1,5 +1,6 @@
 // Package monitor runs uptime checks: HTTP (status, keyword, JSON value, certificate
-// expiry), TCP, ping, DNS, Docker container state and push heartbeats.
+// expiry), TCP, ping, DNS, Docker container state, MQTT, PostgreSQL, MySQL, Redis and
+// push heartbeats.
 package monitor
 
 import (
@@ -43,6 +44,16 @@ type Config struct {
 	// monitor's device or its host, else the local socket).
 	Container string `json:"container,omitempty"`
 	Endpoint  string `json:"endpoint,omitempty"`
+
+	// MQTT, PostgreSQL, MySQL, Redis: login from a password credential.
+	CredentialID int64  `json:"credentialId,omitempty"`
+	Database     string `json:"database,omitempty"`
+	Topic        string `json:"topic,omitempty"` // MQTT: wait for a message here (Keyword applies)
+	TLS          bool   `json:"tls,omitempty"`
+	user, pass   string // filled from the credential by the runner, never stored
+
+	// Tags group monitors; notification channels can be limited to tags.
+	Tags []string `json:"tags,omitempty"`
 
 	// Alerting, all types.
 	Retries       int    `json:"retries,omitempty"`       // failed checks in a row before down (0 = 2)
@@ -233,6 +244,20 @@ func Check(ctx context.Context, typ string, c Config) Result {
 		return r
 	case "container":
 		r := checkContainer(ctx, c)
+		r.Ms = ms()
+		return r
+	case "mqtt":
+		return checkMQTT(ctx, c)
+	case "postgres", "mysql", "redis":
+		var r Result
+		switch typ {
+		case "postgres":
+			r = checkPostgres(ctx, c)
+		case "mysql":
+			r = checkMySQL(ctx, c)
+		default:
+			r = checkRedis(ctx, c)
+		}
 		r.Ms = ms()
 		return r
 	}
