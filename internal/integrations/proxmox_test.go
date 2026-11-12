@@ -111,17 +111,25 @@ func TestProxmoxDetect(t *testing.T) {
 
 func TestPBSDetect(t *testing.T) {
 	srv := fakeAPI(t, "PBSAPIToken", map[string]any{
-		"/api2/json/version":                        map[string]any{"version": "3.2", "release": "7"},
-		"/api2/json/nodes/localhost/apt/update":     []map[string]any{},
-		"/api2/json/status/datastore-usage":         []map[string]any{{"store": "main", "total": 1000, "used": 900}},
-		"/api2/json/admin/datastore/main/snapshots": []map[string]any{{"backup-time": 1000}},
-		"/api2/json/nodes/localhost/tasks":          []map[string]any{{"worker_type": "backup", "worker_id": "vm/100", "status": "error: timeout"}},
+		"/api2/json/version":                    map[string]any{"version": "3.2", "release": "7"},
+		"/api2/json/nodes/localhost/apt/update": []map[string]any{},
+		"/api2/json/status/datastore-usage":     []map[string]any{{"store": "main", "total": 1000, "used": 900}},
+		"/api2/json/admin/datastore/main/snapshots": []map[string]any{
+			{"backup-time": 1000, "backup-type": "ct", "backup-id": "101", "comment": "nginx", "verification": map[string]any{"state": "ok"}},
+			{"backup-time": 900, "backup-type": "ct", "backup-id": "101", "verification": map[string]any{"state": "failed"}},
+			{"backup-time": 800, "backup-type": "vm", "backup-id": "200", "comment": "haos", "verification": map[string]any{"state": "failed"}},
+		},
+		"/api2/json/nodes/localhost/tasks": []map[string]any{{"worker_type": "backup", "worker_id": "vm/100", "status": "error: timeout"}},
 	})
 	defer srv.Close()
 	res := runDetect(t, "proxmox-backup", srv, map[string]any{"insecure": true})
 	facts := res["facts"].(map[string]any)
 	w, _ := json.Marshal(facts["warnings"])
-	for _, want := range []string{"datastore_full", "backup_old", "backup_errors"} {
+	groups, _ := json.Marshal(facts["backupGroups"])
+	if !strings.Contains(string(groups), `{"comment":"nginx","count":2,"id":"101","last":1000,"size":0,"store":"main","type":"ct","verify":"ok"}`) || !strings.Contains(string(groups), `{"comment":"haos","count":1,"id":"200","last":800,"size":0,"store":"main","type":"vm","verify":"failed"}`) {
+		t.Fatalf("groups: %s", groups)
+	}
+	for _, want := range []string{"datastore_full", "backup_old", "backup_errors", "backup_verify_failed"} {
 		if !strings.Contains(string(w), want) {
 			t.Fatalf("missing warning %s in %s (facts %v)", want, w, facts)
 		}
@@ -138,6 +146,9 @@ func TestUniFiDetect(t *testing.T) {
 		switch r.URL.Path {
 		case "/proxy/network/api/s/default/stat/sysinfo":
 			data = []map[string]any{{"version": "9.0.114", "update_available": false}}
+		case "/proxy/network/api/s/default/stat/health":
+			data = []map[string]any{{"subsystem": "wan", "status": "ok", "wan_ip": "84.1.2.3", "isp_name": "Telekom"},
+				{"subsystem": "www", "status": "ok", "latency": 9, "xput_down": 248.5, "xput_up": 41.2, "speedtest_lastrun": 1700000000}}
 		case "/proxy/network/api/s/default/stat/device":
 			data = []map[string]any{
 				{"mac": "aa:bb", "name": "AP Living", "type": "uap", "model": "U6LR", "version": "6.6.55", "upgradable": true, "upgrade_to_firmware": "6.6.77", "state": 1},
@@ -163,6 +174,10 @@ func TestUniFiDetect(t *testing.T) {
 	facts := res["facts"].(map[string]any)
 	if facts["offlineDevices"] != float64(1) {
 		t.Fatalf("facts: %v", facts)
+	}
+	wan := facts["wan"].(map[string]any)
+	if wan["status"] != "ok" || wan["down"] != 248.5 || wan["isp"] != "Telekom" || wan["latency"] != float64(9) {
+		t.Fatalf("wan: %v", wan)
 	}
 }
 

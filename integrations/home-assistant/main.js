@@ -83,6 +83,29 @@ function component(e) {
   return c;
 }
 
+// Battery sensors at or below the limit (percent sensors) or reporting low
+// (binary battery sensors). Shown under "Waiting for you" on the overview.
+function lowBatteries(ctx) {
+  var limit = Number(setting(ctx, 'batteryPercent', 20));
+  if (!limit) return [];
+  var r = api(ctx, 'GET', '/api/states', null, { quiet: true, timeout: 60 });
+  if (!r || r.status !== 200 || !r.json) return [];
+  var out = [];
+  r.json.forEach(function (s) {
+    var a = s.attributes || {};
+    if (a.device_class !== 'battery') return;
+    var name = a.friendly_name || s.entity_id;
+    if (s.entity_id.indexOf('sensor.') === 0) {
+      var v = parseFloat(s.state);
+      if (!isNaN(v) && a.unit_of_measurement === '%' && v <= limit) out.push({ name: name, entity: s.entity_id, level: v });
+    } else if (s.entity_id.indexOf('binary_sensor.') === 0 && s.state === 'on') {
+      out.push({ name: name, entity: s.entity_id, level: null });
+    }
+  });
+  out.sort(function (x, y) { return (x.level === null ? -1 : x.level) - (y.level === null ? -1 : y.level); });
+  return out;
+}
+
 function detect(ctx) {
   var cfg = api(ctx, 'GET', '/api/config').json || {};
   var ents = updateEntities(ctx);
@@ -92,6 +115,7 @@ function detect(ctx) {
   var pending = comps.filter(function (c) { return c.updateAvailable; }).length;
   ctx.log('Home Assistant ' + (cfg.version || '?') + ', ' + ents.length + ' update entities, ' + pending + ' updates.');
   var facts = { version: cfg.version || '', name: cfg.location_name || '', updates: pending, safeMode: !!cfg.safe_mode };
+  facts.lowBatteries = lowBatteries(ctx);
   if (cfg.state && cfg.state !== 'RUNNING') facts.state = cfg.state;
   return { facts: facts, components: comps };
 }

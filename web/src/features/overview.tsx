@@ -1,12 +1,12 @@
 // Overview: what is wrong now, what waits for the user, today's figures, each area's
 // checks and the last seven days. Data from GET /api/overview.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { get } from '../api';
 import { formatAgo, useLang, useT } from '../i18n';
 import { useEvents } from '../useEvents';
 import { Spinner } from '../components/ui';
-import { IconBackup, IconChevron, IconDevices, IconInbox, IconPuzzle, IconPulse, IconUpdates } from '../components/icons';
+import { IconBackup, IconBattery, IconChevron, IconDevices, IconGit, IconGlobe, IconInbox, IconPuzzle, IconPulse, IconShield, IconUpdates } from '../components/icons';
 import '../styles-overview.css';
 
 type Area = 'servers' | 'network' | 'storage' | 'apps';
@@ -14,8 +14,15 @@ type Problem = { kind: 'monitor' | 'offline' | 'warning' | 'metric' | 'scan' | '
 type Count = { up: number; total: number };
 type Overview = {
   problems: Problem[];
-  chores: { updates: number; security: number; updateDevices: number; inbox: number; integrationUpdates: number; reboot: string[]; certs: { monitorId: number; name: string; expires: number }[] };
+  chores: { updates: number; security: number; updateDevices: number; inbox: number; integrationUpdates: number; reboot: string[];
+    certs: { monitorId?: number; deviceId?: number; name: string; expires: number }[];
+    batteries: { name: string; level: number | null; deviceId: number }[];
+    prs: { count: number; bots: number; items: { repo: string; number: number; title: string; author: string; bot: boolean; url: string; forge: string }[] } };
   today: {
+    dns: { instances: number; queries: number; blocked: number; avgMs: number | null; series: number[]; inSync: boolean; off: string[] } | null;
+    internet: { device: string; status: string; isp: string; down: number | null; up: number | null; latency: number | null; speedtestAt: number | null } | null;
+    proxy: { enabled: number; offline: number; certs: number; soonest: number } | null;
+    pbs: { groups: number; fresh: number; verified: number; failed: number; last: number } | null;
     devices: Count; sometimes: number; monitors: Count; avgMs: number | null; uptime24h: number; msSeries: number[];
     guests: Count; containers: Count; updates: number; security: number; installedToday: number;
     backups: Count; lastBackup: number | null; disks: { device: string; mount: string; usedPct: number; sizeGB: number }[];
@@ -58,6 +65,11 @@ function useOverview() {
 export function OverviewPage() {
   const t = useT();
   const data = useOverview();
+  const { hash } = useLocation();
+  const loaded = !!data;
+  useEffect(() => {
+    if (loaded && hash) document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [loaded, hash]);
   if (!data) return <Spinner />;
   return (
     <div className="ov">
@@ -142,28 +154,43 @@ function Problems({ list }: { list: Problem[] }) {
 
 function Chores({ c }: { c: Overview['chores'] }) {
   const t = useT();
-  const rows: { to: string; icon: ReactNode; label: string; extra?: ReactNode; n: number }[] = [];
+  const rows: { to: string; href?: string; icon: ReactNode; label: string; extra?: ReactNode; n: number; sub?: boolean }[] = [];
   if (c.updates) rows.push({ to: '/updates', icon: <IconUpdates />, label: tn(t, 'ov.chore.updates', c.updateDevices), extra: c.security > 0 && <span className="ov-tag crit">{t('ov.security', { n: c.security })}</span>, n: c.updates });
   if (c.inbox) rows.push({ to: '/devices/inbox', icon: <IconInbox />, label: t('ov.chore.inbox'), n: c.inbox });
   if (c.integrationUpdates) rows.push({ to: '/integrations', icon: <IconPuzzle />, label: t('ov.chore.integrations'), n: c.integrationUpdates });
   if (c.reboot.length) rows.push({ to: '/devices', icon: <IconDevices />, label: t('ov.chore.reboot'), extra: <span className="muted small ellipsis">{c.reboot.join(', ')}</span>, n: c.reboot.length });
+  if (c.prs.count) {
+    rows.push({ to: '/devices', icon: <IconGit />, label: t('ov.chore.prs'), extra: c.prs.bots > 0 && <span className="ov-tag">{t('ov.bots', { n: c.prs.bots })}</span>, n: c.prs.count });
+    for (const p of c.prs.items.slice(0, 4)) {
+      rows.push({ to: '', href: p.url, icon: null, sub: true, label: `${p.repo} #${p.number} · ${p.title}`, extra: <span className="muted small">{p.author}</span>, n: 0 });
+    }
+  }
+  if (c.batteries.length) {
+    rows.push({ to: `/devices/${c.batteries[0].deviceId}`, icon: <IconBattery />, label: t('ov.chore.batteries'),
+      extra: <span className="muted small ellipsis">{c.batteries.slice(0, 3).map((b) => b.name + (b.level != null ? ` ${b.level}%` : '')).join(', ')}</span>, n: c.batteries.length });
+  }
   for (const cert of c.certs) {
     const days = Math.round((cert.expires - Date.now() / 1000) / 86400);
-    rows.push({ to: '/monitors', icon: <IconPulse />, label: t('ov.chore.cert', { name: cert.name }), extra: <span className={'ov-tag ' + (days < 7 ? 'crit' : 'warn')}>{days < 0 ? t('ov.expired') : t('ov.days', { n: days })}</span>, n: 1 });
+    rows.push({ to: cert.deviceId ? `/devices/${cert.deviceId}` : '/monitors', icon: <IconPulse />, label: t('ov.chore.cert', { name: cert.name }), extra: <span className={'ov-tag ' + (days < 7 ? 'crit' : 'warn')}>{days < 0 ? t('ov.expired') : t('ov.days', { n: days })}</span>, n: 1 });
   }
   return (
     <section>
       <h2 className="ov-h">{t('ov.waiting')}</h2>
       {rows.length === 0 ? <div className="ov-empty">{t('ov.nothingWaiting')}</div> : (
         <div className="ov-list">
-          {rows.map((r, i) => (
-            <Link key={i} to={r.to} className="ov-row">
-              <span className="ov-ri">{r.icon}</span>
-              <span className="grow ellipsis">{r.label}</span>
-              {r.extra}
-              <span className="ov-cnt">{r.n}</span>
-            </Link>
-          ))}
+          {rows.map((r, i) => {
+            const body = (
+              <>
+                {r.sub ? <span className="ov-ri sub" /> : <span className="ov-ri">{r.icon}</span>}
+                <span className="grow ellipsis">{r.label}</span>
+                {r.extra}
+                {!r.sub && <span className="ov-cnt">{r.n}</span>}
+              </>
+            );
+            return r.href
+              ? <a key={i} href={r.href} target="_blank" rel="noreferrer" className="ov-row sub">{body}</a>
+              : <Link key={i} to={r.to} className="ov-row">{body}</Link>;
+          })}
         </div>
       )}
     </section>
@@ -184,11 +211,15 @@ function Meter({ label, pct, color }: { label: string; pct: number; color?: stri
   );
 }
 
-function Spark({ values }: { values: number[] }) {
+function fmtNum(lang: string, n: number) {
+  return n.toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB');
+}
+
+function Spark({ values, color }: { values: number[]; color?: string }) {
   if (values.length < 2) return null;
   const top = Math.max(...values) * 1.1 || 1;
   const d = values.map((v, i) => `${i ? 'L' : 'M'}${((i / (values.length - 1)) * 140).toFixed(1)} ${(26 - (v / top) * 24).toFixed(1)}`).join(' ');
-  return <svg className="ov-spark" viewBox="0 0 140 28" preserveAspectRatio="none"><path d={d} /></svg>;
+  return <svg className="ov-spark" viewBox="0 0 140 28" preserveAspectRatio="none"><path d={d} style={color ? { stroke: color } : undefined} /></svg>;
 }
 
 function Tile({ icon, label, state, figure, unit, sub, children, to }: { icon: ReactNode; label: string; state?: 'warn' | 'crit'; figure: ReactNode; unit?: string; sub?: ReactNode; children?: ReactNode; to: string }) {
@@ -232,6 +263,32 @@ function Today({ d }: { d: Overview['today'] }) {
           sub={[d.security > 0 ? t('ov.security', { n: d.security }) : '', d.installedToday > 0 ? t('ov.installedToday', { n: d.installedToday }) : ''].filter(Boolean).join(' · ') || undefined}>
           <Share parts={[[d.security, 'var(--crit)'], [d.updates - d.security, 'var(--accent)'], [d.installedToday, 'var(--ok)']]} />
         </Tile>
+        {d.pbs && d.pbs.groups > 0 && (
+          <Tile to="/backups" icon={<IconBackup />} label={t('ov.pbs')} state={d.pbs.failed > 0 ? 'crit' : d.pbs.fresh < d.pbs.groups ? 'warn' : undefined} figure={d.pbs.fresh} unit={t('ov.ofCurrent', { n: d.pbs.groups })}
+            sub={[d.pbs.last ? t('ov.lastBackup', { ago: formatAgo(lang, d.pbs.last) }) : '', d.pbs.failed ? t('ov.verifyFailed', { n: d.pbs.failed }) : t('ov.verified', { n: d.pbs.verified })].filter(Boolean).join(' · ')}>
+            <Share parts={[[d.pbs.verified, 'var(--ov-info)'], [d.pbs.groups - d.pbs.verified - d.pbs.failed, 'var(--off)'], [d.pbs.failed, 'var(--crit)']]} />
+          </Tile>
+        )}
+        {d.dns && (
+          <Tile to="/devices" icon={<IconShield />} label={t('ov.dns')} state={d.dns.off.length || !d.dns.inSync ? 'warn' : undefined} figure={fmtNum(lang, d.dns.queries)} unit={t('ov.queries')}
+            sub={[t('ov.blocked', { n: fmtNum(lang, d.dns.blocked), pct: d.dns.queries ? Math.round((100 * d.dns.blocked) / d.dns.queries) : 0 }),
+              d.dns.instances > 1 ? (d.dns.inSync ? t('ov.inSync', { n: d.dns.instances }) : t('ov.outOfSync')) : '',
+              d.dns.off.length ? t('ov.protectionOff', { names: d.dns.off.join(', ') }) : ''].filter(Boolean).join(' · ')}>
+            <Spark values={d.dns.series} color="var(--ov-network)" />
+          </Tile>
+        )}
+        {d.internet && (
+          <Tile to="/devices" icon={<IconGlobe />} label={t('ov.internet')} state={d.internet.status && d.internet.status !== 'ok' ? 'crit' : undefined}
+            figure={d.internet.down != null ? Math.round(d.internet.down) : d.internet.status === 'ok' ? 'OK' : '–'} unit={d.internet.down != null ? 'Mbit/s ↓' : ''}
+            sub={[d.internet.up != null ? Math.round(d.internet.up) + ' Mbit/s ↑' : '', d.internet.latency != null ? d.internet.latency + ' ms' : '', d.internet.isp,
+              d.internet.speedtestAt ? t('ov.speedtest', { ago: formatAgo(lang, d.internet.speedtestAt) }) : ''].filter(Boolean).join(' · ')} />
+        )}
+        {d.proxy && (
+          <Tile to="/devices" icon={<IconGlobe />} label={t('ov.proxy')} state={d.proxy.offline ? 'warn' : undefined} figure={d.proxy.enabled - d.proxy.offline} unit={t('ov.ofOnline', { n: d.proxy.enabled })}
+            sub={d.proxy.certs ? t('ov.certsNext', { n: d.proxy.certs, days: Math.max(0, Math.round((d.proxy.soonest - Date.now() / 1000) / 86400)) }) : undefined}>
+            <Share parts={[[d.proxy.enabled - d.proxy.offline, 'var(--ok)'], [d.proxy.offline, 'var(--crit)']]} />
+          </Tile>
+        )}
         {d.backups.total > 0 && (
           <Tile to="/backups" icon={<IconBackup />} label={t('nav.backups')} state={d.backups.up < d.backups.total ? 'warn' : undefined} figure={d.backups.up} unit={t('ov.ofCurrent', { n: d.backups.total })}
             sub={d.lastBackup ? t('ov.lastBackup', { ago: formatAgo(lang, d.lastBackup) }) : undefined}>
@@ -339,4 +396,52 @@ function Week({ events, at }: { events: Overview['events']; at: number }) {
       </div>
     </section>
   );
+}
+
+type NavData = { areas: { id: Area; health: string; down: number }[]; apps: { id: number; name: string; url: string; status: string }[] };
+
+/** Sidebar sections: health per area (links into the overview) and web apps with their state. */
+export function SidebarStatus() {
+  const t = useT();
+  const [data, setData] = useState<NavData | null>(null);
+  const [closed, setClosed] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem('hw.sidebar.closed') || '{}'); } catch { return {}; } });
+  const load = useCallback(() => { get<NavData>('/api/overview/nav').then(setData).catch(() => {}); }, []);
+  useEffect(() => { load(); const i = window.setInterval(load, 60000); return () => clearInterval(i); }, [load]);
+  useEvents({ 'monitor.state': load }, load);
+  if (!data || (data.areas.length === 0 && data.apps.length === 0)) return null;
+  const toggle = (k: string) => {
+    const next = { ...closed, [k]: !closed[k] };
+    setClosed(next);
+    try { localStorage.setItem('hw.sidebar.closed', JSON.stringify(next)); } catch { /* private mode */ }
+  };
+  const dot = (s: string) => 'sb-dot ' + (s === 'up' ? 'ok' : s === 'degraded' || s === 'dependency' ? 'warn' : s === 'down' ? 'crit' : 'off');
+  return (
+    <div className="sb-status">
+      {data.areas.length > 0 && (
+        <>
+          <button type="button" className="sb-sec" onClick={() => toggle('areas')} aria-expanded={!closed.areas}>{t('ov.areas')}<span className={'ov-chev' + (closed.areas ? '' : ' open')}><IconChevron /></span></button>
+          {!closed.areas && data.areas.map((a) => (
+            <Link key={a.id} to={'/overview#area-' + a.id} className="sb-link"><span className={'ov-ai ' + a.id}>{areaIcon[a.id]}</span><span className="grow">{t('ov.area.' + a.id)}</span><span className={dot(a.health)} /></Link>
+          ))}
+        </>
+      )}
+      {data.apps.length > 0 && (
+        <>
+          <button type="button" className="sb-sec" onClick={() => toggle('apps')} aria-expanded={!closed.apps}>{t('ov.area.apps')}<span className={'ov-chev' + (closed.apps ? '' : ' open')}><IconChevron /></span></button>
+          {!closed.apps && data.apps.map((a) => (
+            <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="sb-link" title={a.url}>
+              <span className="sb-app" style={{ background: appColor(a.name) }}>{a.name.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase()}</span>
+              <span className="grow ellipsis">{a.name}</span><span className={dot(a.status)} />
+            </a>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+function appColor(name: string) {
+  let h = 0;
+  for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return `hsl(${h} 55% 42%)`;
 }

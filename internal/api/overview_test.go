@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 
@@ -82,5 +83,58 @@ func TestOverview(t *testing.T) {
 	}
 	if !outage || !failed {
 		t.Errorf("events: %+v", ov.Events)
+	}
+}
+
+func TestOverviewSources(t *testing.T) {
+	h := newHarness(t)
+	h.api.AttachOverview()
+	c := h.client()
+	if code, _ := h.do(c, "POST", "/api/setup", map[string]string{"token": h.token, "username": "krx", "password": "a-long-password"}); code != 200 {
+		t.Fatal("setup")
+	}
+	ctx := context.Background()
+	st := h.api.Store
+	now := time.Now().Unix()
+	dev := func(name, kind, facts string) {
+		d, _ := st.CreateDevice(ctx, store.Device{Name: name, Kind: kind, Status: store.StatusActive})
+		st.SetDeviceState(ctx, d.ID, store.StateReady, now)
+		st.SetFacts(ctx, d.ID, json.RawMessage(facts), "")
+	}
+	dev("AdGuard", "adguard", `{"protection":true,"queries":1000,"blocked":300,"syncKey":"a","queriesSeries":[1,2]}`)
+	dev("AdGuard Standby", "adguard", `{"protection":false,"queries":10,"blocked":1,"syncKey":"b","queriesSeries":[1]}`)
+	dev("UDM SE", "unifi", `{"wan":{"status":"ok","isp":"Telekom","down":250,"up":40,"latency":9}}`)
+	dev("NPM", "nginx-proxy-manager", `{"enabledHosts":12,"offlineHosts":1,"certs":[{"name":"*.krx3d.de","expires":`+strconv.FormatInt(now+10*86400, 10)+`}]}`)
+	dev("PBS", "proxmox-backup", `{"maxAgeHours":48,"backupGroups":[{"id":"101","last":`+strconv.FormatInt(now-3600, 10)+`,"verify":"ok"},{"id":"200","last":1000,"verify":"failed"}]}`)
+	dev("Home Assistant", "home-assistant", `{"lowBatteries":[{"name":"Door","level":12}]}`)
+	dev("Gitea", "gitea", `{"pullRequests":[{"repo":"KrX/HomeClaude","number":4,"title":"Update go","author":"renovate-bot","bot":true}]}`)
+
+	_, out := h.do(c, "GET", "/api/overview", nil)
+	b, _ := json.Marshal(out)
+	var ov struct {
+		Problems []ovProblem `json:"problems"`
+		Chores   ovChores    `json:"chores"`
+		Today    ovToday     `json:"today"`
+	}
+	json.Unmarshal(b, &ov)
+	d := ov.Today.DNS
+	if d == nil || d.Instances != 2 || d.Queries != 1010 || d.InSync || len(d.Off) != 1 || len(d.Series) != 2 || d.Series[0] != 2 {
+		t.Fatalf("dns: %+v", d)
+	}
+	var outOfSync bool
+	for _, p := range ov.Problems {
+		outOfSync = outOfSync || p.Code == "adguard_out_of_sync"
+	}
+	if !outOfSync {
+		t.Errorf("out of sync problem missing: %+v", ov.Problems)
+	}
+	if ov.Today.Internet == nil || *ov.Today.Internet.Down != 250 || ov.Today.Proxy == nil || ov.Today.Proxy.Enabled != 12 {
+		t.Errorf("internet/proxy: %+v %+v", ov.Today.Internet, ov.Today.Proxy)
+	}
+	if p := ov.Today.PBS; p == nil || p.Groups != 2 || p.Fresh != 1 || p.Failed != 1 {
+		t.Errorf("pbs: %+v", p)
+	}
+	if len(ov.Chores.Certs) != 1 || ov.Chores.Certs[0].DeviceID == 0 || len(ov.Chores.Batteries) != 1 || ov.Chores.PRs.Count != 1 || ov.Chores.PRs.Bots != 1 {
+		t.Errorf("chores: %+v", ov.Chores)
 	}
 }

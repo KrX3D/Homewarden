@@ -37,6 +37,49 @@ function AgePill({ at }: { at: number | undefined }) {
 
 // ---------------------------------------------------------------- page
 
+type PBSGroup = { store: string; type: string; id: string; comment: string; last: number; count: number; verify: string; size: number };
+
+/** Proxmox Backup Server: newest snapshot per guest, its verify state and age (from the last scan). */
+function PBSGroups({ device, guests }: { device: Device; guests: Device[] }) {
+  const t = useT();
+  const lang = useLang();
+  const [data, setData] = useState<{ groups: PBSGroup[]; maxAge: number; scannedAt: number } | null>(null);
+  useEffect(() => {
+    get<{ facts: { facts: Record<string, any>; scannedAt: number } }>(`/api/devices/${device.id}/software`)
+      .then((r) => setData({ groups: r.facts.facts.backupGroups ?? [], maxAge: r.facts.facts.maxAgeHours ?? 48, scannedAt: r.facts.scannedAt }))
+      .catch(() => {});
+  }, [device.id]);
+  if (!data || data.groups.length === 0) return null;
+  // Guests of a Proxmox host carry external id "lxc/101" or "qemu/200"; PBS names them ct/101, vm/200.
+  const guestName = (g: PBSGroup) => guests.find((x) => x.externalId === (g.type === 'ct' ? 'lxc/' : g.type === 'vm' ? 'qemu/' : g.type + '/') + g.id)?.name;
+  const now = Date.now() / 1000;
+  return (
+    <section className="stack">
+      <div className="page-head">
+        <h2 className="grow">{device.name}</h2>
+        <span className="small muted">{t('pbs.scanned', { ago: formatAgo(lang, data.scannedAt) })}</span>
+      </div>
+      <div className="table-wrap">
+        <table className="tbl">
+          <thead><tr><th>{t('pbs.guest')}</th><th>{t('pbs.store')}</th><th>{t('pbs.last')}</th><th>{t('pbs.verify')}</th><th>{t('pbs.count')}</th></tr></thead>
+          <tbody>{data.groups.map((g) => {
+            const old = now - g.last > data.maxAge * 3600;
+            return (
+              <tr key={g.store + g.type + g.id}>
+                <td><strong>{guestName(g) ?? g.comment ?? ''}</strong> <span className="mono small muted">{g.type}/{g.id}</span>{guestName(g) && g.comment && g.comment !== guestName(g) && <span className="small muted"> · {g.comment}</span>}</td>
+                <td className="mono small">{g.store}</td>
+                <td><span className={old ? 'pill warn' : 'muted small'}>{formatAgo(lang, g.last)}</span></td>
+                <td><span className={'pill dot ' + (g.verify === 'ok' ? 'ok' : g.verify === 'failed' ? 'crit' : 'off')}>{t('pbs.verify.' + (g.verify === 'ok' || g.verify === 'failed' ? g.verify : 'none'))}</span></td>
+                <td className="mono small">{g.count}</td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function BackupsPage() {
   const t = useT();
   const { can } = useSession();
@@ -61,6 +104,8 @@ function BackupsPage() {
         {stale > 0 && <span className="pill warn">{t('backups.stale', { n: stale, d: MAX_AGE_DAYS })}</span>}
       </div>
       <ErrorAlert error={run.error} />
+
+      {(devices ?? []).filter((d) => d.kind === 'proxmox-backup').map((d) => <PBSGroups key={d.id} device={d} guests={devices ?? []} />)}
 
       <section className="stack">
         <h2>{t('backups.devices')}</h2>

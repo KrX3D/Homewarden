@@ -244,6 +244,20 @@ decision is made or changed, update it in the same PR.
   (servers/network/storage/apps from the device kind, or monitor config `area`) with
   the last 30 results, and a 7-day timeline (monitor outages from results, update and
   backup jobs). Offline devices without an offline alert count as "only sometimes on".
+- Overview sources (internal/api/overview_sources.go) read integration facts:
+  adguard (DNS tile, instances compared by `syncKey` = filter URLs + custom rules,
+  `adguard_out_of_sync` problem), unifi `facts.wan` (Internet tile, from /stat/health),
+  nginx-proxy-manager (proxy tile, certificates within 30 days into "waiting"),
+  proxmox-backup `facts.backupGroups` (per guest newest snapshot + verify state; tile
+  and a table on the Backups page, guests matched by external id lxc/ID or qemu/ID),
+  home-assistant `facts.lowBatteries` (setting batteryPercent), gitea
+  `facts.pullRequests` (Gitea issues search + optional GitHub repos). New integrations
+  adguard, nginx-proxy-manager and gitea are 0.9.0 beta, tested on fakes only;
+  `releaseCheck` turns off the GitHub release lookup.
+- Sidebar: `GET /api/overview/nav` (area health and HTTP monitors as app links, from
+  monitor states only) feeds collapsible sections under the nav. Ctrl+K / Cmd+K opens
+  the command palette (components/palette.tsx: pages, settings, devices, monitors,
+  open app).
 - Colour palettes: user pref `palette` violet (default, near-black, accent #7170ff) or
   classic (slate/cobalt). `data-palette` on <html>, set before first paint from
   localStorage `hw.palette`; tokens in styles.css.

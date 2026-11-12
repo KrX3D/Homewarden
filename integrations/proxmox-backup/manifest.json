@@ -1,6 +1,6 @@
 {
   "id": "proxmox-backup",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "minCore": "0.1.0",
   "name": {
     "en": "Proxmox Backup Server",

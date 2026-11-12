@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { useSession } from './session';
 import { useT } from './i18n';
@@ -12,7 +12,9 @@ import SettingsPage from './pages/Settings';
 import { navItems } from './extensions';
 import { useBadges } from './features/software';
 import { PublicStatus } from './features/monitors';
-import { OverviewPage } from './features/overview';
+import { OverviewPage, SidebarStatus } from './features/overview';
+import { CommandPalette, usePaletteHotkey } from './components/palette';
+import { IconSearch } from './components/icons';
 
 export type NavItem = { to: string; label: string; icon: ReactNode; perm?: string; badge?: number };
 
@@ -32,6 +34,9 @@ function Shell() {
   const t = useT();
   const { me, can, refresh } = useSession();
   const [open, setOpen] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const openPalette = useCallback(() => setPalette(true), []);
+  usePaletteHotkey(openPalette);
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.pathname]);
 
@@ -51,7 +56,10 @@ function Shell() {
   return (
     <div className="shell">
       <aside className={'sidebar' + (open ? ' open' : '')} aria-label={t('nav.label')}>
-        <NavLink to="/" className="brand"><Logo />Homewarden</NavLink>
+        <div className="brand-row">
+          <NavLink to="/" className="brand"><Logo />Homewarden</NavLink>
+          <button type="button" className="btn subtle sm pal-open" onClick={openPalette} title={t('palette.title') + ' (Ctrl+K)'} aria-label={t('palette.title')}><IconSearch /></button>
+        </div>
         <nav className="nav">
           {nav.filter((n) => !n.perm || can(n.perm)).map((n) => (
             <NavLink key={n.to} to={n.to}>
@@ -61,6 +69,7 @@ function Shell() {
             </NavLink>
           ))}
         </nav>
+        {can('devices.view') && <SidebarStatus />}
         <div className="sidebar-foot">
           <div className="small">
             <div style={{ fontWeight: 600 }}>{me!.user.username}</div>
@@ -88,6 +97,7 @@ function Shell() {
           </Routes>
         </main>
       </div>
+      {palette && <CommandPalette nav={nav} onClose={() => setPalette(false)} />}
     </div>
   );
 }

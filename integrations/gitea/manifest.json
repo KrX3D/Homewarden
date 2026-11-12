@@ -1,0 +1,140 @@
+{
+  "id": "gitea",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": {
+    "en": "Gitea / Forgejo (pull requests)",
+    "de": "Gitea / Forgejo (Pull Requests)"
+  },
+  "description": {
+    "en": "Beta. Open pull requests (Renovate, Dependabot, your own) in every repository the token can read, optionally also GitHub repositories. Shown under Waiting for you on the overview. Gitea version vs. newest release (notify only).",
+    "de": "Beta. Offene Pull Requests (Renovate, Dependabot, eigene) in allen Repositories, die der Token lesen darf, optional auch GitHub-Repositories. Erscheinen in der Übersicht unter Wartet auf dich. Gitea-Version gegen neueste Version (nur Hinweis)."
+  },
+  "howto": {
+    "en": "1. The address of this device is the Gitea host (e.g. 192.168.90.70), port 3000.\n2. In Gitea: Settings, Applications, Generate token with read:repository and read:issue (read:user is not needed).\n3. In Homewarden add an API token credential with that token and pick it under Access token in the integration setup (Integrations, Set up).\n4. Optional: GitHub repositories as owner/repo, comma-separated. Public ones need no token; for private ones add a GitHub token (read-only, pull requests).",
+    "de": "1. Die Adresse dieses Geräts ist der Gitea-Host (z. B. 192.168.90.70), Port 3000.\n2. In Gitea: Einstellungen, Anwendungen, Token erzeugen mit read:repository und read:issue.\n3. In Homewarden Zugangsdaten vom Typ API-Token mit diesem Token anlegen und in der Integrations-Einrichtung (Integrationen, Einrichten) unter Zugriffstoken auswählen.\n4. Optional: GitHub-Repositories als owner/repo, mit Komma getrennt. Öffentliche brauchen keinen Token; für private einen GitHub-Token (nur lesen, Pull Requests) hinterlegen."
+  },
+  "connection": "http",
+  "permissions": {
+    "ssh": false,
+    "docker": false,
+    "httpDevice": true,
+    "httpHosts": [
+      "api.github.com"
+    ]
+  },
+  "settings": [
+    {
+      "key": "token",
+      "type": "credential",
+      "credentialTypes": [
+        "token"
+      ],
+      "required": true,
+      "label": {
+        "en": "Access token",
+        "de": "Zugriffstoken"
+      },
+      "help": {
+        "en": "Gitea token with read:repository and read:issue.",
+        "de": "Gitea-Token mit read:repository und read:issue."
+      }
+    },
+    {
+      "key": "port",
+      "type": "number",
+      "default": 3000,
+      "label": {
+        "en": "Port",
+        "de": "Port"
+      }
+    },
+    {
+      "key": "https",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Use HTTPS",
+        "de": "HTTPS verwenden"
+      }
+    },
+    {
+      "key": "githubRepos",
+      "type": "string",
+      "default": "",
+      "placeholder": "KrX3D/Homewarden, KrX3D/TizenTube",
+      "label": {
+        "en": "GitHub repositories (optional)",
+        "de": "GitHub-Repositories (optional)"
+      },
+      "help": {
+        "en": "owner/repo, comma-separated. Their open pull requests are listed too.",
+        "de": "owner/repo, mit Komma getrennt. Ihre offenen Pull Requests werden mit aufgelistet."
+      }
+    },
+    {
+      "key": "githubToken",
+      "type": "credential",
+      "credentialTypes": [
+        "token"
+      ],
+      "required": false,
+      "label": {
+        "en": "GitHub token (optional)",
+        "de": "GitHub-Token (optional)"
+      },
+      "help": {
+        "en": "Only for private repositories or many checks (rate limit).",
+        "de": "Nur für private Repositories oder viele Abfragen (Rate-Limit)."
+      }
+    },
+    {
+      "key": "releaseCheck",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Check GitHub for new releases",
+        "de": "GitHub auf neue Versionen prüfen"
+      }
+    }
+  ],
+  "presence": {
+    "reach": {
+      "method": "tcp",
+      "port": 3000
+    },
+    "ready": {
+      "method": "none"
+    },
+    "settleSeconds": 0,
+    "intervalSeconds": 60
+  },
+  "capabilities": [
+    "detect"
+  ],
+  "entry": "main.js",
+  "files": [
+    "main.js"
+  ],
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "3000",
+      "note": {
+        "en": "Gitea API",
+        "de": "Gitea-API"
+      }
+    },
+    {
+      "target": "internet",
+      "proto": "tcp",
+      "port": "443",
+      "note": {
+        "en": "api.github.com (GitHub repositories, release check)",
+        "de": "api.github.com (GitHub-Repositories, Versionsprüfung)"
+      }
+    }
+  ]
+}

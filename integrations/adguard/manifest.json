@@ -1,0 +1,92 @@
+{
+  "id": "adguard",
+  "version": "0.9.0",
+  "minCore": "0.1.0",
+  "name": {
+    "en": "AdGuard Home",
+    "de": "AdGuard Home"
+  },
+  "description": {
+    "en": "Beta. DNS queries and blocked share, protection on/off, filter lists and custom rules, version updates. Several instances are compared on the overview (in sync or not).",
+    "de": "Beta. DNS-Anfragen und blockierter Anteil, Schutz an/aus, Filterlisten und eigene Regeln, Versionsupdates. Mehrere Instanzen werden in der Übersicht verglichen (synchron oder nicht)."
+  },
+  "howto": {
+    "en": "1. The address of this device is the AdGuard Home host (e.g. the Pi or LXC). Port is the web interface port (80, 3000 or what you set).\n2. Add a Password credential with the AdGuard Home web login and pick it under Login in the integration setup (Integrations, Set up).\n3. Add each AdGuard instance as its own device with this integration; the overview then shows whether their filter lists and custom rules match.\n4. Updates from Homewarden only work for the plain binary install. In Docker, update the image through the Docker integration.",
+    "de": "1. Die Adresse dieses Geräts ist der AdGuard-Home-Host (z. B. der Pi oder das LXC). Port ist der Port der Weboberfläche (80, 3000 oder was du eingestellt hast).\n2. Zugangsdaten vom Typ Passwort mit dem AdGuard-Home-Weblogin anlegen und in der Integrations-Einrichtung (Integrationen, Einrichten) unter Anmeldung auswählen.\n3. Jede AdGuard-Instanz als eigenes Gerät mit dieser Integration anlegen; die Übersicht zeigt dann, ob Filterlisten und eigene Regeln übereinstimmen.\n4. Updates aus Homewarden gehen nur bei der normalen Binär-Installation. In Docker das Image über die Docker-Integration aktualisieren."
+  },
+  "connection": "http",
+  "permissions": {
+    "ssh": false,
+    "docker": false,
+    "httpDevice": true,
+    "httpHosts": []
+  },
+  "settings": [
+    {
+      "key": "login",
+      "type": "credential",
+      "credentialTypes": [
+        "password"
+      ],
+      "required": true,
+      "label": {
+        "en": "Login",
+        "de": "Anmeldung"
+      },
+      "help": {
+        "en": "The AdGuard Home web login as a Password credential.",
+        "de": "Der AdGuard-Home-Weblogin als Zugangsdaten vom Typ Passwort."
+      }
+    },
+    {
+      "key": "port",
+      "type": "number",
+      "default": 80,
+      "label": {
+        "en": "Web port",
+        "de": "Web-Port"
+      },
+      "scope": "device"
+    },
+    {
+      "key": "https",
+      "type": "bool",
+      "default": false,
+      "label": {
+        "en": "Use HTTPS",
+        "de": "HTTPS verwenden"
+      }
+    }
+  ],
+  "presence": {
+    "reach": {
+      "method": "ping"
+    },
+    "ready": {
+      "method": "tcp",
+      "port": 53
+    },
+    "settleSeconds": 0,
+    "intervalSeconds": 60
+  },
+  "capabilities": [
+    "detect",
+    "update"
+  ],
+  "entry": "main.js",
+  "files": [
+    "main.js"
+  ],
+  "icon": "icon.svg",
+  "ports": [
+    {
+      "target": "device",
+      "proto": "tcp",
+      "port": "80",
+      "note": {
+        "en": "AdGuard Home web/API (your web port)",
+        "de": "AdGuard-Home-Web/API (dein Web-Port)"
+      }
+    }
+  ]
+}
