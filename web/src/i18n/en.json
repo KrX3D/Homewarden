@@ -983,5 +983,8 @@
  "watch.hostHint": "For example the NAS. The alert then says whether only Homewarden or the whole server is down.",
  "error.invalid_url": "Enter a URL starting with http:// or https://.",
  "error.watch_host": "Enter the extra test as host:port, for example 192.168.90.114:445.",
- "error.watch_channel": "Pick the channel the agents should alert through."
+ "error.watch_channel": "Pick the channel the agents should alert through.",
+ "mcp.enabled": "MCP endpoint for AI assistants (read-only)",
+ "mcp.hint": "Lets an assistant such as Claude ask what is wrong, list devices, monitors and updates. It only reads. Use a read-only API token. Needs API access to be on.",
+ "error.mcp_disabled": "The MCP endpoint is off (Settings, API tokens)."
 }

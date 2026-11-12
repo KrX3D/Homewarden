@@ -224,7 +224,8 @@ func (s *Server) authed(perm string, h http.HandlerFunc) http.Handler {
 				fail(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
-			if readOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+			// MCP answers over POST but only reads, so read-only tokens may use it.
+			if readOnly && r.Method != http.MethodGet && r.Method != http.MethodHead && r.URL.Path != "/api/mcp" {
 				FailMsg(w, http.StatusForbidden, "read_only_token", "this token may only read")
 				return
 			}

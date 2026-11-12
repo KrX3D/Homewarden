@@ -149,13 +149,22 @@ func (s *Server) AttachOverview() {
 }
 
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
+	out, err := s.buildOverview(r)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// buildOverview collects the overview for the request's user (also used by MCP).
+func (s *Server) buildOverview(r *http.Request) (map[string]any, error) {
 	ctx := r.Context()
 	p := PrincipalFrom(r)
 	now := time.Now()
 	all, err := s.Store.Devices(ctx, "")
 	if err != nil {
-		internal(w, err)
-		return
+		return nil, err
 	}
 	devices := map[int64]store.Device{}
 	active := []store.Device{}
@@ -531,7 +540,7 @@ func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(problems, func(i, j int) bool {
 		return problems[i].Severity == "crit" && problems[j].Severity != "crit"
 	})
-	writeJSON(w, http.StatusOK, map[string]any{
+	return map[string]any{
 		"problems": problems, "chores": chores, "today": today, "areas": outAreas, "events": events, "at": now.Unix(),
-	})
+	}, nil
 }

@@ -22,6 +22,9 @@ import './features/network';
 import './features/networkInfo';
 import App from './App';
 
+// Installable as an app (needs HTTPS, e.g. behind the reverse proxy).
+if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

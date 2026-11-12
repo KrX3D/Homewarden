@@ -26,9 +26,14 @@ func Handler() http.Handler {
 		p := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		if p != "" && p != "index.html" {
 			if st, err := fs.Stat(root, p); err == nil && !st.IsDir() {
-				if strings.HasPrefix(p, "assets/") {
+				switch {
+				case strings.HasPrefix(p, "assets/"):
 					// Vite puts a content hash in every asset name.
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				case p == "manifest.webmanifest":
+					w.Header().Set("Content-Type", "application/manifest+json")
+				case p == "sw.js":
+					w.Header().Set("Cache-Control", "no-cache")
 				}
 				files.ServeHTTP(w, r)
 				return

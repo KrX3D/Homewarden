@@ -1,0 +1,23 @@
+{
+  "name": "Homewarden",
+  "short_name": "Homewarden",
+  "description": "Homelab updates, monitors and backups",
+  "start_url": "/overview",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08090a",
+  "theme_color": "#08090a",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
