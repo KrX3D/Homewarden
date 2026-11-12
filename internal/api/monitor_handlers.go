@@ -61,6 +61,7 @@ type monitorIn struct {
 	Type     string         `json:"type"`
 	Config   monitor.Config `json:"config"`
 	DeviceID *int64         `json:"deviceId"`
+	ParentID *int64         `json:"parentId"`
 	Interval int            `json:"interval"`
 	Enabled  bool           `json:"enabled"`
 	Public   bool           `json:"public"`
@@ -88,6 +89,10 @@ func (in *monitorIn) validate() string {
 		if c.Host == "" {
 			return "monitor_incomplete"
 		}
+	case "container":
+		if c.Container == "" && in.DeviceID == nil {
+			return "monitor_incomplete"
+		}
 	case "push":
 	default:
 		return "bad_request"
@@ -111,7 +116,7 @@ func (s *Server) saveMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg, _ := json.Marshal(in.Config)
-	m := store.Monitor{Name: in.Name, Type: in.Type, Config: cfg, DeviceID: in.DeviceID, Interval: in.Interval, Enabled: in.Enabled, Public: in.Public}
+	m := store.Monitor{Name: in.Name, Type: in.Type, Config: cfg, DeviceID: in.DeviceID, ParentID: in.ParentID, Interval: in.Interval, Enabled: in.Enabled, Public: in.Public}
 	if r.Method == http.MethodPut {
 		id, err := PathID(r)
 		if err != nil {
@@ -119,7 +124,12 @@ func (s *Server) saveMonitor(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		m.ID = id
-	} else if in.Type == "push" {
+	}
+	if in.ParentID != nil && s.parentLoop(r, m.ID, *in.ParentID) {
+		fail(w, http.StatusBadRequest, "monitor_parent_loop")
+		return
+	}
+	if r.Method != http.MethodPut && in.Type == "push" {
 		m.PushToken = newPushToken()
 	}
 	out, err := s.Store.SaveMonitor(r.Context(), m)
@@ -129,6 +139,22 @@ func (s *Server) saveMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 	s.monitors.Poke()
 	writeJSON(w, http.StatusOK, out)
+}
+
+// parentLoop reports a parent that is the monitor itself or one of its children.
+func (s *Server) parentLoop(r *http.Request, id, parent int64) bool {
+	seen := map[int64]bool{}
+	for p := parent; ; {
+		if p == id || seen[p] {
+			return true
+		}
+		seen[p] = true
+		m, err := s.Store.Monitor(r.Context(), p)
+		if err != nil || m.ParentID == nil {
+			return false
+		}
+		p = *m.ParentID
+	}
 }
 
 func (s *Server) deleteMonitor(w http.ResponseWriter, r *http.Request) {
@@ -171,7 +197,7 @@ func (s *Server) testMonitor(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "monitor_incomplete")
 		return
 	}
-	res := monitor.Check(r.Context(), in.Type, in.Config)
+	res := s.monitors.Test(r.Context(), in.Type, in.Config, in.DeviceID)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": res.OK, "ms": res.Ms, "msg": res.Msg, "certExpires": res.CertEnd})
 }
 

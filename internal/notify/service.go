@@ -143,9 +143,18 @@ func (s *Service) Run(ctx context.Context) {
 					Previous string `json:"previous"`
 					Msg      string `json:"msg"`
 					DeviceID *int64 `json:"deviceId"`
+					Repeat   bool   `json:"repeat"`
 				}
 				_ = json.Unmarshal(b, &mv)
-				s.onMonitor(ctx, x.ID, mv.Name, mv.Status, mv.Previous, mv.Msg, mv.DeviceID)
+				s.onMonitor(ctx, x.ID, mv.Name, mv.Status, mv.Previous, mv.Msg, mv.DeviceID, mv.Repeat)
+			case "monitor.cert":
+				var mv struct {
+					Name     string `json:"name"`
+					Expires  int64  `json:"expires"`
+					Level    int    `json:"level"`
+				}
+				_ = json.Unmarshal(b, &mv)
+				s.onCert(ctx, x.ID, mv.Name, mv.Expires, mv.Level)
 			}
 		}
 	}
@@ -326,9 +335,10 @@ func (s *Service) onState(ctx context.Context, deviceID int64, state string) {
 	s.mu.Unlock()
 }
 
-// onMonitor reports a monitor going down, and coming back after it was reported down.
+// onMonitor reports a monitor going down (again every few checks when repeat is set),
+// and coming back after it was reported down. "dependency" (parent down) sends nothing.
 // Nothing is sent during a maintenance window.
-func (s *Service) onMonitor(ctx context.Context, id int64, name, status, previous, msg string, deviceID *int64) {
+func (s *Service) onMonitor(ctx context.Context, id int64, name, status, previous, msg string, deviceID *int64, repeat bool) {
 	dev := int64(0)
 	if deviceID != nil {
 		dev = *deviceID
@@ -341,11 +351,35 @@ func (s *Service) onMonitor(ctx context.Context, id int64, name, status, previou
 	if set.BaseURL != "" {
 		link = strings.TrimRight(set.BaseURL, "/") + "/monitors"
 	}
-	if status == "down" {
+	if status == "down" && repeat {
+		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is still down", "%s ist noch immer ausgefallen"), name), Body: msg, Priority: 1, Link: link})
+	} else if status == "down" {
 		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is down", "%s ist ausgefallen"), name), Body: msg, Priority: 1, Link: link})
 	} else if status == "up" && previous == "down" {
 		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is up again", "%s ist wieder erreichbar"), name), Body: msg, Link: link})
 	}
+}
+
+// onCert reports a certificate that expires within a monitor's warning days, once per
+// threshold and certificate (a renewed certificate has a new expiry date).
+func (s *Service) onCert(ctx context.Context, id int64, name string, expires int64, level int) {
+	if ok, _ := s.St.MarkSent(ctx, fmt.Sprintf("cert:%d:%d:%d", id, level, expires)); !ok {
+		return
+	}
+	set := LoadSettings(ctx, s.St)
+	link := ""
+	if set.BaseURL != "" {
+		link = strings.TrimRight(set.BaseURL, "/") + "/monitors"
+	}
+	end := time.Unix(expires, 0)
+	days := int(time.Until(end).Hours() / 24)
+	var title string
+	if days < 0 {
+		title = fmt.Sprintf(s.text(set.Lang, "Certificate of %s has expired", "Zertifikat von %s ist abgelaufen"), name)
+	} else {
+		title = fmt.Sprintf(s.text(set.Lang, "Certificate of %s expires in %d days", "Zertifikat von %s läuft in %d Tagen ab"), name, days)
+	}
+	s.Dispatch(ctx, EvMonitors, Message{Title: title, Body: end.Format("2006-01-02"), Link: link})
 }
 
 // onMetricWarnings reports warnings from resource samples once while they last.

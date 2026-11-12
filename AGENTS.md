@@ -433,8 +433,14 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
 - Home Assistant: MQTT discovery (setting `haDiscovery`) publishes per device a
   connectivity binary_sensor, an updates sensor and scan/update buttons.
 - `internal/monitor/` - uptime monitors (http status/keyword/JSON path/cert expiry, tcp,
-  ping, dns, push heartbeat at `/api/push/<token>`, no CSRF); down after 2 failures;
-  results kept 30 days. Maintenance windows (global or per device) mute monitor and
+  ping, dns, Docker container state, push heartbeat at `/api/push/<token>`, no CSRF);
+  results kept 30 days. Per monitor (config): `retries` (failures before down, default
+  2), `retryInterval`, `resendEvery` (repeat the down alert), `upsideDown`, `certWarn`
+  ("14,7": one notification per threshold and certificate, key `cert:<id>:<days>:<expiry>`;
+  `certDays` still marks the monitor down). `parent_id` (migration 15): while the parent
+  is down (or already failing) a child gets status `dependency`, is not checked, stores
+  no result and sends nothing. Container monitors without endpoint/name take them from
+  the device (a docker device, or a container device below one: its external id). Maintenance windows (global or per device) mute monitor and
   offline notifications. Public status page `/status` (SPA route, data from
   `/api/public/status`: names, state, bars only) for monitors marked public.
 - Metrics: capability `metrics(ctx, {smart})` returns {cpu, memPct, memUsedMB,

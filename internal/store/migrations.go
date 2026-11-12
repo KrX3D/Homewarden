@@ -295,4 +295,6 @@ CREATE TABLE network_info (
 	`ALTER TABLE api_tokens ADD COLUMN read_only INTEGER NOT NULL DEFAULT 0;`,
 	// 14: last characters of a token, to tell tokens apart in the list.
 	`ALTER TABLE api_tokens ADD COLUMN hint TEXT NOT NULL DEFAULT '';`,
+	// 15: parent monitor; while it is down, children show "dependency" and stay quiet.
+	`ALTER TABLE monitors ADD COLUMN parent_id INTEGER REFERENCES monitors(id) ON DELETE SET NULL;`,
 }
