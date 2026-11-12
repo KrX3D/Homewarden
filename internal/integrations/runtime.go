@@ -420,6 +420,25 @@ func (c *call) httpRequest(o httpOpts) map[string]any {
 	return out
 }
 
+// DockerTransport returns the transport and base URL for a Docker endpoint: the local
+// socket (unix://..., also when empty) or tcp://host:port. Monitors use it too.
+func DockerTransport(ep string) (http.RoundTripper, string, error) {
+	switch {
+	case ep == "" || strings.HasPrefix(ep, "unix://"):
+		sock := strings.TrimPrefix(ep, "unix://")
+		if sock == "" {
+			sock = "/var/run/docker.sock"
+		}
+		return &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", sock)
+		}}, "http://docker", nil
+	case strings.HasPrefix(ep, "tcp://"):
+		return http.DefaultTransport, "http://" + strings.TrimPrefix(ep, "tcp://"), nil
+	}
+	return nil, "", errors.New("dockerEndpoint must start with unix:// or tcp://")
+}
+
 // dockerRequest talks to a Docker Engine API: the local socket or tcp://host:port
 // from the device's dockerEndpoint setting.
 func (c *call) dockerRequest(method, path string, body any, headers map[string]string) map[string]any {
@@ -427,24 +446,9 @@ func (c *call) dockerRequest(method, path string, body any, headers map[string]s
 		c.throw("this integration has no Docker permission")
 	}
 	ep, _ := Settings(c.dev)["dockerEndpoint"].(string)
-	if ep == "" {
-		ep = "unix:///var/run/docker.sock"
-	}
-	var transport http.RoundTripper
-	base := ""
-	switch {
-	case strings.HasPrefix(ep, "unix://"):
-		sock := strings.TrimPrefix(ep, "unix://")
-		transport = &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var d net.Dialer
-			return d.DialContext(ctx, "unix", sock)
-		}}
-		base = "http://docker"
-	case strings.HasPrefix(ep, "tcp://"):
-		transport = http.DefaultTransport
-		base = "http://" + strings.TrimPrefix(ep, "tcp://")
-	default:
-		c.throw("dockerEndpoint must start with unix:// or tcp://")
+	transport, base, err := DockerTransport(ep)
+	if err != nil {
+		c.throw("%v", err)
 	}
 	if !strings.HasPrefix(path, "/") {
 		c.throw("docker.request: path must start with /")

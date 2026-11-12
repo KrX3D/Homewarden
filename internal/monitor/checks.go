@@ -1,5 +1,5 @@
 // Package monitor runs uptime checks: HTTP (status, keyword, JSON value, certificate
-// expiry), TCP, ping, DNS and push heartbeats.
+// expiry), TCP, ping, DNS, Docker container state and push heartbeats.
 package monitor
 
 import (
@@ -11,10 +11,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/KrX3D/Homewarden/internal/integrations"
 	"github.com/KrX3D/Homewarden/internal/presence"
 )
 
@@ -35,6 +38,38 @@ type Config struct {
 	Server       string `json:"server,omitempty"` // DNS server, empty = system
 	Expect       string `json:"expect,omitempty"` // DNS: answer must contain
 	Timeout      int    `json:"timeout,omitempty"`
+
+	// Container: name or id, and the Docker endpoint (empty = the Docker setup of the
+	// monitor's device or its host, else the local socket).
+	Container string `json:"container,omitempty"`
+	Endpoint  string `json:"endpoint,omitempty"`
+
+	// Alerting, all types.
+	Retries       int    `json:"retries,omitempty"`       // failed checks in a row before down (0 = 2)
+	RetryInterval int    `json:"retryInterval,omitempty"` // seconds between checks while failing (0 = interval)
+	ResendEvery   int    `json:"resendEvery,omitempty"`   // repeat the down alert every N failed checks (0 = once)
+	UpsideDown    bool   `json:"upsideDown,omitempty"`    // up when the check fails (something must stay unreachable)
+	CertWarn      string `json:"certWarn,omitempty"`      // notify this many days before the certificate expires, e.g. "14,7"
+}
+
+// FailuresForDown is how many failed checks in a row mark the monitor down.
+func (c Config) FailuresForDown() int {
+	if c.Retries <= 0 {
+		return 2
+	}
+	return c.Retries
+}
+
+// CertWarnDays parses CertWarn into days, largest first.
+func (c Config) CertWarnDays() []int {
+	out := []int{}
+	for _, part := range strings.Split(c.CertWarn, ",") {
+		if n, err := strconv.Atoi(strings.TrimSpace(part)); err == nil && n > 0 {
+			out = append(out, n)
+		}
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(out)))
+	return out
 }
 
 // Result of one check.
@@ -193,8 +228,63 @@ func Check(ctx context.Context, typ string, c Config) Result {
 		}
 		r.OK, r.Msg = true, joined
 		return r
+	case "container":
+		r := checkContainer(ctx, c)
+		r.Ms = ms()
+		return r
 	}
 	return Result{Msg: "unknown type " + typ}
+}
+
+// checkContainer reads a container's state: running and healthy (or without health
+// check) is up, still starting counts as up, unhealthy or not running is down.
+func checkContainer(ctx context.Context, c Config) Result {
+	transport, base, err := integrations.DockerTransport(c.Endpoint)
+	if err != nil {
+		return Result{Msg: err.Error()}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/containers/"+url.PathEscape(strings.TrimPrefix(c.Container, "/"))+"/json", nil)
+	if err != nil {
+		return Result{Msg: err.Error()}
+	}
+	resp, err := (&http.Client{Transport: transport}).Do(req)
+	if err != nil {
+		return Result{Msg: "Docker API: " + err.Error()}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return Result{Msg: "container not found: " + c.Container}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return Result{Msg: fmt.Sprintf("Docker API: HTTP %d", resp.StatusCode)}
+	}
+	var info struct {
+		State struct {
+			Status   string
+			ExitCode int
+			Health   *struct{ Status string }
+		}
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&info); err != nil {
+		return Result{Msg: "Docker API: " + err.Error()}
+	}
+	return containerResult(info.State.Status, info.State.ExitCode, info.State.Health)
+}
+
+func containerResult(status string, exit int, health *struct{ Status string }) Result {
+	if status != "running" {
+		if status == "exited" {
+			return Result{Msg: fmt.Sprintf("exited (code %d)", exit)}
+		}
+		return Result{Msg: status}
+	}
+	if health == nil || health.Status == "" || health.Status == "none" {
+		return Result{OK: true, Msg: "running"}
+	}
+	if health.Status == "unhealthy" {
+		return Result{Msg: "running, unhealthy"}
+	}
+	return Result{OK: true, Msg: "running, " + health.Status}
 }
 
 func lookup(ctx context.Context, r *net.Resolver, record, name string) ([]string, error) {

@@ -12,14 +12,15 @@ import (
 type Monitor struct {
 	ID          int64           `json:"id"`
 	Name        string          `json:"name"`
-	Type        string          `json:"type"` // http | tcp | ping | dns | push
+	Type        string          `json:"type"` // http | tcp | ping | dns | container | push
 	Config      json.RawMessage `json:"config"`
 	DeviceID    *int64          `json:"deviceId"`
+	ParentID    *int64          `json:"parentId"`
 	Interval    int             `json:"interval"`
 	Enabled     bool            `json:"enabled"`
 	Public      bool            `json:"public"`
 	PushToken   string          `json:"pushToken,omitempty"`
-	Status      string          `json:"status"` // up | down | unknown | paused
+	Status      string          `json:"status"` // up | down | dependency | unknown
 	StatusSince *int64          `json:"statusSince"`
 	LastCheck   *int64          `json:"lastCheck"`
 	LastMs      *float64        `json:"lastMs"`
@@ -28,12 +29,12 @@ type Monitor struct {
 	CreatedAt   int64           `json:"createdAt"`
 }
 
-const monCols = "id, name, type, config, device_id, interval_s, enabled, public, push_token, status, status_since, last_check, last_ms, last_msg, cert_expires, created_at"
+const monCols = "id, name, type, config, device_id, parent_id, interval_s, enabled, public, push_token, status, status_since, last_check, last_ms, last_msg, cert_expires, created_at"
 
 func scanMonitor(row interface{ Scan(...any) error }) (Monitor, error) {
 	var m Monitor
 	var cfg string
-	err := row.Scan(&m.ID, &m.Name, &m.Type, &cfg, &m.DeviceID, &m.Interval, &m.Enabled, &m.Public, &m.PushToken, &m.Status,
+	err := row.Scan(&m.ID, &m.Name, &m.Type, &cfg, &m.DeviceID, &m.ParentID, &m.Interval, &m.Enabled, &m.Public, &m.PushToken, &m.Status,
 		&m.StatusSince, &m.LastCheck, &m.LastMs, &m.LastMsg, &m.CertExpires, &m.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return m, ErrNotFound
@@ -76,14 +77,14 @@ func (s *Store) SaveMonitor(ctx context.Context, m Monitor) (Monitor, error) {
 		m.Config = json.RawMessage("{}")
 	}
 	if m.ID == 0 {
-		res, err := s.DB.ExecContext(ctx, `INSERT INTO monitors(name, type, config, device_id, interval_s, enabled, public, push_token, created_at)
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, m.Name, m.Type, string(m.Config), m.DeviceID, m.Interval, m.Enabled, m.Public, m.PushToken, now())
+		res, err := s.DB.ExecContext(ctx, `INSERT INTO monitors(name, type, config, device_id, parent_id, interval_s, enabled, public, push_token, created_at)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, m.Name, m.Type, string(m.Config), m.DeviceID, m.ParentID, m.Interval, m.Enabled, m.Public, m.PushToken, now())
 		if err != nil {
 			return m, err
 		}
 		m.ID, _ = res.LastInsertId()
-	} else if _, err := s.DB.ExecContext(ctx, `UPDATE monitors SET name = ?, type = ?, config = ?, device_id = ?, interval_s = ?, enabled = ?, public = ? WHERE id = ?`,
-		m.Name, m.Type, string(m.Config), m.DeviceID, m.Interval, m.Enabled, m.Public, m.ID); err != nil {
+	} else if _, err := s.DB.ExecContext(ctx, `UPDATE monitors SET name = ?, type = ?, config = ?, device_id = ?, parent_id = ?, interval_s = ?, enabled = ?, public = ? WHERE id = ?`,
+		m.Name, m.Type, string(m.Config), m.DeviceID, m.ParentID, m.Interval, m.Enabled, m.Public, m.ID); err != nil {
 		return m, err
 	}
 	return s.Monitor(ctx, m.ID)
@@ -118,6 +119,13 @@ func (s *Store) RecordMonitor(ctx context.Context, id int64, ok bool, ms *float6
 		return err
 	}
 	return tx.Commit()
+}
+
+// SetMonitorStatus changes the status without storing a result (dependency down: the
+// check did not run, so it must not count against the uptime).
+func (s *Store) SetMonitorStatus(ctx context.Context, id int64, status, msg string) error {
+	_, err := s.DB.ExecContext(ctx, "UPDATE monitors SET status = ?, last_msg = ?, status_since = ? WHERE id = ?", status, msg, now(), id)
+	return err
 }
 
 // MonitorPoint is one result.

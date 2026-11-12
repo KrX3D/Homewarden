@@ -9,7 +9,21 @@ import { IconEdit, IconPlus, IconPulse, Logo } from '../components/icons';
 import { navItems, settingsTabs } from '../extensions';
 
 const pct = (u: number) => (u < 0 ? '–' : (u * 100).toFixed(u === 1 ? 0 : 2) + '%');
-const statusClass: Record<string, string> = { up: 'ok', down: 'crit', unknown: 'off' };
+const statusClass: Record<string, string> = { up: 'ok', down: 'crit', dependency: 'warn', unknown: 'off' };
+
+/** Monitors in tree order: each parent followed by its children (depth for indenting). */
+function treeOrder(list: Monitor[]): { m: Monitor; depth: number }[] {
+  const ids = new Set(list.map((m) => m.id));
+  const out: { m: Monitor; depth: number }[] = [];
+  const walk = (parent: number | null, depth: number) => {
+    for (const m of list) {
+      const p = m.parentId != null && ids.has(m.parentId) ? m.parentId : null;
+      if (p === parent && depth < 8) { out.push({ m, depth }); walk(m.id, depth + 1); }
+    }
+  };
+  walk(null, 0);
+  return out;
+}
 
 function target(m: Monitor) {
   const c = m.config;
@@ -18,6 +32,7 @@ function target(m: Monitor) {
     case 'tcp': return `${c.host}:${c.port}`;
     case 'ping': return c.host ?? '';
     case 'dns': return `${c.record || 'A'} ${c.host}`;
+    case 'container': return c.container ? `container ${c.container}` : 'container';
     case 'push': return 'push';
   }
 }
@@ -86,9 +101,9 @@ function MonitorsPage() {
         <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>{t('cred.name')}</th><th>{t('mon.target')}</th><th>{t('devices.colState')}</th><th>{t('mon.response')}</th><th>24h</th><th>30d</th><th>{t('mon.cert')}</th><th></th></tr></thead>
-            <tbody>{list.map((m) => (
+            <tbody>{treeOrder(list).map(({ m, depth }) => (
               <tr key={m.id} className="clickable" onClick={() => setSelected(m.id === selected ? null : m.id)}>
-                <td><strong>{m.name}</strong>{!m.enabled && <span className="muted small"> ({t('common.off')})</span>}</td>
+                <td style={depth ? { paddingLeft: 12 + depth * 18 } : undefined}>{depth > 0 && <span className="muted">↳ </span>}<strong>{m.name}</strong>{!m.enabled && <span className="muted small"> ({t('common.off')})</span>}</td>
                 <td className="mono small ellipsis" style={{ maxWidth: 260 }}>{target(m)}</td>
                 <td><span className={'pill dot ' + (statusClass[m.status] ?? 'off')} title={m.lastMsg}>{t('mon.status.' + m.status)}</span></td>
                 <td className="mono small">{m.lastMs != null ? `${m.lastMs.toFixed(0)} ms` : '–'}</td>
@@ -104,7 +119,7 @@ function MonitorsPage() {
       {manage && <SuggestedMonitors monitors={list} onAdded={load} />}
       {sel && <MonitorDetail m={sel} />}
       <MaintenanceCard />
-      {editing && <MonitorModal monitor={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {editing && <MonitorModal monitor={editing === 'new' ? null : editing} monitors={list} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
     </>
   );
 }
@@ -124,7 +139,11 @@ const WEB: Record<string, (h: string) => MonitorConfig> = {
 
 type Suggestion = { device: Device; type: MonitorType; config: MonitorConfig; label: string };
 
-function suggestFor(d: Device): Suggestion | null {
+function suggestFor(d: Device, byId: Map<number, Device>): Suggestion | null {
+  // Containers below a Docker host: their state from Docker (running, healthy).
+  if (d.parentId != null && byId.get(d.parentId)?.kind === 'docker' && d.externalId) {
+    return { device: d, type: 'container', config: {}, label: `container ${d.externalId}` };
+  }
   if (!d.host) return null;
   const web = WEB[d.kind];
   if (web) { const c = web(d.host); return { device: d, type: 'http', config: c, label: c.url! }; }
@@ -146,7 +165,8 @@ function SuggestedMonitors({ monitors, onAdded }: { monitors: Monitor[]; onAdded
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
   const covered = new Set(monitors.map((m) => m.deviceId).filter((x): x is number => x != null));
-  const list = devices.filter((d) => !covered.has(d.id) && !hidden.includes(d.id)).map(suggestFor).filter((s): s is Suggestion => !!s);
+  const byId = new Map(devices.map((d) => [d.id, d]));
+  const list = devices.filter((d) => !covered.has(d.id) && !hidden.includes(d.id)).map((d) => suggestFor(d, byId)).filter((s): s is Suggestion => !!s);
   if (list.length === 0) return null;
   // Online devices are preselected; ones that are off now (a printer Pi) would start "down".
   const isPicked = (s: Suggestion) => picked[s.device.id] ?? (s.device.state === 'ready' || s.device.state === 'reachable');
@@ -158,7 +178,7 @@ function SuggestedMonitors({ monitors, onAdded }: { monitors: Monitor[]; onAdded
   };
   const add = () => run(async () => {
     for (const s of chosen) {
-      await post('/api/monitors', { name: s.device.name, type: s.type, config: { ...s.config, certDays: s.type === 'http' ? 14 : undefined }, interval: 60, enabled: true, public: false, deviceId: s.device.id });
+      await post('/api/monitors', { name: s.device.name, type: s.type, config: { ...s.config, certWarn: s.type === 'http' ? '14,7' : undefined }, interval: 60, enabled: true, public: false, deviceId: s.device.id });
     }
     onAdded();
   });
@@ -220,13 +240,15 @@ function MonitorDetail({ m }: { m: Monitor }) {
   );
 }
 
-const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'push'];
+const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'push'];
 
-function MonitorModal({ monitor, onClose, onSaved }: { monitor: Monitor | null; onClose: () => void; onSaved: () => void }) {
+function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monitor | null; monitors: Monitor[]; onClose: () => void; onSaved: () => void }) {
   const t = useT();
   const [name, setName] = useState(monitor?.name ?? '');
   const [type, setType] = useState<MonitorType>(monitor?.type ?? 'http');
-  const [cfg, setCfg] = useState<MonitorConfig>(monitor?.config ?? { certDays: 14 });
+  const [cfg, setCfg] = useState<MonitorConfig>(monitor?.config ?? { certWarn: '14,7' });
+  const [parentId, setParentId] = useState<number | null>(monitor?.parentId ?? null);
+  const [advOpen] = useState(() => { const c = monitor?.config; return !!(c && (c.retries || c.retryInterval || c.resendEvery || c.upsideDown)); });
   const [interval, setInterval] = useState(monitor?.interval ?? 60);
   const [enabled, setEnabled] = useState(monitor?.enabled ?? true);
   const [pub, setPub] = useState(monitor?.public ?? false);
@@ -236,7 +258,13 @@ function MonitorModal({ monitor, onClose, onSaved }: { monitor: Monitor | null; 
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
   const set = (k: keyof MonitorConfig, v: unknown) => { setTest(null); setCfg((c) => ({ ...c, [k]: v })); };
-  const body = () => ({ name, type, config: cfg, interval, enabled, public: pub, deviceId });
+  const body = () => ({ name, type, config: cfg, interval, enabled, public: pub, deviceId, parentId });
+  const num = (k: keyof MonitorConfig, label: string, hint: string, ph = '') => (
+    <label className="field" style={{ flex: '1 1 150px' }}>{label}
+      <input id={'mon-' + k} type="number" min={0} value={cfg[k] == null ? '' : Number(cfg[k])} placeholder={ph} onChange={(e) => set(k, e.target.value === '' ? undefined : Number(e.target.value))} />
+      <span className="small muted">{hint}</span>
+    </label>
+  );
   const save = (e: FormEvent) => {
     e.preventDefault();
     run(async () => {
@@ -283,12 +311,17 @@ function MonitorModal({ monitor, onClose, onSaved }: { monitor: Monitor | null; 
               <div style={{ flex: '1 1 160px' }}>{text('jsonPath', t('mon.jsonPath'), 'status.health')}</div>
               <div style={{ flex: '1 1 140px' }}>{text('jsonExpect', t('mon.jsonExpect'), 'ok')}</div>
             </div>
-            <div className="row" style={{ alignItems: 'flex-end' }}>
-              <label className="field" style={{ flex: '0 1 200px' }}>{t('mon.certDays')}
-                <input type="number" min={0} value={cfg.certDays ?? 14} onChange={(e) => set('certDays', Number(e.target.value))} />
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+              <label className="field" style={{ flex: '1 1 170px' }}>{t('mon.certWarn')}
+                <input id="mon-certWarn" type="text" className="mono" value={cfg.certWarn ?? ''} placeholder="14,7" onChange={(e) => set('certWarn', e.target.value)} />
+                <span className="small muted">{t('mon.certWarnHint')}</span>
               </label>
-              <label className="check"><input type="checkbox" checked={!!cfg.insecure} onChange={(e) => set('insecure', e.target.checked)} />{t('mon.insecure')}</label>
+              <label className="field" style={{ flex: '1 1 170px' }}>{t('mon.certDays')}
+                <input id="mon-certDays" type="number" min={0} value={cfg.certDays ?? 0} onChange={(e) => set('certDays', Number(e.target.value))} />
+                <span className="small muted">{t('mon.certDaysHint')}</span>
+              </label>
             </div>
+            <label className="check"><input type="checkbox" checked={!!cfg.insecure} onChange={(e) => set('insecure', e.target.checked)} />{t('mon.insecure')}</label>
           </>
         )}
         {(type === 'tcp' || type === 'ping' || type === 'dns') && (
@@ -303,6 +336,15 @@ function MonitorModal({ monitor, onClose, onSaved }: { monitor: Monitor | null; 
           </div>
         )}
         {type === 'dns' && <div className="row"><div style={{ flex: 1 }}>{text('server', t('mon.dnsServer'), '192.168.90.55')}</div><div style={{ flex: 1 }}>{text('expect', t('mon.dnsExpect'), '192.168.90.')}</div></div>}
+        {type === 'container' && (
+          <>
+            <div className="row">
+              <div style={{ flex: '1 1 160px' }}>{text('container', t('mon.container'), 'gitea')}</div>
+              <div style={{ flex: '1 1 200px' }}>{text('endpoint', t('mon.endpoint'), 'tcp://192.168.90.114:2375')}</div>
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>{t('mon.containerIntro')}</p>
+          </>
+        )}
         {type === 'push' && <p className="small muted">{t('mon.pushIntro')}</p>}
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <label className="field" style={{ flex: '0 1 160px' }}>{t('deviceForm.interval')}
@@ -315,6 +357,22 @@ function MonitorModal({ monitor, onClose, onSaved }: { monitor: Monitor | null; 
             </select>
           </label>
         </div>
+        <label className="field">{t('mon.parent')}
+          <select id="mon-parent" value={parentId ?? ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}>
+            <option value="">–</option>
+            {monitors.filter((x) => x.id !== monitor?.id).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+          <span className="small muted">{t('mon.parentHint')}</span>
+        </label>
+        <details className="howto-box" open={advOpen}>
+          <summary>{t('mon.alerting')}</summary>
+          <div className="row" style={{ alignItems: 'flex-start' }}>
+            {num('retries', t('mon.retries'), t('mon.retriesHint'), '2')}
+            {num('retryInterval', t('mon.retryInterval'), t('mon.retryIntervalHint'), String(interval))}
+            {num('resendEvery', t('mon.resendEvery'), t('mon.resendEveryHint'), '0')}
+          </div>
+          {type !== 'push' && <label className="check"><input id="mon-upsideDown" type="checkbox" checked={!!cfg.upsideDown} onChange={(e) => set('upsideDown', e.target.checked)} />{t('mon.upsideDown')}</label>}
+        </details>
         <label className="check"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />{t('notify.enabled')}</label>
         <label className="check"><input type="checkbox" checked={pub} onChange={(e) => setPub(e.target.checked)} />{t('mon.public')}</label>
         {test && <div className={'alert ' + (test.ok ? 'ok' : 'error')}>{test.ok ? t('mon.testOk', { ms: test.ms.toFixed(0) }) : t('mon.testFail')}: {test.msg}</div>}
