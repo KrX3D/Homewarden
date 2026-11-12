@@ -44,9 +44,18 @@ function api(ctx, method, path, body, opts) {
   return r;
 }
 
-function updateEntities(ctx) {
-  var states = api(ctx, 'GET', '/api/states').json || [];
+function allStates(ctx) {
+  return api(ctx, 'GET', '/api/states').json || [];
+}
+
+function updateEntities(states) {
   return states.filter(function (s) { return s.entity_id.indexOf('update.') === 0; });
+}
+
+// Orphaned update entities (integration removed, device gone) stay in HA as
+// unavailable/unknown without versions; they are not components.
+function live(e) {
+  return e.state !== 'unavailable' && e.state !== 'unknown';
 }
 
 function kindOf(e) {
@@ -85,13 +94,11 @@ function component(e) {
 
 // Battery sensors at or below the limit (percent sensors) or reporting low
 // (binary battery sensors). Shown under "Waiting for you" on the overview.
-function lowBatteries(ctx) {
+function lowBatteries(ctx, states) {
   var limit = Number(setting(ctx, 'batteryPercent', 20));
   if (!limit) return [];
-  var r = api(ctx, 'GET', '/api/states', null, { quiet: true, timeout: 60 });
-  if (!r || r.status !== 200 || !r.json) return [];
   var out = [];
-  r.json.forEach(function (s) {
+  states.forEach(function (s) {
     var a = s.attributes || {};
     if (a.device_class !== 'battery') return;
     var name = a.friendly_name || s.entity_id;
@@ -108,20 +115,23 @@ function lowBatteries(ctx) {
 
 function detect(ctx) {
   var cfg = api(ctx, 'GET', '/api/config').json || {};
-  var ents = updateEntities(ctx);
+  var states = allStates(ctx);
+  var all = updateEntities(states);
+  var ents = all.filter(live);
   var comps = ents.map(component).sort(function (x, y) {
     return (ORDER[x.meta.kind] - ORDER[y.meta.kind]) || x.name.localeCompare(y.name);
   });
   var pending = comps.filter(function (c) { return c.updateAvailable; }).length;
-  ctx.log('Home Assistant ' + (cfg.version || '?') + ', ' + ents.length + ' update entities, ' + pending + ' updates.');
+  ctx.log('Home Assistant ' + (cfg.version || '?') + ', ' + ents.length + ' update entities, ' + pending + ' updates' +
+    (all.length > ents.length ? ', ' + (all.length - ents.length) + ' unavailable skipped' : '') + '.');
   var facts = { version: cfg.version || '', name: cfg.location_name || '', updates: pending, safeMode: !!cfg.safe_mode };
-  facts.lowBatteries = lowBatteries(ctx);
+  facts.lowBatteries = lowBatteries(ctx, states);
   if (cfg.state && cfg.state !== 'RUNNING') facts.state = cfg.state;
   return { facts: facts, components: comps };
 }
 
 function busy(ctx) {
-  var ents = updateEntities(ctx);
+  var ents = updateEntities(allStates(ctx));
   var running = ents.filter(function (e) { return e.attributes && e.attributes.in_progress; });
   if (running.length) return { busy: true, reason: 'Home Assistant is installing ' + (running[0].attributes.title || running[0].entity_id) };
   var bk = api(ctx, 'GET', '/api/states/sensor.backup_backup_manager_state', null, { quiet: true });
@@ -153,7 +163,7 @@ function waitFor(ctx, entity, target, minutes) {
 
 function update(ctx, ids) {
   var all = ids.length === 1 && ids[0] === '*';
-  var ents = updateEntities(ctx).filter(function (e) {
+  var ents = updateEntities(allStates(ctx)).filter(function (e) {
     return e.state === 'on' && ((e.attributes.supported_features || 0) & F_INSTALL) !== 0 && (all || ids.indexOf('ha:' + e.entity_id) >= 0);
   });
   if (!ents.length) { ctx.log('Nothing to update.'); return; }

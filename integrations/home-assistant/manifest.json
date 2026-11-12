@@ -1,6 +1,6 @@
 {
   "id": "home-assistant",
-  "version": "0.9.1",
+  "version": "1.0.0",
   "minCore": "0.1.0",
   "name": {
     "en": "Home Assistant",

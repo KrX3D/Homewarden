@@ -111,6 +111,13 @@ decision is made or changed, update it in the same PR.
   REST call returns early and Core/OS restart HA. Order: add-ons/others, Supervisor,
   Core, OS. Busy: any entity in_progress or `sensor.backup_backup_manager_state` not idle.
   Release notes: release_summary, GitHub release body when release_url is a GitHub tag.
+  Update entities in state unavailable/unknown (orphaned: integration or device gone)
+  are skipped. 1.0.0: detect and busy verified read-only on a real HA OS 2026.11.1
+  (318 update entities, 70 orphaned); update.install not run on the real system.
+- `internal/integrations/live_test.go`: opt-in read-only checks against real systems
+  (`HW_LIVE=1`, addresses and tokens from env, see the file). Calls detect, discover,
+  busy, metrics only. Proxmox 2026-11-12 with a PVEAuditor-style token: discover, busy,
+  metrics fine; detect stops at the Sys.Modify hint (expected, apt/update needs it).
 - Integrations page: installed ones are not listed under Available (uninstalling brings
   them back); a newer catalog version shows as a pill + Update button on the installed card.
 - The job list is the Activity page (`/activity`, web/src/features/activity.tsx; `/jobs/*`
