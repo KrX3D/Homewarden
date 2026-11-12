@@ -1,12 +1,19 @@
 // Uptime monitors, response-time charts, maintenance windows and the public status page.
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { del, get, post, put, type Device, type Maintenance, type Monitor, type MonitorConfig, type MonitorPoint, type MonitorType } from '../api';
+import { del, get, post, put, type Credential, type Device, type Maintenance, type Monitor, type MonitorConfig, type MonitorPoint, type MonitorType } from '../api';
 import { formatAgo, formatTime, useLang, useT } from '../i18n';
 import { useSession } from '../session';
 import { useEvents } from '../useEvents';
 import { ConfirmButton, ErrorAlert, Modal, Segmented, Spinner, useAction } from '../components/ui';
 import { IconEdit, IconPlus, IconPulse, Logo } from '../components/icons';
 import { navItems, settingsTabs } from '../extensions';
+import { CredentialModal } from './credentials';
+
+const SERVICE: MonitorType[] = ['mqtt', 'postgres', 'mysql', 'redis'];
+const DEFAULT_PORT: Record<string, number> = { mqtt: 1883, postgres: 5432, mysql: 3306, redis: 6379 };
+
+/** "a, b" -> ["a", "b"] (lowercase, no empties). */
+const parseTags = (s: string) => [...new Set(s.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))];
 
 const pct = (u: number) => (u < 0 ? '–' : (u * 100).toFixed(u === 1 ? 0 : 2) + '%');
 const statusClass: Record<string, string> = { up: 'ok', down: 'crit', dependency: 'warn', unknown: 'off' };
@@ -33,6 +40,8 @@ function target(m: Monitor) {
     case 'ping': return c.host ?? '';
     case 'dns': return `${c.record || 'A'} ${c.host}`;
     case 'container': return c.container ? `container ${c.container}` : 'container';
+    case 'mqtt': return `mqtt${c.tls ? 's' : ''}://${c.host}:${c.port || (c.tls ? 8883 : 1883)}${c.topic ? ' ' + c.topic : ''}`;
+    case 'postgres': case 'mysql': case 'redis': return `${m.type}://${c.host}:${c.port || DEFAULT_PORT[m.type]}${c.database ? '/' + c.database : ''}`;
     case 'push': return 'push';
   }
 }
@@ -81,12 +90,15 @@ function MonitorsPage() {
   const [list, setList] = useState<Monitor[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [editing, setEditing] = useState<Monitor | 'new' | null>(null);
+  const [tag, setTag] = useState('');
   const load = useCallback(() => { get<Monitor[]>('/api/monitors').then(setList).catch(() => {}); }, []);
   useEffect(() => { load(); }, [load]);
   useEvents({ 'monitor.state': load }, load);
   const manage = can('devices.manage');
   if (!list) return <Spinner />;
   const down = list.filter((m) => m.status === 'down').length;
+  const allTags = [...new Set(list.flatMap((m) => m.config.tags ?? []))].sort();
+  const shown = tag ? list.filter((m) => m.config.tags?.includes(tag)) : list;
   const sel = list.find((m) => m.id === selected) ?? null;
   return (
     <>
@@ -95,15 +107,21 @@ function MonitorsPage() {
         {down > 0 && <span className="pill crit">{t('mon.downCount', { n: down })}</span>}
         {manage && <button className="btn" type="button" onClick={() => setEditing('new')}><IconPlus />{t('mon.add')}</button>}
       </div>
+      {allTags.length > 0 && (
+        <div className="row" style={{ gap: 6 }}>
+          <button type="button" className={'chip' + (tag === '' ? ' on' : '')} onClick={() => setTag('')}>{t('mon.allTags')}</button>
+          {allTags.map((x) => <button type="button" key={x} className={'chip' + (tag === x ? ' on' : '')} onClick={() => setTag(tag === x ? '' : x)}>#{x}</button>)}
+        </div>
+      )}
       {list.length === 0 ? (
         <div className="card empty"><IconPulse /><h2>{t('mon.emptyTitle')}</h2><p>{t('mon.emptyText')}</p></div>
       ) : (
         <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>{t('cred.name')}</th><th>{t('mon.target')}</th><th>{t('devices.colState')}</th><th>{t('mon.response')}</th><th>24h</th><th>30d</th><th>{t('mon.cert')}</th><th></th></tr></thead>
-            <tbody>{treeOrder(list).map(({ m, depth }) => (
+            <tbody>{treeOrder(shown).map(({ m, depth }) => (
               <tr key={m.id} className="clickable" onClick={() => setSelected(m.id === selected ? null : m.id)}>
-                <td style={depth ? { paddingLeft: 12 + depth * 18 } : undefined}>{depth > 0 && <span className="muted">↳ </span>}<strong>{m.name}</strong>{!m.enabled && <span className="muted small"> ({t('common.off')})</span>}</td>
+                <td style={depth ? { paddingLeft: 12 + depth * 18 } : undefined}>{depth > 0 && <span className="muted">↳ </span>}<strong>{m.name}</strong>{!m.enabled && <span className="muted small"> ({t('common.off')})</span>}{(m.config.tags ?? []).map((x) => <span key={x} className="muted small"> #{x}</span>)}</td>
                 <td className="mono small ellipsis" style={{ maxWidth: 260 }}>{target(m)}</td>
                 <td><span className={'pill dot ' + (statusClass[m.status] ?? 'off')} title={m.lastMsg}>{t('mon.status.' + m.status)}</span></td>
                 <td className="mono small">{m.lastMs != null ? `${m.lastMs.toFixed(0)} ms` : '–'}</td>
@@ -240,7 +258,7 @@ function MonitorDetail({ m }: { m: Monitor }) {
   );
 }
 
-const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'push'];
+const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'push'];
 
 function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monitor | null; monitors: Monitor[]; onClose: () => void; onSaved: () => void }) {
   const t = useT();
@@ -248,6 +266,10 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const [type, setType] = useState<MonitorType>(monitor?.type ?? 'http');
   const [cfg, setCfg] = useState<MonitorConfig>(monitor?.config ?? { certWarn: '14,7' });
   const [parentId, setParentId] = useState<number | null>(monitor?.parentId ?? null);
+  const [tagText, setTagText] = useState((monitor?.config.tags ?? []).join(', '));
+  const [creds, setCreds] = useState<Credential[]>([]);
+  const [newCred, setNewCred] = useState(false);
+  useEffect(() => { if (SERVICE.includes(type)) get<Credential[]>('/api/credentials').then(setCreds).catch(() => {}); }, [type]);
   const [advOpen] = useState(() => { const c = monitor?.config; return !!(c && (c.retries || c.retryInterval || c.resendEvery || c.upsideDown)); });
   const [interval, setInterval] = useState(monitor?.interval ?? 60);
   const [enabled, setEnabled] = useState(monitor?.enabled ?? true);
@@ -258,7 +280,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
   const set = (k: keyof MonitorConfig, v: unknown) => { setTest(null); setCfg((c) => ({ ...c, [k]: v })); };
-  const body = () => ({ name, type, config: cfg, interval, enabled, public: pub, deviceId, parentId });
+  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText) }, interval, enabled, public: pub, deviceId, parentId });
   const num = (k: keyof MonitorConfig, label: string, hint: string, ph = '') => (
     <label className="field" style={{ flex: '1 1 150px' }}>{label}
       <input id={'mon-' + k} type="number" min={0} value={cfg[k] == null ? '' : Number(cfg[k])} placeholder={ph} onChange={(e) => set(k, e.target.value === '' ? undefined : Number(e.target.value))} />
@@ -345,6 +367,38 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             <p className="small muted" style={{ margin: 0 }}>{t('mon.containerIntro')}</p>
           </>
         )}
+        {SERVICE.includes(type) && (
+          <>
+            <div className="row">
+              <div style={{ flex: '2 1 200px' }}>{text('host', t('deviceForm.host'), '192.168.90.94')}</div>
+              <label className="field" style={{ flex: '0 1 110px' }}>{t('deviceForm.port')}
+                <input id="mon-port" type="number" value={cfg.port ?? ''} placeholder={String(type === 'mqtt' && cfg.tls ? 8883 : DEFAULT_PORT[type])} onChange={(e) => set('port', e.target.value ? Number(e.target.value) : undefined)} />
+              </label>
+              {(type === 'postgres' || type === 'mysql') && <div style={{ flex: '1 1 140px' }}>{text('database', t('mon.database'), type === 'postgres' ? 'postgres' : '')}</div>}
+            </div>
+            <div className="row" style={{ alignItems: 'flex-end' }}>
+              <label className="field" style={{ flex: '1 1 220px' }}>{t('mon.login')}
+                <select id="mon-cred" value={cfg.credentialId ?? ''} onChange={(e) => set('credentialId', e.target.value ? Number(e.target.value) : undefined)}>
+                  <option value="">{t('mon.noLogin')}</option>
+                  {creds.filter((c) => c.type === 'password').map((c) => <option key={c.id} value={c.id}>{c.name}{c.username ? ` (${c.username})` : ''}</option>)}
+                </select>
+              </label>
+              <button type="button" className="btn ghost" onClick={() => setNewCred(true)}><IconPlus />{t('mon.newLogin')}</button>
+            </div>
+            {type === 'mqtt' && (
+              <div className="row">
+                <div style={{ flex: '2 1 200px' }}>{text('topic', t('mon.topic'), 'zigbee2mqtt/bridge/state')}</div>
+                <div style={{ flex: '1 1 140px' }}>{text('keyword', t('mon.topicKeyword'), 'online', false)}</div>
+              </div>
+            )}
+            <p className="small muted" style={{ margin: 0 }}>{t('mon.serviceIntro.' + type)}</p>
+            <div className="row">
+              <label className="check"><input id="mon-tls" type="checkbox" checked={!!cfg.tls} onChange={(e) => set('tls', e.target.checked)} />TLS</label>
+              {cfg.tls && type !== 'postgres' && <label className="check"><input type="checkbox" checked={!!cfg.insecure} onChange={(e) => set('insecure', e.target.checked)} />{t('mon.insecure')}</label>}
+            </div>
+            {newCred && <CredentialModal cred={null} types={['password']} defaultName={name} onClose={() => setNewCred(false)} onSaved={(c) => { setNewCred(false); setCreds((l) => [...l, c]); set('credentialId', c.id); }} />}
+          </>
+        )}
         {type === 'push' && <p className="small muted">{t('mon.pushIntro')}</p>}
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <label className="field" style={{ flex: '0 1 160px' }}>{t('deviceForm.interval')}
@@ -357,6 +411,10 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             </select>
           </label>
         </div>
+        <label className="field">{t('mon.tags')}
+          <input id="mon-tags" type="text" value={tagText} placeholder="critical, media" onChange={(e) => setTagText(e.target.value)} />
+          <span className="small muted">{t('mon.tagsHint')}</span>
+        </label>
         <label className="field">{t('mon.area')}
           <select id="mon-area" value={cfg.area ?? ''} onChange={(e) => set('area', e.target.value || undefined)}>
             <option value="">{t('mon.areaAuto')}</option>

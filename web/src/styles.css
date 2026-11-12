@@ -157,6 +157,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .pill.off { background: var(--off-soft); color: var(--off); }
 .pill.accent { background: var(--accent-soft); color: var(--accent); }
 .chip { display: inline-block; font-family: var(--mono); font-size: 12px; background: var(--sunk); border-radius: 5px; padding: 1px 7px; }
+button.chip { border: 1px solid transparent; color: var(--fg); cursor: pointer; }
+.chip.on { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }

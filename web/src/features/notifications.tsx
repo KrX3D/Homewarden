@@ -8,7 +8,7 @@ import { settingsTabs } from '../extensions';
 
 type ChannelType = 'discord' | 'ntfy' | 'telegram' | 'gotify' | 'email' | 'webhook';
 type Config = { url?: string; topic?: string; token?: string; chatId?: string; host?: string; port?: number; username?: string; password?: string; from?: string; to?: string };
-type Channel = { id: number; name: string; type: ChannelType; events: string[]; enabled: boolean; summary: string };
+type Channel = { id: number; name: string; type: ChannelType; events: string[]; tags: string[]; enabled: boolean; summary: string };
 type Data = { channels: Channel[]; settings: { lang: string; baseUrl: string }; events: string[] };
 
 const FIELDS: Record<ChannelType, (keyof Config)[]> = {
@@ -61,7 +61,7 @@ function NotificationsTab() {
                 <button className="btn subtle sm" type="button" aria-label={t('common.edit')} onClick={() => setEditing(c)}><IconEdit /></button>
               </div>
               <span className="small mono muted">{c.summary}</span>
-              <div className="row" style={{ gap: 6 }}>{c.events.map((e) => <span key={e} className="chip">{t('notifyEv.' + e)}</span>)}</div>
+              <div className="row" style={{ gap: 6 }}>{c.events.map((e) => <span key={e} className="chip">{t('notifyEv.' + e)}</span>)}{c.tags.map((x) => <span key={x} className="chip">#{x}</span>)}</div>
             </div>
           ))}
         </div>
@@ -78,9 +78,10 @@ function ChannelModal({ channel, events, onClose, onSaved }: { channel: Channel 
   const [cfg, setCfg] = useState<Config>({});
   const [ev, setEv] = useState<string[]>(channel?.events ?? ['security', 'jobs', 'warnings']);
   const [enabled, setEnabled] = useState(channel?.enabled ?? true);
+  const [tags, setTags] = useState((channel?.tags ?? []).join(', '));
   const [tested, setTested] = useState(false);
   const { busy, error, run } = useAction();
-  const body = () => ({ name, type, config: cfg, events: ev, enabled });
+  const body = () => ({ name, type, config: cfg, events: ev, enabled, tags: tags.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean) });
   const save = (e: FormEvent) => {
     e.preventDefault();
     run(async () => {
@@ -126,6 +127,12 @@ function ChannelModal({ channel, events, onClose, onSaved }: { channel: Channel 
             </label>
           ))}
         </fieldset>
+        {ev.includes('monitors') && (
+          <label className="field">{t('notify.tags')}
+            <input id="ch-tags" type="text" value={tags} placeholder="critical" onChange={(e) => setTags(e.target.value)} />
+            <span className="small muted">{t('notify.tagsHint')}</span>
+          </label>
+        )}
         <label className="check"><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />{t('notify.enabled')}</label>
         {tested && <div className="alert ok">{t('notify.testOk')}</div>}
         <ErrorAlert error={error} />
