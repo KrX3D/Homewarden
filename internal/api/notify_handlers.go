@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"strings"
 
@@ -21,6 +22,91 @@ func (s *Server) AttachNotify(n *notify.Service) {
 	m.Handle("DELETE /api/notify/channels/{id}", s.authed(auth.PermSettingsManage, s.deleteChannel))
 	m.Handle("POST /api/notify/test", s.authed(auth.PermSettingsManage, s.testChannel))
 	m.Handle("PUT /api/devices/{id}/notify", s.authed(auth.PermDevicesManage, s.setDeviceNotify))
+	m.Handle("GET /api/settings/watch", s.authed(auth.PermSettingsManage, s.getWatch))
+	m.Handle("PUT /api/settings/watch", s.authed(auth.PermSettingsManage, s.putWatch))
+	m.Handle("POST /api/settings/watch/ping", s.authed(auth.PermSettingsManage, s.pingHeartbeat))
+}
+
+type watchAgent struct {
+	DeviceID int64  `json:"deviceId"`
+	Name     string `json:"name"`
+	Hostname string `json:"hostname"`
+	Version  string `json:"version"`
+	LastSeen *int64 `json:"lastSeen"`
+	Online   bool   `json:"online"`
+}
+
+func (s *Server) getWatch(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	list, err := s.Store.Agents(ctx)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	agents := []watchAgent{}
+	for _, a := range list {
+		d, err := s.Store.Device(ctx, a.DeviceID)
+		if err != nil {
+			continue
+		}
+		agents = append(agents, watchAgent{a.DeviceID, d.Name, a.Hostname, a.Version, a.LastSeen, s.agents != nil && s.agents.Online(a.DeviceID)})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"heartbeat": notify.LoadHeartbeat(ctx, s.Store), "status": s.notify.Heartbeat(),
+		"agents": notify.LoadAgentWatch(ctx, s.Store), "agentList": agents,
+	})
+}
+
+func (s *Server) putWatch(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Heartbeat notify.Heartbeat  `json:"heartbeat"`
+		Agents    notify.AgentWatch `json:"agents"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	in.Heartbeat.URL = strings.TrimSpace(in.Heartbeat.URL)
+	if in.Heartbeat.URL != "" && !strings.HasPrefix(in.Heartbeat.URL, "http://") && !strings.HasPrefix(in.Heartbeat.URL, "https://") {
+		fail(w, http.StatusBadRequest, "invalid_url")
+		return
+	}
+	in.Heartbeat.Minutes = min(max(in.Heartbeat.Minutes, 1), 60)
+	in.Agents.Minutes = min(max(in.Agents.Minutes, 2), 120)
+	in.Agents.Host = strings.TrimSpace(in.Agents.Host)
+	if in.Agents.Host != "" {
+		if _, port, err := net.SplitHostPort(in.Agents.Host); err != nil || port == "" {
+			fail(w, http.StatusBadRequest, "watch_host")
+			return
+		}
+	}
+	if in.Agents.DeviceIDs == nil {
+		in.Agents.DeviceIDs = []int64{}
+	}
+	if len(in.Agents.DeviceIDs) > 0 && in.Agents.ChannelID == 0 {
+		fail(w, http.StatusBadRequest, "watch_channel")
+		return
+	}
+	hb, _ := json.Marshal(in.Heartbeat)
+	ag, _ := json.Marshal(in.Agents)
+	if err := s.Store.SetSetting(r.Context(), "watch.heartbeat", string(hb)); err != nil {
+		internal(w, err)
+		return
+	}
+	if err := s.Store.SetSetting(r.Context(), "watch.agents", string(ag)); err != nil {
+		internal(w, err)
+		return
+	}
+	s.getWatch(w, r)
+}
+
+func (s *Server) pingHeartbeat(w http.ResponseWriter, r *http.Request) {
+	h := notify.LoadHeartbeat(r.Context(), s.Store)
+	if h.URL == "" {
+		fail(w, http.StatusBadRequest, "invalid_url")
+		return
+	}
+	_ = s.notify.PingHeartbeat(r.Context(), h.URL)
+	writeJSON(w, http.StatusOK, s.notify.Heartbeat())
 }
 
 type channelOut struct {

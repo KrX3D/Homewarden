@@ -1,7 +1,7 @@
 // Notification channels and settings (Settings → Notifications).
 import { useEffect, useState, type FormEvent } from 'react';
 import { del, get, post, put } from '../api';
-import { useT } from '../i18n';
+import { formatAgo, useLang, useT } from '../i18n';
 import { ConfirmButton, ErrorAlert, Modal, useAction } from '../components/ui';
 import { IconEdit, IconPlus } from '../components/icons';
 import { settingsTabs } from '../extensions';
@@ -67,7 +67,85 @@ function NotificationsTab() {
         </div>
       )}
       {editing && <ChannelModal channel={editing === 'new' ? null : editing} events={data.events} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      <WatchCard channels={data.channels} />
     </section>
+  );
+}
+
+type WatchData = {
+  heartbeat: { url: string; minutes: number };
+  status: { at: number; error: string };
+  agents: { deviceIds: number[]; channelId: number; minutes: number; host: string };
+  agentList: { deviceId: number; name: string; hostname: string; version: string; lastSeen: number | null; online: boolean }[];
+};
+
+/** Watching Homewarden from outside: a heartbeat URL, and agents that alert on their own. */
+function WatchCard({ channels }: { channels: Channel[] }) {
+  const t = useT();
+  const lang = useLang();
+  const [data, setData] = useState<WatchData | null>(null);
+  const [saved, setSaved] = useState(false);
+  const { busy, error, run } = useAction();
+  useEffect(() => { get<WatchData>('/api/settings/watch').then(setData).catch(() => {}); }, []);
+  if (!data) return null;
+  const hb = data.heartbeat, ag = data.agents;
+  const setHb = (p: Partial<WatchData['heartbeat']>) => { setSaved(false); setData({ ...data, heartbeat: { ...hb, ...p } }); };
+  const setAg = (p: Partial<WatchData['agents']>) => { setSaved(false); setData({ ...data, agents: { ...ag, ...p } }); };
+  const save = () => run(async () => { setData(await put<WatchData>('/api/settings/watch', { heartbeat: hb, agents: ag })); setSaved(true); });
+  return (
+    <form className="card stack" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <h2>{t('watch.title')}</h2>
+      <p className="small muted">{t('watch.intro')}</p>
+
+      <h3>{t('watch.hbTitle')}</h3>
+      <p className="small muted" style={{ margin: 0 }}>{t('watch.hbIntro')}</p>
+      <div className="row" style={{ alignItems: 'flex-end' }}>
+        <label className="field" style={{ flex: '1 1 320px' }}>{t('watch.hbUrl')}
+          <input id="watch-hb-url" type="url" className="mono" value={hb.url} placeholder="https://hc-ping.com/…" onChange={(e) => setHb({ url: e.target.value })} />
+        </label>
+        <label className="field" style={{ flex: '0 1 140px' }}>{t('watch.every')}
+          <input id="watch-hb-min" type="number" min={1} max={60} value={hb.minutes} onChange={(e) => setHb({ minutes: Number(e.target.value) })} />
+        </label>
+        <button className="btn ghost" type="button" disabled={busy || !hb.url} onClick={() => run(async () => { await put('/api/settings/watch', { heartbeat: hb, agents: ag }); const st = await post<WatchData['status']>('/api/settings/watch/ping'); setData({ ...data, status: st }); })}>{t('watch.pingNow')}</button>
+      </div>
+      {data.status.at > 0 && (
+        <span className={'small' + (data.status.error ? '' : ' muted')} style={data.status.error ? { color: 'var(--crit)' } : undefined}>
+          {data.status.error ? t('watch.hbFailed', { ago: formatAgo(lang, data.status.at), err: data.status.error }) : t('watch.hbOk', { ago: formatAgo(lang, data.status.at) })}
+        </span>
+      )}
+
+      <h3>{t('watch.agentTitle')}</h3>
+      <p className="small muted" style={{ margin: 0 }}>{t('watch.agentIntro')}</p>
+      {data.agentList.length === 0 ? <p className="small muted">{t('watch.noAgents')}</p> : (
+        <div className="stack" style={{ gap: 6 }}>
+          {data.agentList.map((a) => (
+            <label className="check" key={a.deviceId}>
+              <input type="checkbox" checked={ag.deviceIds.includes(a.deviceId)} onChange={(e) => setAg({ deviceIds: e.target.checked ? [...ag.deviceIds, a.deviceId] : ag.deviceIds.filter((x) => x !== a.deviceId) })} />
+              <span>{a.name} <span className="muted small">· {a.hostname} · {a.online ? t('watch.online') : t('watch.offline')}{a.version ? ' · ' + a.version : ''}</span></span>
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="row" style={{ alignItems: 'flex-start' }}>
+        <label className="field" style={{ flex: '1 1 180px' }}>{t('watch.channel')}
+          <select id="watch-channel" value={ag.channelId || ''} onChange={(e) => setAg({ channelId: Number(e.target.value) || 0 })}>
+            <option value="">–</option>
+            {channels.filter((c) => c.type !== 'email').map((c) => <option key={c.id} value={c.id}>{c.name} ({t('notifyType.' + c.type)})</option>)}
+          </select>
+          <span className="small muted">{t('watch.channelHint')}</span>
+        </label>
+        <label className="field" style={{ flex: '0 1 150px' }}>{t('watch.after')}
+          <input id="watch-minutes" type="number" min={2} max={120} value={ag.minutes} onChange={(e) => setAg({ minutes: Number(e.target.value) })} />
+        </label>
+        <label className="field" style={{ flex: '1 1 200px' }}>{t('watch.host')}
+          <input id="watch-host" type="text" className="mono" value={ag.host} placeholder="192.168.90.114:445" onChange={(e) => setAg({ host: e.target.value })} />
+          <span className="small muted">{t('watch.hostHint')}</span>
+        </label>
+      </div>
+      {saved && <div className="alert ok">{t('conn.saved')}</div>}
+      <ErrorAlert error={error} />
+      <div><button className="btn" type="submit" disabled={busy}>{t('common.save')}</button></div>
+    </form>
   );
 }
 

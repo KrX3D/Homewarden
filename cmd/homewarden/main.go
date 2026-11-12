@@ -101,6 +101,7 @@ func main() {
 
 	notifier := &notify.Service{St: st, Vault: v, Events: broker}
 	go notifier.Run(ctx)
+	go notifier.HeartbeatLoop(ctx)
 	srv.AttachNotify(notifier)
 
 	monRunner := monitor.NewRunner(st, broker)

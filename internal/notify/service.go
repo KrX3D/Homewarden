@@ -35,6 +35,7 @@ type Service struct {
 
 	mu      sync.Mutex
 	offline map[int64]*time.Timer
+	hb      HeartbeatStatus
 }
 
 // Settings are global notification settings.

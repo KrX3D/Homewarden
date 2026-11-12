@@ -209,7 +209,15 @@ func (s *Server) agentPoll(w http.ResponseWriter, r *http.Request) {
 	if cmds == nil {
 		cmds = []agent.Command{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"commands": cmds})
+	out := map[string]any{"commands": cmds}
+	// A watching agent gets its alert channel with every answer, so it still has it
+	// when Homewarden goes away.
+	if s.notify != nil {
+		if wc := s.notify.WatchFor(r.Context(), a.DeviceID); wc != nil {
+			out["watch"] = wc
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) agentResult(w http.ResponseWriter, r *http.Request) {

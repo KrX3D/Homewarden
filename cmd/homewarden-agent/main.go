@@ -32,6 +32,8 @@ type config struct {
 	Key      string `json:"key"`
 	DeviceID int64  `json:"deviceId"`
 	Insecure bool   `json:"insecure,omitempty"`
+	// Watch: alert through this channel when Homewarden is unreachable (see watch.go).
+	Watch *watchConfig `json:"watch,omitempty"`
 }
 
 func defaultConfigPath() string {
@@ -200,10 +202,12 @@ func main() {
 	pollClient := newClient(cfg.Insecure, 60*time.Second)
 	sem := make(chan struct{}, 4)
 	backoff := time.Second
+	watch := &watcher{cfgPath: *cfgPath, cfg: &cfg, lastOK: time.Now()}
 	log.Printf("homewarden-agent %s connected to %s", version, cfg.Server)
 	for {
 		var resp struct {
-			Commands []command `json:"commands"`
+			Commands []command    `json:"commands"`
+			Watch    *watchConfig `json:"watch"`
 		}
 		err := post(pollClient, cfg.Server+"/api/agent/poll", cfg.Key, me(), &resp)
 		if errors.Is(err, errUnauthorized) {
@@ -211,11 +215,14 @@ func main() {
 		}
 		if err != nil {
 			log.Printf("poll: %v (retrying in %s)", err, backoff)
+			watch.failed()
 			time.Sleep(backoff)
 			backoff = min(backoff*2, time.Minute)
 			continue
 		}
 		backoff = time.Second
+		watch.ok()
+		watch.update(resp.Watch)
 		for _, c := range resp.Commands {
 			sem <- struct{}{}
 			go func(c command) {
