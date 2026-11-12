@@ -229,8 +229,18 @@ decision is made or changed, update it in the same PR.
 ### UI
 
 - Device view default: card grid (A), switchable to fleet table (B) and host tree (C)
-  via small icons top right. Remembered per user. An "Overview" summary page (counts,
-  needs attention, recent jobs) may come later.
+  via small icons top right. Remembered per user.
+- Overview (`/overview`, start page; web/src/features/overview.tsx, data from
+  `GET /api/overview` in internal/api/overview.go): problems (down monitors, devices
+  offline past their offline alert, fact warnings, resource warnings, failed scans,
+  newest failed update/backup job of the last 24 h), "waiting for you" (updates, inbox,
+  integration updates, restart needed, certificates within 30 days), today tiles, areas
+  (servers/network/storage/apps from the device kind, or monitor config `area`) with
+  the last 30 results, and a 7-day timeline (monitor outages from results, update and
+  backup jobs). Offline devices without an offline alert count as "only sometimes on".
+- Colour palettes: user pref `palette` violet (default, near-black, accent #7170ff) or
+  classic (slate/cobalt). `data-palette` on <html>, set before first paint from
+  localStorage `hw.palette`; tokens in styles.css.
 - Icon: "Pulse house" variant 6 "Chimney" (house with chimney and a heartbeat line).
   `assets/mark.svg` is the line mark (currentColor), `assets/icon.svg`/`icon.png` the
   app icon (white mark on accent #2f56c9, rounded square). Unraid template points at
@@ -448,7 +458,16 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   `certDays` still marks the monitor down). `parent_id` (migration 15): while the parent
   is down (or already failing) a child gets status `dependency`, is not checked, stores
   no result and sends nothing. Container monitors without endpoint/name take them from
-  the device (a docker device, or a container device below one: its external id). Maintenance windows (global or per device) mute monitor and
+  the device (a docker device, or a container device below one: its external id).
+- Service monitors (internal/monitor/services.go): `mqtt` (connect; with `topic` wait
+  for a message that contains `keyword`), `postgres`/`mysql` (SELECT 1), `redis` (AUTH +
+  PING over RESP). Login = password credential `credentialId`, decrypted by
+  `Runner.Creds` (set in main), never stored in the monitor; monitors count in the
+  credential's "used by". `TestServiceChecks` runs against real containers when
+  HW_SERVICES_HOST is set.
+- Monitor `tags` (config); notification channels have `tags` (migration 16): when set,
+  monitor events reach the channel only for monitors with one of them
+  (`DispatchTagged`); other events ignore tags. Maintenance windows (global or per device) mute monitor and
   offline notifications. Public status page `/status` (SPA route, data from
   `/api/public/status`: names, state, bars only) for monitors marked public.
 - Metrics: capability `metrics(ctx, {smart})` returns {cpu, memPct, memUsedMB,

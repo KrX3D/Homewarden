@@ -59,6 +59,18 @@ function AccountTab() {
           />
         </label>
         <label className="field">
+          {t('account.palette')}
+          <Segmented
+            label={t('account.palette')}
+            value={prefs.palette ?? 'violet'}
+            onChange={(v) => setPrefs({ palette: v })}
+            options={[
+              { value: 'violet', label: t('account.paletteViolet') },
+              { value: 'classic', label: t('account.paletteClassic') },
+            ]}
+          />
+        </label>
+        <label className="field">
           {t('account.language')}
           <select id="pref-lang" value={prefs.lang ?? 'auto'} onChange={(e) => setPrefs({ lang: e.target.value as 'auto' | 'en' | 'de' })}>
             <option value="auto">{t('account.langAuto')}</option>

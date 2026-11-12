@@ -4,7 +4,7 @@ import { useSession } from './session';
 import { useT } from './i18n';
 import { post } from './api';
 import { Spinner } from './components/ui';
-import { IconDevices, IconLogout, IconMenu, IconSettings, Logo } from './components/icons';
+import { IconDevices, IconLogout, IconMenu, IconOverview, IconSettings, Logo } from './components/icons';
 import SetupPage from './pages/Setup';
 import LoginPage from './pages/Login';
 import DevicesPage from './pages/Devices';
@@ -12,6 +12,7 @@ import SettingsPage from './pages/Settings';
 import { navItems } from './extensions';
 import { useBadges } from './features/software';
 import { PublicStatus } from './features/monitors';
+import { OverviewPage } from './features/overview';
 
 export type NavItem = { to: string; label: string; icon: ReactNode; perm?: string; badge?: number };
 
@@ -36,6 +37,7 @@ function Shell() {
 
   const badges = useBadges();
   const nav: NavItem[] = [
+    { to: '/overview', label: t('nav.overview'), icon: <IconOverview />, perm: 'devices.view' },
     { to: '/devices', label: t('nav.devices'), icon: <IconDevices />, perm: 'devices.view' },
     ...navItems.map((n) => ({ to: '/' + n.path, label: t(n.labelKey), icon: n.icon, perm: n.perm, badge: badges[n.path] })),
     { to: '/settings', label: t('nav.settings'), icon: <IconSettings /> },
@@ -76,7 +78,8 @@ function Shell() {
         </div>
         <main className="main">
           <Routes>
-            <Route path="/" element={<Navigate to={can('devices.view') ? '/devices' : '/settings'} replace />} />
+            <Route path="/" element={<Navigate to={can('devices.view') ? '/overview' : '/settings'} replace />} />
+            <Route path="/overview" element={<OverviewPage />} />
             <Route path="/devices/*" element={<DevicesPage />} />
             <Route path="/settings/*" element={<SettingsPage />} />
             <Route path="/jobs/*" element={<JobsRedirect />} />

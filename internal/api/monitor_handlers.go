@@ -75,6 +75,10 @@ func (in *monitorIn) validate() string {
 	if in.Interval < 20 {
 		in.Interval = 60
 	}
+	in.Config.Tags = cleanTags(in.Config.Tags)
+	if len(in.Config.Tags) == 0 {
+		in.Config.Tags = nil
+	}
 	c := in.Config
 	switch in.Type {
 	case "http":
@@ -91,6 +95,10 @@ func (in *monitorIn) validate() string {
 		}
 	case "container":
 		if c.Container == "" && in.DeviceID == nil {
+			return "monitor_incomplete"
+		}
+	case "mqtt", "postgres", "mysql", "redis":
+		if c.Host == "" || c.Port < 0 || c.Port > 65535 {
 			return "monitor_incomplete"
 		}
 	case "push":

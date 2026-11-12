@@ -109,6 +109,24 @@ func (s *Store) JobsBefore(ctx context.Context, deviceID, before int64, limit in
 	return out, rows.Err()
 }
 
+// JobsSince returns jobs created since a time, newest first.
+func (s *Store) JobsSince(ctx context.Context, since int64) ([]Job, error) {
+	rows, err := s.DB.QueryContext(ctx, "SELECT "+jobCols+" FROM jobs WHERE created_at >= ? ORDER BY id DESC", since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Job{}
+	for rows.Next() {
+		j, err := scanJob(rows, false)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
 // StartJob marks a job running.
 func (s *Store) StartJob(ctx context.Context, id int64) error {
 	_, err := s.DB.ExecContext(ctx, "UPDATE jobs SET status = ?, started_at = ? WHERE id = ?", JobRunning, now(), id)

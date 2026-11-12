@@ -169,9 +169,24 @@ type channelIn struct {
 	Type    string        `json:"type"`
 	Config  notify.Config `json:"config"`
 	Events  []string      `json:"events"`
+	Tags    []string      `json:"tags"`
 	Enabled bool          `json:"enabled"`
 	// Keep reuses the stored secrets when the form left them empty.
 	Keep bool `json:"keep"`
+}
+
+// cleanTags trims, lowercases and de-duplicates tags.
+func cleanTags(in []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, t := range in {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t != "" && !seen[t] {
+			seen[t] = true
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 func validChannel(in *channelIn) string {
@@ -254,7 +269,7 @@ func (s *Server) saveChannel(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	out, err := s.Store.SaveNotifyChannel(r.Context(), store.NotifyChannel{ID: id, Name: in.Name, Type: in.Type, Config: enc, Events: in.Events, Enabled: in.Enabled})
+	out, err := s.Store.SaveNotifyChannel(r.Context(), store.NotifyChannel{ID: id, Name: in.Name, Type: in.Type, Config: enc, Events: in.Events, Tags: cleanTags(in.Tags), Enabled: in.Enabled})
 	if err != nil {
 		internal(w, err)
 		return
