@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -63,6 +64,12 @@ func (s *Service) text(lang, en, de string) string {
 
 // Dispatch sends a message to every enabled channel subscribed to event.
 func (s *Service) Dispatch(ctx context.Context, event string, m Message) {
+	s.DispatchTagged(ctx, event, m, nil)
+}
+
+// DispatchTagged is Dispatch for a monitor event: a channel limited to tags only gets
+// it when the monitor carries one of them.
+func (s *Service) DispatchTagged(ctx context.Context, event string, m Message, tags []string) {
 	chans, err := s.St.NotifyChannels(ctx)
 	if err != nil {
 		return
@@ -70,6 +77,9 @@ func (s *Service) Dispatch(ctx context.Context, event string, m Message) {
 	m.Event = event
 	for _, c := range chans {
 		if !c.Enabled || !contains(c.Events, event) {
+			continue
+		}
+		if event == EvMonitors && len(c.Tags) > 0 && !slices.ContainsFunc(tags, func(t string) bool { return contains(c.Tags, t) }) {
 			continue
 		}
 		cfg, err := s.DecryptConfig(c)
@@ -352,12 +362,25 @@ func (s *Service) onMonitor(ctx context.Context, id int64, name, status, previou
 		link = strings.TrimRight(set.BaseURL, "/") + "/monitors"
 	}
 	if status == "down" && repeat {
-		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is still down", "%s ist noch immer ausgefallen"), name), Body: msg, Priority: 1, Link: link})
+		s.DispatchTagged(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is still down", "%s ist noch immer ausgefallen"), name), Body: msg, Priority: 1, Link: link}, s.monitorTags(ctx, id))
 	} else if status == "down" {
-		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is down", "%s ist ausgefallen"), name), Body: msg, Priority: 1, Link: link})
+		s.DispatchTagged(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is down", "%s ist ausgefallen"), name), Body: msg, Priority: 1, Link: link}, s.monitorTags(ctx, id))
 	} else if status == "up" && previous == "down" {
-		s.Dispatch(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is up again", "%s ist wieder erreichbar"), name), Body: msg, Link: link})
+		s.DispatchTagged(ctx, EvMonitors, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s is up again", "%s ist wieder erreichbar"), name), Body: msg, Link: link}, s.monitorTags(ctx, id))
 	}
+}
+
+// monitorTags returns a monitor's tags (config.tags).
+func (s *Service) monitorTags(ctx context.Context, id int64) []string {
+	m, err := s.St.Monitor(ctx, id)
+	if err != nil {
+		return nil
+	}
+	var cfg struct {
+		Tags []string `json:"tags"`
+	}
+	_ = json.Unmarshal(m.Config, &cfg)
+	return cfg.Tags
 }
 
 // onCert reports a certificate that expires within a monitor's warning days, once per
@@ -379,7 +402,7 @@ func (s *Service) onCert(ctx context.Context, id int64, name string, expires int
 	} else {
 		title = fmt.Sprintf(s.text(set.Lang, "Certificate of %s expires in %d days", "Zertifikat von %s läuft in %d Tagen ab"), name, days)
 	}
-	s.Dispatch(ctx, EvMonitors, Message{Title: title, Body: end.Format("2006-01-02"), Link: link})
+	s.DispatchTagged(ctx, EvMonitors, Message{Title: title, Body: end.Format("2006-01-02"), Link: link}, s.monitorTags(ctx, id))
 }
 
 // onMetricWarnings reports warnings from resource samples once while they last.

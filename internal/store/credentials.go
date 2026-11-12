@@ -112,12 +112,17 @@ func (s *Store) CredentialUsage(ctx context.Context, id int64) (int, error) {
 	if err != nil {
 		return n, err
 	}
-	// Integration setups count as one user each.
-	var m int
+	// Integration setups count as one user each, monitors too.
+	var m, k int
 	err = s.DB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM settings st WHERE st.key LIKE 'integration.defaults.%' AND json_valid(st.value) AND EXISTS (
 			SELECT 1 FROM json_tree(st.value) WHERE `+match+`)`, args...).Scan(&m)
-	return n + m, err
+	if err != nil {
+		return n, err
+	}
+	err = s.DB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM monitors mo WHERE json_valid(mo.config) AND EXISTS (SELECT 1 FROM json_tree(mo.config) WHERE `+match+`)`, args...).Scan(&k)
+	return n + m + k, err
 }
 
 // KnownHost is a pinned SSH host key.

@@ -104,6 +104,14 @@ func main() {
 	srv.AttachNotify(notifier)
 
 	monRunner := monitor.NewRunner(st, broker)
+	monRunner.Creds = func(ctx context.Context, id int64) (string, string, error) {
+		c, err := st.Credential(ctx, id)
+		if err != nil {
+			return "", "", err
+		}
+		pass, err := v.DecryptString(c.Secret)
+		return c.Username, pass, err
+	}
 	go monRunner.Run(ctx)
 	srv.AttachMonitors(monRunner)
 	srv.AttachOverview()
