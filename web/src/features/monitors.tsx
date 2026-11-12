@@ -357,6 +357,12 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             </select>
           </label>
         </div>
+        <label className="field">{t('mon.area')}
+          <select id="mon-area" value={cfg.area ?? ''} onChange={(e) => set('area', e.target.value || undefined)}>
+            <option value="">{t('mon.areaAuto')}</option>
+            {['servers', 'network', 'storage', 'apps'].map((a) => <option key={a} value={a}>{t('ov.area.' + a)}</option>)}
+          </select>
+        </label>
         <label className="field">{t('mon.parent')}
           <select id="mon-parent" value={parentId ?? ''} onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}>
             <option value="">–</option>

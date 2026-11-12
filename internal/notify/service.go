@@ -149,9 +149,9 @@ func (s *Service) Run(ctx context.Context) {
 				s.onMonitor(ctx, x.ID, mv.Name, mv.Status, mv.Previous, mv.Msg, mv.DeviceID, mv.Repeat)
 			case "monitor.cert":
 				var mv struct {
-					Name     string `json:"name"`
-					Expires  int64  `json:"expires"`
-					Level    int    `json:"level"`
+					Name    string `json:"name"`
+					Expires int64  `json:"expires"`
+					Level   int    `json:"level"`
 				}
 				_ = json.Unmarshal(b, &mv)
 				s.onCert(ctx, x.ID, mv.Name, mv.Expires, mv.Level)

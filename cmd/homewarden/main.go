@@ -106,6 +106,7 @@ func main() {
 	monRunner := monitor.NewRunner(st, broker)
 	go monRunner.Run(ctx)
 	srv.AttachMonitors(monRunner)
+	srv.AttachOverview()
 
 	go engine.Run(ctx)
 

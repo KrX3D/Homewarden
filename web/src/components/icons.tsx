@@ -42,4 +42,5 @@ export const IconBackup = () => (<I><ellipse cx="12" cy="5" rx="8" ry="3" /><pat
 export const IconX = () => (<I><path d="M18 6 6 18M6 6l12 12" /></I>);
 export const IconEye = () => (<I><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></I>);
 export const IconChevron = ({ open }: { open?: boolean }) => (<I style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}><path d="m9 6 6 6-6 6" /></I>);
+export const IconOverview = () => (<I><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></I>);
 export const IconPulse = () => (<I><path d="M3 12h4l3-7 4 14 3-7h4" /></I>);
