@@ -653,7 +653,7 @@
  "status.maintenance": "Maintenance",
  "notifyEv.monitors": "Monitors down / up",
  "notifyEvHint.monitors": "not during maintenance windows",
- "error.monitor_incomplete": "Fill in the target for this monitor type (http:// or https:// URL, host, port).",
+ "error.monitor_incomplete": "Fill in the target for this monitor type (http:// or https:// URL, host, port, or device and folder).",
  "error.invalid_window": "Enter a title and an end after the start.",
  "res.title": "Resources",
  "res.memory": "Memory",
@@ -1025,5 +1025,13 @@
  "palette.open": "Open app",
  "palette.none": "Nothing found",
  "palette.move": "move",
- "palette.go": "open"
+ "palette.go": "open",
+ "monType.backup": "Backup freshness",
+ "monType.parity": "Unraid parity check",
+ "mon.backupPath": "Folder or file on the device",
+ "mon.backupPattern": "File name pattern",
+ "mon.maxAge": "Max age (hours)",
+ "mon.maxAgeHint": "26 = daily, 192 = weekly, 840 = monthly",
+ "mon.backupIntro": "Runs on the device chosen below (SSH or agent, as its login user, read only) and looks for the newest file below the folder, including subfolders. Down when it is older than the max age, the folder is missing or no file matches the pattern (e.g. *.unf, *.tar.gz).",
+ "mon.parityIntro": "Runs on the Unraid device chosen below and reads /boot/config/parity-checks.log. Down when the last finished parity check is older than the max age or found errors. Cancelled checks do not count; a check that is running right now counts as fresh."
 }

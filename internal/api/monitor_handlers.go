@@ -101,6 +101,14 @@ func (in *monitorIn) validate() string {
 		if c.Host == "" || c.Port < 0 || c.Port > 65535 {
 			return "monitor_incomplete"
 		}
+	case "backup":
+		if strings.TrimSpace(c.Path) == "" || in.DeviceID == nil {
+			return "monitor_incomplete"
+		}
+	case "parity":
+		if in.DeviceID == nil {
+			return "monitor_incomplete"
+		}
 	case "push":
 	default:
 		return "bad_request"

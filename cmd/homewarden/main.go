@@ -4,11 +4,13 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -112,6 +114,24 @@ func main() {
 		}
 		pass, err := v.DecryptString(c.Secret)
 		return c.Username, pass, err
+	}
+	monRunner.Exec = func(ctx context.Context, deviceID int64, cmd string, timeout time.Duration) (string, error) {
+		d, err := st.Device(ctx, deviceID)
+		if err != nil {
+			return "", err
+		}
+		res, err := connSvc.Exec(ctx, d, cmd, false, timeout)
+		if err != nil {
+			return "", err
+		}
+		if res.ExitCode != 0 {
+			msg := strings.TrimSpace(res.Stderr)
+			if msg == "" {
+				msg = fmt.Sprintf("exit code %d", res.ExitCode)
+			}
+			return "", errors.New(msg)
+		}
+		return res.Stdout, nil
 	}
 	go monRunner.Run(ctx)
 	srv.AttachMonitors(monRunner)

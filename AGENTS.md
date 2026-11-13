@@ -492,6 +492,13 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   `Runner.Creds` (set in main), never stored in the monitor; monitors count in the
   credential's "used by". `TestServiceChecks` runs against real containers when
   HW_SERVICES_HOST is set.
+- Freshness monitors (internal/monitor/freshness.go), run through `Runner.Exec` (main:
+  `conn.Service.Exec` on the monitor's device, SSH or agent, unprivileged, Linux shell
+  only): `backup` {path, pattern, maxAgeHours (26)} = newest file below path (find +
+  stat + awk, recursive) younger than max age; `parity` {maxAgeHours (840)} = last
+  finished `check` row of Unraid's /boot/config/parity-checks.log (exit 0, cancelled
+  rows skipped, errors > 0 = down; mdResyncPos in /var/local/emhttp/var.ini > 0 =
+  running = up). Ages use the device's clock (`date +%s`). Device is required.
 - Monitor `tags` (config); notification channels have `tags` (migration 16): when set,
   monitor events reach the channel only for monitors with one of them
   (`DispatchTagged`); other events ignore tags. Maintenance windows (global or per device) mute monitor and

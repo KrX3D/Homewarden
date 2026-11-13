@@ -42,6 +42,8 @@ function target(m: Monitor) {
     case 'container': return c.container ? `container ${c.container}` : 'container';
     case 'mqtt': return `mqtt${c.tls ? 's' : ''}://${c.host}:${c.port || (c.tls ? 8883 : 1883)}${c.topic ? ' ' + c.topic : ''}`;
     case 'postgres': case 'mysql': case 'redis': return `${m.type}://${c.host}:${c.port || DEFAULT_PORT[m.type]}${c.database ? '/' + c.database : ''}`;
+    case 'backup': return `${c.path ?? ''}${c.pattern ? '/' + c.pattern : ''}`;
+    case 'parity': return 'parity-checks.log';
     case 'push': return 'push';
   }
 }
@@ -258,7 +260,9 @@ function MonitorDetail({ m }: { m: Monitor }) {
   );
 }
 
-const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'push'];
+const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'push'];
+const REMOTE: MonitorType[] = ['backup', 'parity'];
+const MAX_AGE: Record<string, number> = { backup: 26, parity: 840 };
 
 function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monitor | null; monitors: Monitor[]; onClose: () => void; onSaved: () => void }) {
   const t = useT();
@@ -316,7 +320,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             <input id="mon-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Gitea" />
           </label>
           <label className="field" style={{ flex: '1 1 120px' }}>{t('cred.type')}
-            <select id="mon-type" value={type} onChange={(e) => { setType(e.target.value as MonitorType); setTest(null); }} disabled={!!monitor}>
+            <select id="mon-type" value={type} onChange={(e) => { const v = e.target.value as MonitorType; setType(v); setTest(null); if (!monitor && REMOTE.includes(v) && interval === 60) setInterval(3600); }} disabled={!!monitor}>
               {TYPES.map((x) => <option key={x} value={x}>{t('monType.' + x)}</option>)}
             </select>
           </label>
@@ -399,13 +403,27 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             {newCred && <CredentialModal cred={null} types={['password']} defaultName={name} onClose={() => setNewCred(false)} onSaved={(c) => { setNewCred(false); setCreds((l) => [...l, c]); set('credentialId', c.id); }} />}
           </>
         )}
+        {type === 'backup' && (
+          <div className="row">
+            <div style={{ flex: '2 1 220px' }}>{text('path', t('mon.backupPath'), '/mnt/user/backups/unifi')}</div>
+            <div style={{ flex: '1 1 120px' }}>{text('pattern', t('mon.backupPattern'), '*.unf')}</div>
+          </div>
+        )}
+        {REMOTE.includes(type) && (
+          <>
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+              {num('maxAgeHours', t('mon.maxAge'), t('mon.maxAgeHint'), String(MAX_AGE[type]))}
+            </div>
+            <p className="small muted" style={{ margin: 0 }}>{t('mon.' + type + 'Intro')}</p>
+          </>
+        )}
         {type === 'push' && <p className="small muted">{t('mon.pushIntro')}</p>}
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <label className="field" style={{ flex: '0 1 160px' }}>{t('deviceForm.interval')}
             <input type="number" min={20} value={interval} onChange={(e) => setInterval(Number(e.target.value))} />
           </label>
-          <label className="field" style={{ flex: '1 1 200px' }}>{t('mon.device')}
-            <select value={deviceId ?? ''} onChange={(e) => setDeviceId(e.target.value ? Number(e.target.value) : null)}>
+          <label className="field" style={{ flex: '1 1 200px' }}>{t('mon.device')}{REMOTE.includes(type) && ' *'}
+            <select id="mon-device" value={deviceId ?? ''} required={REMOTE.includes(type)} onChange={(e) => setDeviceId(e.target.value ? Number(e.target.value) : null)}>
               <option value="">–</option>
               {devices.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>

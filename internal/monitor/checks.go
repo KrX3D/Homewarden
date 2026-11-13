@@ -1,6 +1,6 @@
 // Package monitor runs uptime checks: HTTP (status, keyword, JSON value, certificate
-// expiry), TCP, ping, DNS, Docker container state, MQTT, PostgreSQL, MySQL, Redis and
-// push heartbeats.
+// expiry), TCP, ping, DNS, Docker container state, MQTT, PostgreSQL, MySQL, Redis,
+// backup/parity freshness and push heartbeats.
 package monitor
 
 import (
@@ -51,6 +51,12 @@ type Config struct {
 	Topic        string `json:"topic,omitempty"` // MQTT: wait for a message here (Keyword applies)
 	TLS          bool   `json:"tls,omitempty"`
 	user, pass   string // filled from the credential by the runner, never stored
+
+	// Backup / parity freshness (run on the monitor's device): folder or file, file
+	// name pattern (find -name), max age in hours (0 = 26 for backup, 840 for parity).
+	Path        string `json:"path,omitempty"`
+	Pattern     string `json:"pattern,omitempty"`
+	MaxAgeHours int    `json:"maxAgeHours,omitempty"`
 
 	// Tags group monitors; notification channels can be limited to tags.
 	Tags []string `json:"tags,omitempty"`

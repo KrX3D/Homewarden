@@ -138,11 +138,12 @@ export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: nu
 export type AgentStatus = { enrolled: boolean; online: boolean; pendingEnrollment?: boolean;
   agent?: { hostname: string; os: string; arch: string; version: string; lastSeen: number | null } };
 
-export type MonitorType = 'http' | 'tcp' | 'ping' | 'dns' | 'container' | 'mqtt' | 'postgres' | 'mysql' | 'redis' | 'push';
+export type MonitorType = 'http' | 'tcp' | 'ping' | 'dns' | 'container' | 'mqtt' | 'postgres' | 'mysql' | 'redis' | 'backup' | 'parity' | 'push';
 export type MonitorConfig = { url?: string; method?: string; expectStatus?: string; keyword?: string; invertKeyword?: boolean; jsonPath?: string; jsonExpect?: string;
   insecure?: boolean; certDays?: number; host?: string; port?: number; record?: string; server?: string; expect?: string; timeout?: number;
   container?: string; endpoint?: string; retries?: number; retryInterval?: number; resendEvery?: number; upsideDown?: boolean; certWarn?: string; area?: string;
-  credentialId?: number; database?: string; topic?: string; tls?: boolean; tags?: string[] };
+  credentialId?: number; database?: string; topic?: string; tls?: boolean; tags?: string[];
+  path?: string; pattern?: string; maxAgeHours?: number };
 export type Monitor = { id: number; name: string; type: MonitorType; config: MonitorConfig; deviceId: number | null; parentId: number | null; interval: number; enabled: boolean; public: boolean;
   pushToken?: string; status: 'up' | 'down' | 'dependency' | 'unknown'; statusSince: number | null; lastCheck: number | null; lastMs: number | null; lastMsg: string;
   certExpires: number | null; uptime24h: number; uptime30d: number };
