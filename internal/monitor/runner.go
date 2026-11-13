@@ -18,6 +18,9 @@ type Runner struct {
 	Events *events.Broker
 	// Creds returns user and password of a password credential (set by main).
 	Creds func(ctx context.Context, id int64) (user, pass string, err error)
+	// Exec runs a shell command on a device over SSH or its agent (set by main); the
+	// error carries stderr when the command fails.
+	Exec func(ctx context.Context, deviceID int64, cmd string, timeout time.Duration) (string, error)
 
 	mu    sync.Mutex
 	state map[int64]*track
@@ -146,7 +149,12 @@ func (r *Runner) check(ctx context.Context, m store.Monitor, t *track, parent *s
 // upside down applied), without storing anything.
 func (r *Runner) Test(ctx context.Context, typ string, cfg Config, deviceID *int64) Result {
 	r.resolve(ctx, typ, &cfg, deviceID)
-	res := Check(ctx, typ, cfg)
+	var res Result
+	if RemoteType(typ) {
+		res = r.freshness(ctx, typ, cfg, deviceID)
+	} else {
+		res = Check(ctx, typ, cfg)
+	}
 	if cfg.UpsideDown {
 		if res.OK {
 			res.OK, res.Msg = false, "reachable: "+res.Msg
@@ -155,6 +163,25 @@ func (r *Runner) Test(ctx context.Context, typ string, cfg Config, deviceID *int
 		}
 	}
 	return res
+}
+
+// freshness runs a backup/parity check on the monitor's device.
+func (r *Runner) freshness(ctx context.Context, typ string, cfg Config, deviceID *int64) Result {
+	if deviceID == nil {
+		return Result{Msg: "no device set"}
+	}
+	if r.Exec == nil {
+		return Result{Msg: "remote commands are not available"}
+	}
+	to := time.Duration(cfg.Timeout) * time.Second
+	if cfg.Timeout <= 0 {
+		to = 60 * time.Second // find over a large backup tree takes a while
+	}
+	ctx, cancel := context.WithTimeout(ctx, to+5*time.Second)
+	defer cancel()
+	return checkFreshness(ctx, typ, cfg, func(ctx context.Context, cmd string) (string, error) {
+		return r.Exec(ctx, *deviceID, cmd, to)
+	})
 }
 
 // resolve fills a container monitor's endpoint and name from its device: a Docker host

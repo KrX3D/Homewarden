@@ -653,7 +653,7 @@
  "status.maintenance": "Wartung",
  "notifyEv.monitors": "Monitor aus- / wieder erreichbar",
  "notifyEvHint.monitors": "nicht während Wartungsfenstern",
- "error.monitor_incomplete": "Gib das Ziel für diesen Monitortyp an (URL mit http:// oder https://, Host, Port).",
+ "error.monitor_incomplete": "Gib das Ziel für diesen Monitortyp an (URL mit http:// oder https://, Host, Port oder Gerät und Ordner).",
  "error.invalid_window": "Gib einen Titel und ein Ende nach dem Beginn an.",
  "res.title": "Ressourcen",
  "res.memory": "Arbeitsspeicher",
@@ -1025,5 +1025,13 @@
  "palette.open": "App öffnen",
  "palette.none": "Nichts gefunden",
  "palette.move": "wählen",
- "palette.go": "öffnen"
+ "palette.go": "öffnen",
+ "monType.backup": "Backup-Aktualität",
+ "monType.parity": "Unraid-Paritätsprüfung",
+ "mon.backupPath": "Ordner oder Datei auf dem Gerät",
+ "mon.backupPattern": "Dateinamen-Muster",
+ "mon.maxAge": "Maximales Alter (Stunden)",
+ "mon.maxAgeHint": "26 = täglich, 192 = wöchentlich, 840 = monatlich",
+ "mon.backupIntro": "Läuft auf dem unten gewählten Gerät (SSH oder Agent, als dessen Login-Benutzer, nur lesend) und sucht die neueste Datei im Ordner, Unterordner eingeschlossen. Ausgefallen, wenn sie älter als das maximale Alter ist, der Ordner fehlt oder keine Datei zum Muster passt (z. B. *.unf, *.tar.gz).",
+ "mon.parityIntro": "Läuft auf dem unten gewählten Unraid-Gerät und liest /boot/config/parity-checks.log. Ausgefallen, wenn die letzte abgeschlossene Paritätsprüfung älter als das maximale Alter ist oder Fehler gefunden hat. Abgebrochene Prüfungen zählen nicht; eine gerade laufende Prüfung gilt als aktuell."
 }
