@@ -113,6 +113,10 @@ func (in *monitorIn) validate() string {
 		if in.DeviceID == nil || len(in.Config.Entities) == 0 {
 			return "monitor_incomplete"
 		}
+	case "haregistry":
+		if in.DeviceID == nil || in.Config.MaxRatio < 0 || in.Config.MinDevices < 0 {
+			return "monitor_incomplete"
+		}
 	case "push":
 	default:
 		return "bad_request"

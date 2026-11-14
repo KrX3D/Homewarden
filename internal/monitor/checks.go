@@ -65,6 +65,13 @@ type Config struct {
 	UnavailableMinutes int      `json:"unavailableMinutes,omitempty"`
 	CountUnknown       bool     `json:"countUnknown,omitempty"`
 
+	// Home Assistant registry (type haregistry): down when an integration with at
+	// least MinDevices (0 = 25) registry devices has more than MaxRatio (0 = 3) devices
+	// per loaded entity. IgnoreIntegrations lists domains to skip.
+	MaxRatio           float64  `json:"maxRatio,omitempty"`
+	MinDevices         int      `json:"minDevices,omitempty"`
+	IgnoreIntegrations []string `json:"ignoreIntegrations,omitempty"`
+
 	// Tags group monitors; notification channels can be limited to tags.
 	Tags []string `json:"tags,omitempty"`
 
