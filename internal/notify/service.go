@@ -228,8 +228,9 @@ func (s *Service) onSoftware(ctx context.Context, deviceID int64) {
 		return
 	}
 	var facts struct {
-		Warnings  []string `json:"warnings"`
-		EOLPassed bool     `json:"eolPassed"`
+		Warnings  []string          `json:"warnings"`
+		Details   map[string]string `json:"warningDetails"`
+		EOLPassed bool              `json:"eolPassed"`
 	}
 	_ = json.Unmarshal(f.Facts, &facts)
 	if facts.EOLPassed {
@@ -240,14 +241,23 @@ func (s *Service) onSoftware(ctx context.Context, deviceID int64) {
 		present[w] = true
 		if ok, _ := s.St.MarkSent(ctx, fmt.Sprintf("warn:%d:%s:", deviceID, w)); ok {
 			s.Dispatch(ctx, EvWarnings, Message{Title: fmt.Sprintf(s.text(set.Lang, "%s: warning", "%s: Warnung"), d.Name),
-				Body: warningText(set.Lang, w), Priority: 1, Link: s.link(set, d.ID)})
+				Body: withDetail(warningText(set.Lang, w), facts.Details[w]), Priority: 1, Link: s.link(set, d.ID)})
 		}
 	}
-	for _, w := range []string{"undervoltage", "disk_problems", "datastore_full", "backup_old", "backup_errors", "unifi_offline", "eol"} {
+	for _, w := range []string{"undervoltage", "disk_problems", "datastore_full", "backup_old", "backup_errors", "unifi_offline", "eol",
+		"public_flash", "public_shares", "smb1_on", "upnp_on", "autostart_off", "no_healthcheck", "latest_tag", "stale_share_cfg"} {
 		if !present[w] {
 			_ = s.St.ClearSent(ctx, fmt.Sprintf("warn:%d:%s:", deviceID, w))
 		}
 	}
+}
+
+// withDetail appends what a warning is about (facts.warningDetails), e.g. share names.
+func withDetail(text, detail string) string {
+	if detail == "" {
+		return text
+	}
+	return text + "\n" + detail
 }
 
 func warningText(lang, w string) string {
@@ -258,6 +268,10 @@ func warningText(lang, w string) string {
 		"eol":       "The operating system no longer receives updates.",
 		"disk_full": "A file system is more than 90% full.", "hot": "A temperature sensor reports 80 °C or more.",
 		"smart_failing": "A disk's SMART self-assessment failed. Replace it soon.",
+		"public_flash":  "The Unraid flash share is Public.", "public_shares": "Unraid shares are exported as Public.",
+		"smb1_on": "NetBIOS/SMB1 is on.", "upnp_on": "UPnP is on.",
+		"autostart_off": "Running containers have autostart off.", "no_healthcheck": "Running containers have no healthcheck.",
+		"latest_tag": "Containers with data run a ':latest' image.", "stale_share_cfg": "Leftover share .cfg files on the flash.",
 	}
 	de := map[string]string{
 		"undervoltage": "Der Pi hat Unterspannung gemeldet.", "disk_problems": "Eine Platte meldet Fehler, ist deaktiviert oder zu heiß.",
@@ -266,6 +280,10 @@ func warningText(lang, w string) string {
 		"eol":       "Das Betriebssystem bekommt keine Updates mehr.",
 		"disk_full": "Ein Dateisystem ist zu mehr als 90 % voll.", "hot": "Ein Temperatursensor meldet 80 °C oder mehr.",
 		"smart_failing": "Die SMART-Selbstbewertung einer Platte ist fehlgeschlagen. Bald ersetzen.",
+		"public_flash":  "Die Unraid-Flash-Freigabe ist Öffentlich.", "public_shares": "Unraid-Freigaben sind Öffentlich.",
+		"smb1_on": "NetBIOS/SMB1 ist an.", "upnp_on": "UPnP ist an.",
+		"autostart_off": "Laufende Container haben keinen Autostart.", "no_healthcheck": "Laufende Container haben keinen Healthcheck.",
+		"latest_tag": "Container mit Daten laufen mit einem ':latest'-Image.", "stale_share_cfg": "Übrige Freigabe-.cfg-Dateien auf dem Flash.",
 	}
 	m := en
 	if lang == "de" {

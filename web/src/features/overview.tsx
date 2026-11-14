@@ -144,6 +144,7 @@ function Problems({ list }: { list: Problem[] }) {
             <span className="ov-prob-t">{p.name}</span>
             <span className="ov-prob-sub">{t('ov.kind.' + p.kind)} · {t('ov.area.' + p.area)}{p.since ? ' · ' + t('ov.since', { ago: formatAgo(lang, p.since) }) : ''}</span>
             {(p.code || p.why) && <span className={p.code ? 'ov-prob-text' : 'ov-prob-why'}>{problemText(t, p)}</span>}
+            {p.code && p.why && <span className="ov-prob-why">{p.why}</span>}
           </span>
           <span className="ov-go">{t('ov.open')} ↗</span>
         </Link>

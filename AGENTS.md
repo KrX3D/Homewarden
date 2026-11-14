@@ -387,6 +387,16 @@ fakes (proxmox, proxmox-backup, unraid). Bump to 1.0.0 once confirmed on real sy
   5.1 built-in modules).
 - Unraid: SSH as root; plugins via `/usr/local/sbin/plugin check|update <file>.plg`;
   OS is notify-only (`warning: self`); busy during parity check/rebuild and mover.
+- Unraid drift checks (0.11.0, setting `driftChecks`, default on): each detect runs one
+  read-only shell (`DRIFT_SH`) and parses it in `driftFindings` (pure, tested in
+  unraid_test.go). Warnings: public_flash, public_shares (SMB exported + public),
+  smb1_on (USE_NETBIOS), upnp_on, autostart_off / no_healthcheck (running containers,
+  `/var/lib/docker/unraid-autostart`, `.State.Health`), latest_tag (':latest'/untagged
+  image with an appdata bind or a volume), stale_share_cfg (cfg without /mnt/user/<name>,
+  only while /mnt/user is mounted). `driftIgnore`: "name" or "name:check"
+  (public, cfg, autostart, healthcheck, latest; flash:public). Names go to
+  `facts.warningDetails[code]`, shown under the warning on the device card, as `why` on
+  the Overview problem and in the notification body. Not yet run on the real server.
 - `ssh.exec` with `sudo: true` adds no sudo when the SSH user is root. The sudo prefix
   only covers the first command of a compound shell line, so scripts that may run as
   non-root must keep privileged calls to single commands.

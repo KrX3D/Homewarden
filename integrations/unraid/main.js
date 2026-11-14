@@ -100,9 +100,114 @@ function detect(ctx) {
   }
   var df = sh(ctx, "df -P /mnt/user 2>/dev/null | tail -1 | awk '{print $5}'").stdout.trim();
   if (df) facts.arrayUsed = df;
+  if (setting(ctx, 'driftChecks', true)) {
+    try {
+      var dr = driftFindings(ctx, { raw: sh(ctx, DRIFT_SH, 90).stdout, ignore: setting(ctx, 'driftIgnore', '') });
+      warnings = warnings.concat(dr.warnings);
+      if (dr.warnings.length) {
+        facts.warningDetails = dr.details;
+        ctx.log('Config drift: ' + dr.warnings.map(function (w) { return w + ' (' + dr.details[w] + ')'; }).join('; '));
+      }
+    } catch (e) {
+      ctx.log('Config drift checks failed: ' + e);
+    }
+  }
   if (warnings.length) facts.warnings = warnings;
   ctx.log('Unraid ' + version + ', ' + plgs.length + ' plugins, array ' + facts.array + '.');
   return { facts: facts, components: comps };
+}
+
+// ---- config drift (read only)
+//
+// Settings that should stay off once fixed: public flash or shares, SMB1/NetBIOS,
+// UPnP, running containers without autostart or healthcheck, ':latest' on containers
+// that keep data in appdata or a volume, and share .cfg files without a share.
+// One shell run collects everything; driftFindings() only parses, so it is testable.
+
+var DRIFT_SH = [
+  'echo @@flash; cat /boot/config/flash.cfg 2>/dev/null',
+  'echo @@ident; cat /boot/config/ident.cfg 2>/dev/null',
+  'echo @@user; mountpoint -q /mnt/user 2>/dev/null && echo mounted',
+  'echo @@shares; for f in /boot/config/shares/*.cfg; do [ -f "$f" ] || continue; n=${f##*/}; n=${n%.cfg}; d=0; [ -d "/mnt/user/$n" ] && d=1; ' +
+    'ex=$(grep "^shareExport=" "$f" | cut -d\\" -f2); se=$(grep "^shareSecurity=" "$f" | cut -d\\" -f2); echo "$n|$d|$ex|$se"; done',
+  'echo @@autostart; cat /var/lib/docker/unraid-autostart 2>/dev/null',
+  "echo @@docker; ids=$(docker ps -q 2>/dev/null); [ -z \"$ids\" ] || docker inspect --format '{{.Name}}|{{.Config.Image}}|{{if .State.Health}}1{{else}}0{{end}}|{{range .Mounts}}{{.Type}}={{.Source}};{{end}}' $ids 2>/dev/null",
+  'true'
+].join('; ');
+
+// "name" skips every check for that container/share, "name:check" only one
+// (checks: public, cfg, autostart, healthcheck, latest; "flash:public" for the flash).
+function parseIgnore(text) {
+  var m = {};
+  String(text || '').split(/[,\n]/).forEach(function (s) {
+    s = s.trim().toLowerCase();
+    if (!s) return;
+    var i = s.lastIndexOf(':');
+    var name = i > 0 ? s.slice(0, i).trim() : s, check = i > 0 ? s.slice(i + 1).trim() : '*';
+    (m[name] = m[name] || {})[check] = true;
+  });
+  return m;
+}
+
+// Tag of an image reference; digests count as pinned.
+function imageTag(image) {
+  if (image.indexOf('@') >= 0) return '';
+  var last = image.split('/').pop();
+  var i = last.indexOf(':');
+  return i < 0 ? 'latest' : last.slice(i + 1);
+}
+
+function driftFindings(ctx, input) {
+  var sec = {}, cur = null;
+  String(input.raw || '').split('\n').forEach(function (l) {
+    var h = /^@@(\w+)$/.exec(l.trim());
+    if (h) { cur = h[1]; sec[cur] = []; return; }
+    if (cur && l.trim()) sec[cur].push(l.replace(/\r$/, ''));
+  });
+  var ign = parseIgnore(input.ignore);
+  var skip = function (name, check) { var e = ign[String(name).toLowerCase()]; return !!(e && (e['*'] || e[check])); };
+  var found = {};
+  var add = function (code, item) { (found[code] = found[code] || []).push(item); };
+
+  var flash = parseIni((sec.flash || []).join('\n'));
+  if (flash.flashExport && flash.flashExport !== '-' && flash.flashSecurity === 'public' && !skip('flash', 'public')) add('public_flash', 'flash');
+
+  var mounted = (sec.user || []).indexOf('mounted') >= 0;
+  (sec.shares || []).forEach(function (l) {
+    var p = l.split('|');
+    if (p.length < 4 || !p[0]) return;
+    if (p[2] && p[2] !== '-' && p[3] === 'public' && !skip(p[0], 'public')) add('public_shares', p[0]);
+    if (mounted && p[1] === '0' && !skip(p[0], 'cfg')) add('stale_share_cfg', p[0] + '.cfg');
+  });
+
+  var ident = parseIni((sec.ident || []).join('\n'));
+  if (ident.USE_NETBIOS === 'yes') add('smb1_on', 'NetBIOS');
+  if (ident.USE_UPNP === 'yes') add('upnp_on', 'UPnP');
+
+  var auto = {};
+  (sec.autostart || []).forEach(function (l) { auto[l.trim().split(/\s+/)[0]] = true; });
+  (sec.docker || []).forEach(function (l) {
+    var p = l.split('|');
+    if (p.length < 4) return;
+    var name = p[0].replace(/^\//, ''), image = p[1];
+    if (!auto[name] && !skip(name, 'autostart')) add('autostart_off', name);
+    if (p[2] !== '1' && !skip(name, 'healthcheck')) add('no_healthcheck', name);
+    var stateful = p[3].split(';').some(function (m) {
+      return /^volume=/.test(m) || /^bind=.*\/appdata(\/|$)/.test(m);
+    });
+    if (stateful && imageTag(image) === 'latest' && !skip(name, 'latest')) add('latest_tag', name + ' (' + image + ')');
+  });
+
+  var order = ['public_flash', 'public_shares', 'smb1_on', 'upnp_on', 'autostart_off', 'no_healthcheck', 'latest_tag', 'stale_share_cfg'];
+  var out = { warnings: [], details: {} };
+  order.forEach(function (code) {
+    var l = found[code];
+    if (!l) return;
+    l.sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
+    out.warnings.push(code);
+    out.details[code] = l.length > 12 ? l.slice(0, 12).join(', ') + ' +' + (l.length - 12) : l.join(', ');
+  });
+  return out;
 }
 
 function busy(ctx) {

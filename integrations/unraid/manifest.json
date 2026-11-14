@@ -1,14 +1,14 @@
 {
   "id": "unraid",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "minCore": "0.1.0",
   "name": {
     "en": "Unraid",
     "de": "Unraid"
   },
   "description": {
-    "en": "Beta. Unraid over SSH: OS version (notify only), every plugin individually through Unraid's own plugin manager, array and disk health. Updates wait during a parity check or rebuild and while the mover runs. Containers: add a second device of type Docker host that runs on this one.",
-    "de": "Beta. Unraid per SSH: OS-Version (nur Hinweis), jedes Plugin einzeln über Unraids eigenen Plugin-Manager, Zustand von Array und Platten. Updates warten während Paritätsprüfung oder Rebuild und solange der Mover läuft. Container: ein zweites Gerät vom Typ Docker-Host anlegen, das auf diesem läuft."
+    "en": "Beta. Unraid over SSH: OS version (notify only), every plugin individually through Unraid's own plugin manager, array and disk health. Updates wait during a parity check or rebuild and while the mover runs. Read-only drift checks flag public flash or shares, SMB1/NetBIOS, UPnP, running containers without autostart or healthcheck, ':latest' on containers with appdata, and leftover share .cfg files. Containers: add a second device of type Docker host that runs on this one.",
+    "de": "Beta. Unraid per SSH: OS-Version (nur Hinweis), jedes Plugin einzeln über Unraids eigenen Plugin-Manager, Zustand von Array und Platten. Updates warten während Paritätsprüfung oder Rebuild und solange der Mover läuft. Lesende Drift-Prüfungen melden öffentlichen Flash oder Freigaben, SMB1/NetBIOS, UPnP, laufende Container ohne Autostart oder Healthcheck, ':latest' bei Containern mit appdata und übrig gebliebene Freigabe-.cfg-Dateien. Container: ein zweites Gerät vom Typ Docker-Host anlegen, das auf diesem läuft."
   },
   "howto": {
     "en": "1. Unraid: Settings, Management Access: SSH enabled.\n2. In the Connection card use Install key with user root and the root password once. Unraid rebuilds /root on every boot, so the key is also written to /boot/config/ssh/root/authorized_keys by this integration on the first scan, which Unraid restores at boot.\n3. OS updates are only shown, never installed: Homewarden normally runs on this server, and an OS update needs a reboot. Use Tools, Update OS in Unraid.\n4. For the containers: add a device Unraid Docker, type Docker host, Runs on this Unraid, endpoint unix:///var/run/docker.sock.",
@@ -46,6 +46,32 @@
       "help": {
         "en": "Copies /root/.ssh/authorized_keys to /boot/config/ssh/root/ (Unraid 6.9+).",
         "de": "Kopiert /root/.ssh/authorized_keys nach /boot/config/ssh/root/ (Unraid 6.9+)."
+      }
+    },
+    {
+      "key": "driftChecks",
+      "type": "bool",
+      "default": true,
+      "label": {
+        "en": "Check for config drift",
+        "de": "Auf Konfigurations-Drift prüfen"
+      },
+      "help": {
+        "en": "Each scan reads flash.cfg, ident.cfg, the share .cfg files, Unraid's autostart list and docker inspect of running containers. Changes nothing. Findings show as warnings on the device and the overview.",
+        "de": "Jeder Scan liest flash.cfg, ident.cfg, die .cfg-Dateien der Freigaben, Unraids Autostart-Liste und docker inspect der laufenden Container. Ändert nichts. Funde erscheinen als Warnungen am Gerät und in der Übersicht."
+      }
+    },
+    {
+      "key": "driftIgnore",
+      "type": "string",
+      "default": "",
+      "label": {
+        "en": "Skip in drift checks",
+        "de": "Bei Drift-Prüfungen überspringen"
+      },
+      "help": {
+        "en": "Comma-separated container or share names. \"name\" skips every check for it, \"name:check\" only one: public, cfg, autostart, healthcheck, latest (flash:public for the flash). Example: netbootxyz:autostart, homepage:autostart",
+        "de": "Container- oder Freigabenamen, durch Komma getrennt. \"name\" überspringt alle Prüfungen dafür, \"name:prüfung\" nur eine: public, cfg, autostart, healthcheck, latest (flash:public für den Flash). Beispiel: netbootxyz:autostart, homepage:autostart"
       }
     }
   ],

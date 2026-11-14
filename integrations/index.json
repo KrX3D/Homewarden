@@ -5,7 +5,7 @@
     { "id": "octoprint", "version": "1.2.2", "path": "octoprint" },
     { "id": "proxmox", "version": "0.10.8", "path": "proxmox" },
     { "id": "proxmox-backup", "version": "0.9.6", "path": "proxmox-backup" },
-    { "id": "unraid", "version": "0.10.1", "path": "unraid" },
+    { "id": "unraid", "version": "0.11.0", "path": "unraid" },
     { "id": "unifi", "version": "0.10.6", "path": "unifi" },
     { "id": "deploydeck", "version": "0.9.2", "path": "deploydeck" },
     { "id": "windows", "version": "0.11.2", "path": "windows" },
