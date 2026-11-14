@@ -418,7 +418,7 @@ function SoftwareCard({ device }: { device: Device }) {
       {!running && <LastUpdateProblem jobs={sw.jobs} />}
       {facts.eolPassed && <div className="alert warn">{t('sw.eol', { date: facts.eol })}</div>}
       {facts.rebootRequired && <div className="alert warn">{t('sw.rebootRequired')}</div>}
-      {Array.isArray(facts.warnings) && facts.warnings.map((w: string) => <div key={w} className="alert warn">{t('factWarn.' + w) !== 'factWarn.' + w ? t('factWarn.' + w) : w}</div>)}
+      {Array.isArray(facts.warnings) && facts.warnings.map((w: string) => <div key={w} className="alert warn">{t('factWarn.' + w) !== 'factWarn.' + w ? t('factWarn.' + w) : w}{facts.warningDetails?.[w] && <div className="small">{facts.warningDetails[w]}</div>}</div>)}
       {sw.facts.scannedAt === 0 && !running && !sw.facts.error && <p className="muted small">{t('sw.neverScanned')}</p>}
       <ErrorAlert error={error} />
 

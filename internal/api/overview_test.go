@@ -28,7 +28,7 @@ func TestOverview(t *testing.T) {
 	pve, _ := st.CreateDevice(ctx, store.Device{Name: "Proxmox", Kind: "proxmox", Status: store.StatusActive,
 		Config: json.RawMessage(`{"notify":{"offlineMinutes":5}}`)})
 	st.SetDeviceState(ctx, pve.ID, store.StateOffline, ago)
-	st.SetFacts(ctx, host.ID, json.RawMessage(`{"warnings":["disk_problems"],"rebootRequired":true}`), "")
+	st.SetFacts(ctx, host.ID, json.RawMessage(`{"warnings":["disk_problems","public_shares"],"warningDetails":{"public_shares":"appdata, Daten"},"rebootRequired":true}`), "")
 	st.CreateDevice(ctx, store.Device{Name: "new", Status: store.StatusDiscovered})
 
 	m, _ := st.SaveMonitor(ctx, store.Monitor{Name: "Home Assistant", Type: "http", Enabled: true, Interval: 60, DeviceID: &app.ID, Config: json.RawMessage(`{}`)})
@@ -55,6 +55,9 @@ func TestOverview(t *testing.T) {
 	kinds := map[string]string{}
 	for _, p := range ov.Problems {
 		kinds[p.Kind+":"+p.Name] = p.Severity
+		if p.Code == "public_shares" && p.Why != "appdata, Daten" {
+			t.Errorf("warning details belong in why: %+v", p)
+		}
 	}
 	for k, sev := range map[string]string{"monitor:Home Assistant": "crit", "offline:Proxmox": "crit", "warning:Unraid": "warn", "job:Update Unraid": "warn"} {
 		if kinds[k] != sev {

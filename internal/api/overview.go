@@ -64,7 +64,7 @@ type ovProblem struct {
 	Name     string `json:"name"`
 	Area     string `json:"area"`
 	Code     string `json:"code,omitempty"` // warning code, the UI explains it
-	Why      string `json:"why,omitempty"`  // raw message
+	Why      string `json:"why,omitempty"`  // raw message, or what a warning code is about
 	Since    *int64 `json:"since,omitempty"`
 	DeviceID *int64 `json:"deviceId,omitempty"`
 	JobID    *int64 `json:"jobId,omitempty"`
@@ -256,16 +256,17 @@ func (s *Server) buildOverview(r *http.Request) (map[string]any, error) {
 		}
 		if f, err := s.Store.DeviceFacts(ctx, d.ID); err == nil {
 			var facts struct {
-				Warnings       []string `json:"warnings"`
-				EOLPassed      bool     `json:"eolPassed"`
-				RebootRequired bool     `json:"rebootRequired"`
+				Warnings       []string          `json:"warnings"`
+				Details        map[string]string `json:"warningDetails"`
+				EOLPassed      bool              `json:"eolPassed"`
+				RebootRequired bool              `json:"rebootRequired"`
 			}
 			_ = json.Unmarshal(f.Facts, &facts)
 			if facts.EOLPassed {
 				facts.Warnings = append(facts.Warnings, "eol")
 			}
 			for _, code := range facts.Warnings {
-				problems = append(problems, ovProblem{Kind: "warning", Severity: "warn", Name: d.Name, Area: area, Code: code, DeviceID: &id})
+				problems = append(problems, ovProblem{Kind: "warning", Severity: "warn", Name: d.Name, Area: area, Code: code, Why: facts.Details[code], DeviceID: &id})
 			}
 			if f.Error != "" && on {
 				at := f.ScannedAt
