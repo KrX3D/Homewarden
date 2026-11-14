@@ -509,6 +509,13 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   finished `check` row of Unraid's /boot/config/parity-checks.log (exit 0, cancelled
   rows skipped, errors > 0 = down; mdResyncPos in /var/local/emhttp/var.ini > 0 =
   running = up). Ages use the device's clock (`date +%s`). Device is required.
+- Home Assistant entity monitor (type `ha`, internal/monitor/homeassistant.go): device
+  must use the home-assistant integration; address and token come from its settings
+  merged with the integration setup (`WithDefaults`, token via `Runner.Creds`). Reads
+  `/api/states`; config `entities` (ids or `*` patterns, path.Match), `unavailableMinutes`
+  (default 30), `countUnknown`. Down when a matched entity is unavailable for at least
+  that long (age = HA's HTTP Date minus last_changed) or a pattern matches nothing.
+  Tested on a fake only.
 - Monitor `tags` (config); notification channels have `tags` (migration 16): when set,
   monitor events reach the channel only for monitors with one of them
   (`DispatchTagged`); other events ignore tags. Maintenance windows (global or per device) mute monitor and
