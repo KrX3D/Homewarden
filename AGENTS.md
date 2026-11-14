@@ -527,9 +527,11 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   device page hung once that ran out.
 - `internal/web/` - embeds `dist/` (Vite output; only `.gitkeep` is tracked)
 - `web/` - React + TypeScript + Vite. `src/i18n/en.json` + `de.json` must always have
-  the same keys. Theme/lang/device-view are per-user prefs (`PUT /api/me/prefs`).
+  the same keys (checked on PRs by `scripts/check-i18n.cjs`, see `i18n-check.yml`). Theme/lang/device-view are per-user prefs (`PUT /api/me/prefs`).
 - `Dockerfile` - multi-stage, Go cross-compiled per target arch
 - `docker/entrypoint.sh` - PUID/PGID handling
 - `unraid/homewarden.xml` - Unraid container template
 - `assets/` - icon sources and PNGs
 - `.github/workflows/docker.yml` - vet/test, then multi-arch image build and push
+- `.github/workflows/i18n-check.yml` - PRs: en/de key and placeholder parity, keys used in
+  `web/src` must exist. Locally: `node scripts/check-i18n.cjs --en web/src/i18n/en.json --de web/src/i18n/de.json --src web/src`

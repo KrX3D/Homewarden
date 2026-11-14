@@ -1,0 +1,19 @@
+# en/de translation check: same keys in both languages, same placeholders, and every
+# key used in web/src actually exists. Plain Node, no install step, runs in seconds.
+name: i18n check
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  i18n:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check en/de translations
+        run: node scripts/check-i18n.cjs --en web/src/i18n/en.json --de web/src/i18n/de.json --src web/src
