@@ -516,6 +516,16 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   (default 30), `countUnknown`. Down when a matched entity is unavailable for at least
   that long (age = HA's HTTP Date minus last_changed) or a pattern matches nothing.
   Tested on a fake only.
+- Home Assistant registry monitor (type `haregistry`, internal/monitor/haregistry.go):
+  same device/token lookup, but over the WebSocket API (`/api/websocket`; REST has no
+  registries): device_registry/list, entity_registry/list, config_entries/get (admin
+  only; without it the domain comes from the entities' platform), get_states. Per
+  integration: registry devices vs. its entities with a live, non-`restored` state.
+  Down when an integration with >= `minDevices` (25) devices has more than `maxRatio`
+  (3) devices per loaded entity; `ignoreIntegrations` skips domains. Message names
+  nameless devices. Verified read-only on the real HA 2026-11-14 (nmap_tracker 2222
+  devices / 8 loaded flagged; UniFi 583 devices / 474 loaded = 1.2 is not, its 490
+  nameless clients still load trackers). `TestHARegistryLive` (HW_LIVE, HA_URL, HA_TOKEN).
 - DNS servers of a host (type `resolvers`, internal/monitor/resolvers.go): config
   `names` (required) and `servers` (empty = read from the device: `ResolverScript`
   over SSH/agent, /etc/resolv.conf with systemd's 127.0.0.53 replaced by its upstreams;

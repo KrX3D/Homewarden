@@ -158,6 +158,8 @@ func (r *Runner) Test(ctx context.Context, typ string, cfg Config, deviceID *int
 		res = r.resolvers(ctx, cfg, deviceID)
 	} else if typ == "ha" {
 		res = r.checkHA(ctx, cfg, deviceID)
+	} else if typ == "haregistry" {
+		res = r.checkHARegistry(ctx, cfg, deviceID)
 	} else {
 		res = Check(ctx, typ, cfg)
 	}

@@ -45,6 +45,7 @@ function target(m: Monitor) {
     case 'backup': return `${c.path ?? ''}${c.pattern ? '/' + c.pattern : ''}`;
     case 'parity': return 'parity-checks.log';
     case 'ha': return (c.entities ?? []).join(', ');
+    case 'haregistry': return `registry ≤ ${c.maxRatio || 3}:1`;
     case 'resolvers': return `${(c.servers ?? []).length ? c.servers!.join(', ') : 'DNS'}: ${(c.names ?? []).join(', ')}`;
     case 'push': return 'push';
   }
@@ -262,11 +263,12 @@ function MonitorDetail({ m }: { m: Monitor }) {
   );
 }
 
-const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'resolvers', 'push'];
+const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'haregistry', 'resolvers', 'push'];
 const REMOTE: MonitorType[] = ['backup', 'parity'];
 const MAX_AGE: Record<string, number> = { backup: 26, parity: 840 };
 /** Types that need a device. */
-const NEEDS_DEVICE: MonitorType[] = [...REMOTE, 'ha'];
+const NEEDS_DEVICE: MonitorType[] = [...REMOTE, 'ha', 'haregistry'];
+const HA_TYPES: MonitorType[] = ['ha', 'haregistry'];
 /** "a, b\nc" -> ["a", "b", "c"]. */
 const parseList = (s: string) => s.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
 
@@ -278,6 +280,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const [parentId, setParentId] = useState<number | null>(monitor?.parentId ?? null);
   const [tagText, setTagText] = useState((monitor?.config.tags ?? []).join(', '));
   const [entityText, setEntityText] = useState((monitor?.config.entities ?? []).join('\n'));
+  const [ignoreText, setIgnoreText] = useState((monitor?.config.ignoreIntegrations ?? []).join(', '));
   const [nameText, setNameText] = useState((monitor?.config.names ?? []).join('\n'));
   const [serverText, setServerText] = useState((monitor?.config.servers ?? []).join(', '));
   const [creds, setCreds] = useState<Credential[]>([]);
@@ -293,7 +296,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
   const set = (k: keyof MonitorConfig, v: unknown) => { setTest(null); setCfg((c) => ({ ...c, [k]: v })); };
-  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined, names: type === 'resolvers' ? parseList(nameText) : undefined, servers: type === 'resolvers' ? parseList(serverText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
+  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined, ignoreIntegrations: type === 'haregistry' ? parseList(ignoreText) : undefined, names: type === 'resolvers' ? parseList(nameText) : undefined, servers: type === 'resolvers' ? parseList(serverText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
   const num = (k: keyof MonitorConfig, label: string, hint: string, ph = '') => (
     <label className="field" style={{ flex: '1 1 150px' }}>{label}
       <input id={'mon-' + k} type="number" min={0} value={cfg[k] == null ? '' : Number(cfg[k])} placeholder={ph} onChange={(e) => set(k, e.target.value === '' ? undefined : Number(e.target.value))} />
@@ -439,6 +442,19 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             <p className="small muted" style={{ margin: 0 }}>{t('mon.haIntro')}</p>
           </>
         )}
+        {type === 'haregistry' && (
+          <>
+            <div className="row" style={{ alignItems: 'flex-start' }}>
+              {num('maxRatio', t('mon.haRatio'), t('mon.haRatioHint'), '3')}
+              {num('minDevices', t('mon.haMinDevices'), t('mon.haMinDevicesHint'), '25')}
+            </div>
+            <label className="field">{t('mon.haIgnore')}
+              <input id="mon-ignoreIntegrations" type="text" className="mono" value={ignoreText} placeholder="mobile_app, bluetooth" onChange={(e) => { setTest(null); setIgnoreText(e.target.value); }} />
+              <span className="small muted">{t('mon.haIgnoreHint')}</span>
+            </label>
+            <p className="small muted" style={{ margin: 0 }}>{t('mon.haregistryIntro')}</p>
+          </>
+        )}
         {type === 'resolvers' && (
           <>
             <label className="field">{t('mon.dnsNames')}
@@ -460,7 +476,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
           <label className="field" style={{ flex: '1 1 200px' }}>{t('mon.device')}{(NEEDS_DEVICE.includes(type) || type === 'resolvers' && !parseList(serverText).length) && ' *'}
             <select id="mon-device" value={deviceId ?? ''} required={NEEDS_DEVICE.includes(type) || type === 'resolvers' && !parseList(serverText).length} onChange={(e) => setDeviceId(e.target.value ? Number(e.target.value) : null)}>
               <option value="">–</option>
-              {devices.filter((d) => type !== 'ha' || d.kind === 'home-assistant' || d.id === deviceId).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              {devices.filter((d) => !HA_TYPES.includes(type) || d.kind === 'home-assistant' || d.id === deviceId).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
         </div>

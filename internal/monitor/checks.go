@@ -65,6 +65,12 @@ type Config struct {
 	UnavailableMinutes int      `json:"unavailableMinutes,omitempty"`
 	CountUnknown       bool     `json:"countUnknown,omitempty"`
 
+	// Home Assistant registry (type haregistry): down when an integration with at
+	// least MinDevices (0 = 25) registry devices has more than MaxRatio (0 = 3) devices
+	// per loaded entity. IgnoreIntegrations lists domains to skip.
+	MaxRatio           float64  `json:"maxRatio,omitempty"`
+	MinDevices         int      `json:"minDevices,omitempty"`
+	IgnoreIntegrations []string `json:"ignoreIntegrations,omitempty"`
 	// DNS servers of a host (type resolvers): names every server must answer the same
 	// way; servers to ask (empty = read them from the monitor's device).
 	Names   []string `json:"names,omitempty"`
