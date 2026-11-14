@@ -1,6 +1,6 @@
 // Package monitor runs uptime checks: HTTP (status, keyword, JSON value, certificate
 // expiry), TCP, ping, DNS, Docker container state, MQTT, PostgreSQL, MySQL, Redis,
-// backup/parity freshness and push heartbeats.
+// backup/parity freshness, Home Assistant entity availability and push heartbeats.
 package monitor
 
 import (
@@ -57,6 +57,13 @@ type Config struct {
 	Path        string `json:"path,omitempty"`
 	Pattern     string `json:"pattern,omitempty"`
 	MaxAgeHours int    `json:"maxAgeHours,omitempty"`
+
+	// Home Assistant entities (type ha, on a home-assistant device): entity ids or
+	// * patterns; down after this many minutes unavailable (0 = 30); unknown counts too
+	// when CountUnknown is set.
+	Entities           []string `json:"entities,omitempty"`
+	UnavailableMinutes int      `json:"unavailableMinutes,omitempty"`
+	CountUnknown       bool     `json:"countUnknown,omitempty"`
 
 	// Tags group monitors; notification channels can be limited to tags.
 	Tags []string `json:"tags,omitempty"`

@@ -152,6 +152,8 @@ func (r *Runner) Test(ctx context.Context, typ string, cfg Config, deviceID *int
 	var res Result
 	if RemoteType(typ) {
 		res = r.freshness(ctx, typ, cfg, deviceID)
+	} else if typ == "ha" {
+		res = r.checkHA(ctx, cfg, deviceID)
 	} else {
 		res = Check(ctx, typ, cfg)
 	}
