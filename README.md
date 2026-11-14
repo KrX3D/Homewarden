@@ -28,8 +28,9 @@ No playbooks or config files to write.
 - **Discovery** of containers, LXCs, VMs and network clients, plus a network scan over
   several ranges/VLANs at once, with an inbox to add or ignore what was found.
 - **Monitoring**: uptime checks, resource history, disk health, certificate expiry,
-  backup freshness (newest file per backup folder), the last Unraid parity check and
-  Home Assistant entities that stay unavailable.
+  backup freshness (newest file per backup folder), the last Unraid parity check,
+  Home Assistant entities that stay unavailable and whether every DNS server a host
+  uses knows the internal names it needs.
 - **Set up once per integration**: one credential and shared settings for all devices
   of a kind; a device only sets what differs.
 - **Integrations** installable from a catalog (GitHub or your own Gitea): Linux/apt,

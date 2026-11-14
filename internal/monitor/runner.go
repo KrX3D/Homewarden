@@ -22,6 +22,8 @@ type Runner struct {
 	// error carries stderr when the command fails.
 	Exec func(ctx context.Context, deviceID int64, cmd string, timeout time.Duration) (string, error)
 
+	lookup lookupFunc // resolvers checks; nil = real DNS (tests replace it)
+
 	mu    sync.Mutex
 	state map[int64]*track
 	wake  chan struct{}
@@ -152,6 +154,8 @@ func (r *Runner) Test(ctx context.Context, typ string, cfg Config, deviceID *int
 	var res Result
 	if RemoteType(typ) {
 		res = r.freshness(ctx, typ, cfg, deviceID)
+	} else if typ == "resolvers" {
+		res = r.resolvers(ctx, cfg, deviceID)
 	} else if typ == "ha" {
 		res = r.checkHA(ctx, cfg, deviceID)
 	} else if typ == "haregistry" {

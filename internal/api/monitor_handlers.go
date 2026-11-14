@@ -117,6 +117,10 @@ func (in *monitorIn) validate() string {
 		if in.DeviceID == nil || in.Config.MaxRatio < 0 || in.Config.MinDevices < 0 {
 			return "monitor_incomplete"
 		}
+	case "resolvers":
+		if len(c.Names) == 0 || len(c.Servers) == 0 && in.DeviceID == nil {
+			return "monitor_incomplete"
+		}
 	case "push":
 	default:
 		return "bad_request"
