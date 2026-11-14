@@ -1048,5 +1048,12 @@
  "mon.maxAge": "Maximales Alter (Stunden)",
  "mon.maxAgeHint": "26 = täglich, 192 = wöchentlich, 840 = monatlich",
  "mon.backupIntro": "Läuft auf dem unten gewählten Gerät (SSH oder Agent, als dessen Login-Benutzer, nur lesend) und sucht die neueste Datei im Ordner, Unterordner eingeschlossen. Ausgefallen, wenn sie älter als das maximale Alter ist, der Ordner fehlt oder keine Datei zum Muster passt (z. B. *.unf, *.tar.gz).",
- "mon.parityIntro": "Läuft auf dem unten gewählten Unraid-Gerät und liest /boot/config/parity-checks.log. Ausgefallen, wenn die letzte abgeschlossene Paritätsprüfung älter als das maximale Alter ist oder Fehler gefunden hat. Abgebrochene Prüfungen zählen nicht; eine gerade laufende Prüfung gilt als aktuell."
+ "mon.parityIntro": "Läuft auf dem unten gewählten Unraid-Gerät und liest /boot/config/parity-checks.log. Ausgefallen, wenn die letzte abgeschlossene Paritätsprüfung älter als das maximale Alter ist oder Fehler gefunden hat. Abgebrochene Prüfungen zählen nicht; eine gerade laufende Prüfung gilt als aktuell.",
+ "monType.resolvers": "DNS-Server eines Hosts",
+ "mon.dnsNames": "Namen, die der Host braucht",
+ "mon.dnsNamesHint": "Ein Hostname pro Zeile (oder durch Komma getrennt), z. B. die internen Namen, mit denen sich seine Apps verbinden.",
+ "mon.dnsServers": "DNS-Server",
+ "mon.dnsServersAuto": "leer = vom Gerät lesen",
+ "mon.dnsServersHint": "Durch Komma getrennt. Leer lassen, um sie vom Gerät unten zu lesen (SSH oder Agent: /etc/resolv.conf, unter Windows die Netzwerkadapter). Für Geräte ohne Shell von Hand eintragen, z. B. Home Assistant OS (Einstellungen, System, Netzwerk).",
+ "mon.resolversIntro": "Homewarden fragt jeden DNS-Server des Hosts nach jedem Namen. Down, wenn ein Server einen Namen nicht kennt (z. B. liefert 1.1.1.1 neben AdGuard NXDOMAIN für interne Namen, sodass der Host ab und zu scheitert) oder zwei Server unterschiedliche Adressen liefern. Server, die Homewarden nicht erreicht, werden vermerkt, zählen aber nur, wenn keiner antwortet; lokale wie 127.0.0.1 werden übersprungen."
 }

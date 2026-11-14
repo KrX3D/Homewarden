@@ -45,6 +45,7 @@ function target(m: Monitor) {
     case 'backup': return `${c.path ?? ''}${c.pattern ? '/' + c.pattern : ''}`;
     case 'parity': return 'parity-checks.log';
     case 'ha': return (c.entities ?? []).join(', ');
+    case 'resolvers': return `${(c.servers ?? []).length ? c.servers!.join(', ') : 'DNS'}: ${(c.names ?? []).join(', ')}`;
     case 'push': return 'push';
   }
 }
@@ -261,7 +262,7 @@ function MonitorDetail({ m }: { m: Monitor }) {
   );
 }
 
-const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'push'];
+const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'resolvers', 'push'];
 const REMOTE: MonitorType[] = ['backup', 'parity'];
 const MAX_AGE: Record<string, number> = { backup: 26, parity: 840 };
 /** Types that need a device. */
@@ -277,6 +278,8 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const [parentId, setParentId] = useState<number | null>(monitor?.parentId ?? null);
   const [tagText, setTagText] = useState((monitor?.config.tags ?? []).join(', '));
   const [entityText, setEntityText] = useState((monitor?.config.entities ?? []).join('\n'));
+  const [nameText, setNameText] = useState((monitor?.config.names ?? []).join('\n'));
+  const [serverText, setServerText] = useState((monitor?.config.servers ?? []).join(', '));
   const [creds, setCreds] = useState<Credential[]>([]);
   const [newCred, setNewCred] = useState(false);
   useEffect(() => { if (SERVICE.includes(type)) get<Credential[]>('/api/credentials').then(setCreds).catch(() => {}); }, [type]);
@@ -290,7 +293,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
   const set = (k: keyof MonitorConfig, v: unknown) => { setTest(null); setCfg((c) => ({ ...c, [k]: v })); };
-  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
+  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined, names: type === 'resolvers' ? parseList(nameText) : undefined, servers: type === 'resolvers' ? parseList(serverText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
   const num = (k: keyof MonitorConfig, label: string, hint: string, ph = '') => (
     <label className="field" style={{ flex: '1 1 150px' }}>{label}
       <input id={'mon-' + k} type="number" min={0} value={cfg[k] == null ? '' : Number(cfg[k])} placeholder={ph} onChange={(e) => set(k, e.target.value === '' ? undefined : Number(e.target.value))} />
@@ -326,7 +329,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             <input id="mon-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="Gitea" />
           </label>
           <label className="field" style={{ flex: '1 1 120px' }}>{t('cred.type')}
-            <select id="mon-type" value={type} onChange={(e) => { const v = e.target.value as MonitorType; setType(v); setTest(null); if (!monitor && REMOTE.includes(v) && interval === 60) setInterval(3600); }} disabled={!!monitor}>
+            <select id="mon-type" value={type} onChange={(e) => { const v = e.target.value as MonitorType; setType(v); setTest(null); if (!monitor && interval === 60) { if (REMOTE.includes(v)) setInterval(3600); if (v === 'resolvers') setInterval(900); } }} disabled={!!monitor}>
               {TYPES.map((x) => <option key={x} value={x}>{t('monType.' + x)}</option>)}
             </select>
           </label>
@@ -436,13 +439,26 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             <p className="small muted" style={{ margin: 0 }}>{t('mon.haIntro')}</p>
           </>
         )}
+        {type === 'resolvers' && (
+          <>
+            <label className="field">{t('mon.dnsNames')}
+              <textarea id="mon-names" className="mono" rows={4} value={nameText} placeholder={'pve.krx3d.de\ngitea.krx3d.de'} onChange={(e) => { setTest(null); setNameText(e.target.value); }} />
+              <span className="small muted">{t('mon.dnsNamesHint')}</span>
+            </label>
+            <label className="field">{t('mon.dnsServers')}
+              <input id="mon-servers" type="text" className="mono" value={serverText} placeholder={t('mon.dnsServersAuto')} onChange={(e) => { setTest(null); setServerText(e.target.value); }} />
+              <span className="small muted">{t('mon.dnsServersHint')}</span>
+            </label>
+            <p className="small muted" style={{ margin: 0 }}>{t('mon.resolversIntro')}</p>
+          </>
+        )}
         {type === 'push' && <p className="small muted">{t('mon.pushIntro')}</p>}
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <label className="field" style={{ flex: '0 1 160px' }}>{t('deviceForm.interval')}
             <input type="number" min={20} value={interval} onChange={(e) => setInterval(Number(e.target.value))} />
           </label>
-          <label className="field" style={{ flex: '1 1 200px' }}>{t('mon.device')}{NEEDS_DEVICE.includes(type) && ' *'}
-            <select id="mon-device" value={deviceId ?? ''} required={NEEDS_DEVICE.includes(type)} onChange={(e) => setDeviceId(e.target.value ? Number(e.target.value) : null)}>
+          <label className="field" style={{ flex: '1 1 200px' }}>{t('mon.device')}{(NEEDS_DEVICE.includes(type) || type === 'resolvers' && !parseList(serverText).length) && ' *'}
+            <select id="mon-device" value={deviceId ?? ''} required={NEEDS_DEVICE.includes(type) || type === 'resolvers' && !parseList(serverText).length} onChange={(e) => setDeviceId(e.target.value ? Number(e.target.value) : null)}>
               <option value="">–</option>
               {devices.filter((d) => type !== 'ha' || d.kind === 'home-assistant' || d.id === deviceId).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>

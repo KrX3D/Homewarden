@@ -516,6 +516,15 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   (default 30), `countUnknown`. Down when a matched entity is unavailable for at least
   that long (age = HA's HTTP Date minus last_changed) or a pattern matches nothing.
   Tested on a fake only.
+- DNS servers of a host (type `resolvers`, internal/monitor/resolvers.go): config
+  `names` (required) and `servers` (empty = read from the device: `ResolverScript`
+  over SSH/agent, /etc/resolv.conf with systemd's 127.0.0.53 replaced by its upstreams;
+  windows devices use `Get-DnsClientServerAddress`). Homewarden asks each server
+  itself (no search domains). Down when a server answers NXDOMAIN/SERVFAIL for a name
+  or servers give different addresses; servers without any answer are only noted
+  (VLAN rules may block Homewarden) unless none answered; loopback servers are skipped.
+  For HA OS (no shell) servers are entered by hand. Tests use a fake lookup and a local
+  UDP DNS fake; a real 1.1.1.1 NXDOMAIN was checked, not yet run against real hosts.
 - Monitor `tags` (config); notification channels have `tags` (migration 16): when set,
   monitor events reach the channel only for monitors with one of them
   (`DispatchTagged`); other events ignore tags. Maintenance windows (global or per device) mute monitor and

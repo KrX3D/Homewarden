@@ -1048,5 +1048,12 @@
  "mon.maxAge": "Max age (hours)",
  "mon.maxAgeHint": "26 = daily, 192 = weekly, 840 = monthly",
  "mon.backupIntro": "Runs on the device chosen below (SSH or agent, as its login user, read only) and looks for the newest file below the folder, including subfolders. Down when it is older than the max age, the folder is missing or no file matches the pattern (e.g. *.unf, *.tar.gz).",
- "mon.parityIntro": "Runs on the Unraid device chosen below and reads /boot/config/parity-checks.log. Down when the last finished parity check is older than the max age or found errors. Cancelled checks do not count; a check that is running right now counts as fresh."
+ "mon.parityIntro": "Runs on the Unraid device chosen below and reads /boot/config/parity-checks.log. Down when the last finished parity check is older than the max age or found errors. Cancelled checks do not count; a check that is running right now counts as fresh.",
+ "monType.resolvers": "DNS servers of a host",
+ "mon.dnsNames": "Names the host needs",
+ "mon.dnsNamesHint": "One host name per line (or comma separated), e.g. the internal names its apps connect to.",
+ "mon.dnsServers": "DNS servers",
+ "mon.dnsServersAuto": "empty = read from the device",
+ "mon.dnsServersHint": "Comma separated. Leave empty to read them from the device below (SSH or agent: /etc/resolv.conf, on Windows the network adapters). Enter them by hand for devices without a shell, e.g. Home Assistant OS (Settings, System, Network).",
+ "mon.resolversIntro": "Homewarden asks every DNS server of the host for every name. Down when a server does not know a name (e.g. 1.1.1.1 listed next to AdGuard returns NXDOMAIN for internal names, so the host fails now and then) or two servers answer with different addresses. Servers Homewarden cannot reach are noted but only count when none answers; local ones like 127.0.0.1 are skipped."
 }

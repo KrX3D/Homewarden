@@ -113,6 +113,10 @@ func (in *monitorIn) validate() string {
 		if in.DeviceID == nil || len(in.Config.Entities) == 0 {
 			return "monitor_incomplete"
 		}
+	case "resolvers":
+		if len(c.Names) == 0 || len(c.Servers) == 0 && in.DeviceID == nil {
+			return "monitor_incomplete"
+		}
 	case "push":
 	default:
 		return "bad_request"
