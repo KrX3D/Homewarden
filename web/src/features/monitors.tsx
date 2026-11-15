@@ -46,6 +46,7 @@ function target(m: Monitor) {
     case 'parity': return 'parity-checks.log';
     case 'ha': return (c.entities ?? []).join(', ');
     case 'haregistry': return `registry ≤ ${c.maxRatio || 3}:1`;
+    case 'haconfig': return 'dashboards, automations, scripts';
     case 'resolvers': return `${(c.servers ?? []).length ? c.servers!.join(', ') : 'DNS'}: ${(c.names ?? []).join(', ')}`;
     case 'push': return 'push';
   }
@@ -263,12 +264,12 @@ function MonitorDetail({ m }: { m: Monitor }) {
   );
 }
 
-const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'haregistry', 'resolvers', 'push'];
+const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'haregistry', 'haconfig', 'resolvers', 'push'];
 const REMOTE: MonitorType[] = ['backup', 'parity'];
 const MAX_AGE: Record<string, number> = { backup: 26, parity: 840 };
 /** Types that need a device. */
-const NEEDS_DEVICE: MonitorType[] = [...REMOTE, 'ha', 'haregistry'];
-const HA_TYPES: MonitorType[] = ['ha', 'haregistry'];
+const NEEDS_DEVICE: MonitorType[] = [...REMOTE, 'ha', 'haregistry', 'haconfig'];
+const HA_TYPES: MonitorType[] = ['ha', 'haregistry', 'haconfig'];
 /** "a, b\nc" -> ["a", "b", "c"]. */
 const parseList = (s: string) => s.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean);
 
@@ -281,6 +282,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const [tagText, setTagText] = useState((monitor?.config.tags ?? []).join(', '));
   const [entityText, setEntityText] = useState((monitor?.config.entities ?? []).join('\n'));
   const [ignoreText, setIgnoreText] = useState((monitor?.config.ignoreIntegrations ?? []).join(', '));
+  const [refText, setRefText] = useState((monitor?.config.ignoreRefs ?? []).join('\n'));
   const [nameText, setNameText] = useState((monitor?.config.names ?? []).join('\n'));
   const [serverText, setServerText] = useState((monitor?.config.servers ?? []).join(', '));
   const [creds, setCreds] = useState<Credential[]>([]);
@@ -296,7 +298,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
   const set = (k: keyof MonitorConfig, v: unknown) => { setTest(null); setCfg((c) => ({ ...c, [k]: v })); };
-  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined, ignoreIntegrations: type === 'haregistry' ? parseList(ignoreText) : undefined, names: type === 'resolvers' ? parseList(nameText) : undefined, servers: type === 'resolvers' ? parseList(serverText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
+  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined, ignoreIntegrations: type === 'haregistry' ? parseList(ignoreText) : undefined, ignoreRefs: type === 'haconfig' ? parseList(refText) : undefined, names: type === 'resolvers' ? parseList(nameText) : undefined, servers: type === 'resolvers' ? parseList(serverText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
   const num = (k: keyof MonitorConfig, label: string, hint: string, ph = '') => (
     <label className="field" style={{ flex: '1 1 150px' }}>{label}
       <input id={'mon-' + k} type="number" min={0} value={cfg[k] == null ? '' : Number(cfg[k])} placeholder={ph} onChange={(e) => set(k, e.target.value === '' ? undefined : Number(e.target.value))} />
@@ -453,6 +455,15 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
               <span className="small muted">{t('mon.haIgnoreHint')}</span>
             </label>
             <p className="small muted" style={{ margin: 0 }}>{t('mon.haregistryIntro')}</p>
+          </>
+        )}
+        {type === 'haconfig' && (
+          <>
+            <label className="field">{t('mon.haIgnoreRefs')}
+              <textarea id="mon-ignoreRefs" className="mono" rows={3} value={refText} placeholder={'sensor.dummy_spacer\ncustom:teamtracker-card\n/local/old/*'} onChange={(e) => { setTest(null); setRefText(e.target.value); }} />
+              <span className="small muted">{t('mon.haIgnoreRefsHint')}</span>
+            </label>
+            <p className="small muted" style={{ margin: 0 }}>{t('mon.haconfigIntro')}</p>
           </>
         )}
         {type === 'resolvers' && (
