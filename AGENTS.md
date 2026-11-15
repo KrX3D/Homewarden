@@ -526,6 +526,21 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   nameless devices. Verified read-only on the real HA 2026-11-14 (nmap_tracker 2222
   devices / 8 loaded flagged; UniFi 583 devices / 474 loaded = 1.2 is not, its 490
   nameless clients still load trackers). `TestHARegistryLive` (HW_LIVE, HA_URL, HA_TOKEN).
+  The WebSocket client (dial, auth, pipelined commands) is shared in `haws.go`.
+- Home Assistant broken references monitor (type `haconfig`, internal/monitor/haconfig.go):
+  same device/token lookup, WebSocket. Reads registries + states, areas,
+  lovelace/dashboards/list + lovelace/config per dashboard (default one too; auto-generated =
+  config_not_found, skipped), lovelace/resources, automation/config and script/config per
+  entity. `haWalk` collects references from the JSON: entity ids anywhere in strings
+  (templates, button-card JS; strings under service/action/url/image/icon keys skipped,
+  only domains that exist count, `x.entity_id`-style attribute names skipped), 32-hex
+  `entity_id` = registry id, `device_id`, `area_id`, `type: custom:*` cards. A card counts
+  as provided when a resource URL contains its name or a 4+ char part of it
+  (`haCardAlias` for mod-card). Local resources (/local, /hacsfiles, ...) get a HEAD;
+  404 = missing. Config `ignoreRefs` (path.Match patterns). Down per dashboard view /
+  automation / script. Verified read-only on the real HA 2026-11-15 (7322 entities, 159
+  sources): finds the deleted krx_smart_sensor_*/krx_unraid_* entities, bar-card without
+  resource and two 404 resources. `TestHAConfigLive`.
 - DNS servers of a host (type `resolvers`, internal/monitor/resolvers.go): config
   `names` (required) and `servers` (empty = read from the device: `ResolverScript`
   over SSH/agent, /etc/resolv.conf with systemd's 127.0.0.53 replaced by its upstreams;

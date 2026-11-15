@@ -2,15 +2,10 @@ package monitor
 
 import (
 	"context"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 // Home Assistant registry monitor (type "haregistry"): compares, per integration, the
@@ -34,6 +29,7 @@ type haRegDevice struct {
 }
 
 type haRegEntity struct {
+	ID            string  `json:"id"`
 	EntityID      string  `json:"entity_id"`
 	ConfigEntryID *string `json:"config_entry_id"`
 	Platform      string  `json:"platform"`
@@ -47,7 +43,9 @@ type haConfigEntry struct {
 type haState struct {
 	EntityID   string `json:"entity_id"`
 	Attributes struct {
-		Restored bool `json:"restored"`
+		Restored bool   `json:"restored"`
+		Name     string `json:"friendly_name"`
+		ID       string `json:"id"` // automations: their config id
 	} `json:"attributes"`
 }
 
@@ -210,87 +208,16 @@ func (r *Runner) checkHARegistry(ctx context.Context, cfg Config, deviceID *int6
 
 func haFetchRegistry(ctx context.Context, t haTarget) (haRegistry, error) {
 	var reg haRegistry
-	u := t.base + "/api/websocket"
-	switch {
-	case strings.HasPrefix(u, "https://"):
-		u = "wss://" + strings.TrimPrefix(u, "https://")
-	case strings.HasPrefix(u, "http://"):
-		u = "ws://" + strings.TrimPrefix(u, "http://")
-	}
-	dialer := websocket.Dialer{
-		HandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:  &tls.Config{InsecureSkipVerify: t.insecure},
-		Proxy:            http.ProxyFromEnvironment,
-	}
-	c, _, err := dialer.DialContext(ctx, u, nil)
+	w, closer, err := haDial(ctx, t)
 	if err != nil {
 		return reg, err
 	}
-	defer c.Close()
-	c.SetReadLimit(128 << 20)
-	if dl, ok := ctx.Deadline(); ok {
-		c.SetReadDeadline(dl)
-		c.SetWriteDeadline(dl)
-	}
-	stop := context.AfterFunc(ctx, func() { c.Close() })
-	defer stop()
-
-	var msg struct {
-		ID      int             `json:"id"`
-		Type    string          `json:"type"`
-		Success bool            `json:"success"`
-		Result  json.RawMessage `json:"result"`
-		Error   struct {
-			Code    string `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := c.ReadJSON(&msg); err != nil || msg.Type != "auth_required" {
-		return reg, fmt.Errorf("no WebSocket handshake (%v)", err)
-	}
-	if err := c.WriteJSON(map[string]string{"type": "auth", "access_token": t.token}); err != nil {
-		return reg, err
-	}
-	if err := c.ReadJSON(&msg); err != nil {
-		return reg, err
-	}
-	if msg.Type != "auth_ok" {
-		return reg, fmt.Errorf("refused the access token")
-	}
-	cmds := []struct {
-		typ  string
-		into any
-		opt  bool // may fail (needs an admin token)
-	}{
-		{"config/device_registry/list", &reg.devices, false},
-		{"config/entity_registry/list", &reg.entities, false},
-		{"config_entries/get", &reg.entries, true},
-		{"get_states", &reg.states, false},
-	}
-	for i, cmd := range cmds {
-		if err := c.WriteJSON(map[string]any{"id": i + 1, "type": cmd.typ}); err != nil {
-			return reg, err
-		}
-	}
-	for done := 0; done < len(cmds); {
-		msg.Result, msg.Success, msg.Error.Code, msg.Error.Message = nil, false, "", ""
-		if err := c.ReadJSON(&msg); err != nil {
-			return reg, err
-		}
-		if msg.Type != "result" || msg.ID < 1 || msg.ID > len(cmds) {
-			continue
-		}
-		done++
-		cmd := cmds[msg.ID-1]
-		if !msg.Success {
-			if cmd.opt {
-				continue
-			}
-			return reg, fmt.Errorf("%s: %s", cmd.typ, strings.TrimSpace(msg.Error.Code+" "+msg.Error.Message))
-		}
-		if err := json.Unmarshal(msg.Result, cmd.into); err != nil {
-			return reg, fmt.Errorf("%s: %v", cmd.typ, err)
-		}
-	}
-	return reg, nil
+	defer closer()
+	err = w.run([]*haCmd{
+		{typ: "config/device_registry/list", into: &reg.devices},
+		{typ: "config/entity_registry/list", into: &reg.entities},
+		{typ: "config_entries/get", into: &reg.entries, opt: true}, // needs an admin token
+		{typ: "get_states", into: &reg.states},
+	})
+	return reg, err
 }
