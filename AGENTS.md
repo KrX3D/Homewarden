@@ -541,6 +541,16 @@ manager works; pass env vars in front of the command (sudoers needs `SETENV`).
   automation / script. Verified read-only on the real HA 2026-11-15 (7322 entities, 159
   sources): finds the deleted krx_smart_sensor_*/krx_unraid_* entities, bar-card without
   resource and two 404 resources. `TestHAConfigLive`.
+- Duplicate MQTT discovery ids (type `mqttdupes`, internal/monitor/mqttdupes.go): broker
+  login like the `mqtt` monitor (`mqttConnect`), `topic` = discovery prefix (default
+  homeassistant). Subscribes `<prefix>/#`, collects retained configs until 2 s quiet,
+  parses `<component>/[<node_id>/]<object_id>/config` and device-based `cmps` (short and
+  long keys). Down when a unique id repeats within one domain (grouped by the nodes that
+  share it: "36 unique ids used by PC1, PC2") or a device identifier/connection is
+  claimed by several node ids or device names (cloned HASS.Agent config, copied
+  firmware). `ignoreRefs`: unique ids, device ids, node ids or topics. Verified against
+  a real Mosquitto with a cloned HASS.Agent config (`TestMQTTDupesBroker`, HW_MQTT_HOST);
+  not yet run against the real broker.
 - DNS servers of a host (type `resolvers`, internal/monitor/resolvers.go): config
   `names` (required) and `servers` (empty = read from the device: `ResolverScript`
   over SSH/agent, /etc/resolv.conf with systemd's 127.0.0.53 replaced by its upstreams;

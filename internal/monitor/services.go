@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -42,10 +43,8 @@ func short(s string) string {
 	return s
 }
 
-// checkMQTT connects to the broker; with a topic it also waits for a message (a
-// retained one arrives at once) that must contain Keyword when set.
-func checkMQTT(ctx context.Context, c Config) Result {
-	start := time.Now()
+// mqttConnect logs in to the broker of c; the caller disconnects.
+func mqttConnect(ctx context.Context, c Config) (mqtt.Client, error) {
 	scheme := "tcp"
 	if c.TLS {
 		scheme = "ssl"
@@ -64,12 +63,24 @@ func checkMQTT(ctx context.Context, c Config) Result {
 	tok := cl.Connect()
 	deadline, _ := ctx.Deadline()
 	if !tok.WaitTimeout(time.Until(deadline)) {
-		return Result{Msg: "connect timed out"}
+		return nil, errors.New("connect timed out")
 	}
 	if err := tok.Error(); err != nil {
+		return nil, err
+	}
+	return cl, nil
+}
+
+// checkMQTT connects to the broker; with a topic it also waits for a message (a
+// retained one arrives at once) that must contain Keyword when set.
+func checkMQTT(ctx context.Context, c Config) Result {
+	start := time.Now()
+	cl, err := mqttConnect(ctx, c)
+	if err != nil {
 		return Result{Msg: err.Error()}
 	}
 	defer cl.Disconnect(100)
+	deadline, _ := ctx.Deadline()
 	ms := float64(time.Since(start).Microseconds()) / 1000
 	if c.Topic == "" {
 		return Result{OK: true, Ms: ms, Msg: "connected"}

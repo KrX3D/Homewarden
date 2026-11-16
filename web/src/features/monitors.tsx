@@ -9,8 +9,8 @@ import { IconEdit, IconPlus, IconPulse, Logo } from '../components/icons';
 import { navItems, settingsTabs } from '../extensions';
 import { CredentialModal } from './credentials';
 
-const SERVICE: MonitorType[] = ['mqtt', 'postgres', 'mysql', 'redis'];
-const DEFAULT_PORT: Record<string, number> = { mqtt: 1883, postgres: 5432, mysql: 3306, redis: 6379 };
+const SERVICE: MonitorType[] = ['mqtt', 'mqttdupes', 'postgres', 'mysql', 'redis'];
+const DEFAULT_PORT: Record<string, number> = { mqtt: 1883, mqttdupes: 1883, postgres: 5432, mysql: 3306, redis: 6379 };
 
 /** "a, b" -> ["a", "b"] (lowercase, no empties). */
 const parseTags = (s: string) => [...new Set(s.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))];
@@ -41,6 +41,7 @@ function target(m: Monitor) {
     case 'dns': return `${c.record || 'A'} ${c.host}`;
     case 'container': return c.container ? `container ${c.container}` : 'container';
     case 'mqtt': return `mqtt${c.tls ? 's' : ''}://${c.host}:${c.port || (c.tls ? 8883 : 1883)}${c.topic ? ' ' + c.topic : ''}`;
+    case 'mqttdupes': return `mqtt${c.tls ? 's' : ''}://${c.host}:${c.port || (c.tls ? 8883 : 1883)} ${c.topic || 'homeassistant'}/# ids`;
     case 'postgres': case 'mysql': case 'redis': return `${m.type}://${c.host}:${c.port || DEFAULT_PORT[m.type]}${c.database ? '/' + c.database : ''}`;
     case 'backup': return `${c.path ?? ''}${c.pattern ? '/' + c.pattern : ''}`;
     case 'parity': return 'parity-checks.log';
@@ -264,7 +265,7 @@ function MonitorDetail({ m }: { m: Monitor }) {
   );
 }
 
-const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'haregistry', 'haconfig', 'resolvers', 'push'];
+const TYPES: MonitorType[] = ['http', 'tcp', 'ping', 'dns', 'container', 'mqtt', 'mqttdupes', 'postgres', 'mysql', 'redis', 'backup', 'parity', 'ha', 'haregistry', 'haconfig', 'resolvers', 'push'];
 const REMOTE: MonitorType[] = ['backup', 'parity'];
 const MAX_AGE: Record<string, number> = { backup: 26, parity: 840 };
 /** Types that need a device. */
@@ -298,7 +299,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
   const { busy, error, run } = useAction();
   useEffect(() => { get<Device[]>('/api/devices?status=active').then(setDevices).catch(() => {}); }, []);
   const set = (k: keyof MonitorConfig, v: unknown) => { setTest(null); setCfg((c) => ({ ...c, [k]: v })); };
-  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined, ignoreIntegrations: type === 'haregistry' ? parseList(ignoreText) : undefined, ignoreRefs: type === 'haconfig' ? parseList(refText) : undefined, names: type === 'resolvers' ? parseList(nameText) : undefined, servers: type === 'resolvers' ? parseList(serverText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
+  const body = () => ({ name, type, config: { ...cfg, tags: parseTags(tagText), entities: type === 'ha' ? parseList(entityText) : undefined, ignoreIntegrations: type === 'haregistry' ? parseList(ignoreText) : undefined, ignoreRefs: type === 'haconfig' || type === 'mqttdupes' ? parseList(refText) : undefined, names: type === 'resolvers' ? parseList(nameText) : undefined, servers: type === 'resolvers' ? parseList(serverText) : undefined }, interval, enabled, public: pub, deviceId, parentId });
   const num = (k: keyof MonitorConfig, label: string, hint: string, ph = '') => (
     <label className="field" style={{ flex: '1 1 150px' }}>{label}
       <input id={'mon-' + k} type="number" min={0} value={cfg[k] == null ? '' : Number(cfg[k])} placeholder={ph} onChange={(e) => set(k, e.target.value === '' ? undefined : Number(e.target.value))} />
@@ -390,7 +391,7 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
             <div className="row">
               <div style={{ flex: '2 1 200px' }}>{text('host', t('deviceForm.host'), '192.168.90.94')}</div>
               <label className="field" style={{ flex: '0 1 110px' }}>{t('deviceForm.port')}
-                <input id="mon-port" type="number" value={cfg.port ?? ''} placeholder={String(type === 'mqtt' && cfg.tls ? 8883 : DEFAULT_PORT[type])} onChange={(e) => set('port', e.target.value ? Number(e.target.value) : undefined)} />
+                <input id="mon-port" type="number" value={cfg.port ?? ''} placeholder={String(type.startsWith('mqtt') && cfg.tls ? 8883 : DEFAULT_PORT[type])} onChange={(e) => set('port', e.target.value ? Number(e.target.value) : undefined)} />
               </label>
               {(type === 'postgres' || type === 'mysql') && <div style={{ flex: '1 1 140px' }}>{text('database', t('mon.database'), type === 'postgres' ? 'postgres' : '')}</div>}
             </div>
@@ -408,6 +409,17 @@ function MonitorModal({ monitor, monitors, onClose, onSaved }: { monitor: Monito
                 <div style={{ flex: '2 1 200px' }}>{text('topic', t('mon.topic'), 'zigbee2mqtt/bridge/state')}</div>
                 <div style={{ flex: '1 1 140px' }}>{text('keyword', t('mon.topicKeyword'), 'online', false)}</div>
               </div>
+            )}
+            {type === 'mqttdupes' && (
+              <>
+                <div className="row">
+                  <div style={{ flex: '1 1 200px' }}>{text('topic', t('mon.discoveryPrefix'), 'homeassistant')}</div>
+                </div>
+                <label className="field">{t('mon.haIgnoreRefs')}
+                  <textarea id="mon-ignoreRefs" className="mono" rows={3} value={refText} placeholder={'hass.agent-*\nzigbee2mqtt_bridge_*'} onChange={(e) => { setTest(null); setRefText(e.target.value); }} />
+                  <span className="small muted">{t('mon.dupesIgnoreHint')}</span>
+                </label>
+              </>
             )}
             <p className="small muted" style={{ margin: 0 }}>{t('mon.serviceIntro.' + type)}</p>
             <div className="row">
