@@ -97,7 +97,7 @@ func (in *monitorIn) validate() string {
 		if c.Container == "" && in.DeviceID == nil {
 			return "monitor_incomplete"
 		}
-	case "mqtt", "postgres", "mysql", "redis":
+	case "mqtt", "mqttdupes", "postgres", "mysql", "redis":
 		if c.Host == "" || c.Port < 0 || c.Port > 65535 {
 			return "monitor_incomplete"
 		}

@@ -1,7 +1,7 @@
 // Package monitor runs uptime checks: HTTP (status, keyword, JSON value, certificate
 // expiry), TCP, ping, DNS, Docker container state, MQTT, PostgreSQL, MySQL, Redis,
 // backup/parity freshness, a host's DNS servers, Home Assistant entity availability, registry bloat and broken
-// dashboard/automation references, and push heartbeats.
+// dashboard/automation references, duplicate MQTT discovery ids, and push heartbeats.
 package monitor
 
 import (
@@ -49,7 +49,7 @@ type Config struct {
 	// MQTT, PostgreSQL, MySQL, Redis: login from a password credential.
 	CredentialID int64  `json:"credentialId,omitempty"`
 	Database     string `json:"database,omitempty"`
-	Topic        string `json:"topic,omitempty"` // MQTT: wait for a message here (Keyword applies)
+	Topic        string `json:"topic,omitempty"` // MQTT: wait for a message here (Keyword applies); mqttdupes: discovery prefix
 	TLS          bool   `json:"tls,omitempty"`
 	user, pass   string // filled from the credential by the runner, never stored
 
@@ -74,6 +74,8 @@ type Config struct {
 	IgnoreIntegrations []string `json:"ignoreIntegrations,omitempty"`
 	// Home Assistant broken references (type haconfig): references to skip, entity
 	// ids, custom:card names, device/area ids or resource URLs, * patterns allowed.
+	// Duplicate MQTT discovery ids (type mqttdupes): unique ids, device ids, node ids
+	// or topics to skip.
 	IgnoreRefs []string `json:"ignoreRefs,omitempty"`
 	// DNS servers of a host (type resolvers): names every server must answer the same
 	// way; servers to ask (empty = read them from the monitor's device).
@@ -276,6 +278,8 @@ func Check(ctx context.Context, typ string, c Config) Result {
 		return r
 	case "mqtt":
 		return checkMQTT(ctx, c)
+	case "mqttdupes":
+		return checkMQTTDupes(ctx, c)
 	case "postgres", "mysql", "redis":
 		var r Result
 		switch typ {

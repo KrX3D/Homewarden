@@ -138,7 +138,7 @@ export type MQTTSettings = { enabled: boolean; broker: string; credentialId?: nu
 export type AgentStatus = { enrolled: boolean; online: boolean; pendingEnrollment?: boolean;
   agent?: { hostname: string; os: string; arch: string; version: string; lastSeen: number | null } };
 
-export type MonitorType = 'http' | 'tcp' | 'ping' | 'dns' | 'container' | 'mqtt' | 'postgres' | 'mysql' | 'redis' | 'backup' | 'parity' | 'ha' | 'haregistry' | 'haconfig' | 'resolvers' | 'push';
+export type MonitorType = 'http' | 'tcp' | 'ping' | 'dns' | 'container' | 'mqtt' | 'mqttdupes' | 'postgres' | 'mysql' | 'redis' | 'backup' | 'parity' | 'ha' | 'haregistry' | 'haconfig' | 'resolvers' | 'push';
 export type MonitorConfig = { url?: string; method?: string; expectStatus?: string; keyword?: string; invertKeyword?: boolean; jsonPath?: string; jsonExpect?: string;
   insecure?: boolean; certDays?: number; host?: string; port?: number; record?: string; server?: string; expect?: string; timeout?: number;
   container?: string; endpoint?: string; retries?: number; retryInterval?: number; resendEvery?: number; upsideDown?: boolean; certWarn?: string; area?: string;
