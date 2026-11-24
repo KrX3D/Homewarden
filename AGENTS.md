@@ -398,8 +398,10 @@ fakes (proxmox, proxmox-backup, unraid). Bump to 1.0.0 once confirmed on real sy
   `facts.warningDetails[code]`, shown under the warning on the device card, as `why` on
   the Overview problem and in the notification body. Not yet run on the real server.
 - `ssh.exec` with `sudo: true` adds no sudo when the SSH user is root. The sudo prefix
-  only covers the first command of a compound shell line, so scripts that may run as
-  non-root must keep privileged calls to single commands.
+  only covers one command, so `conn.Sudo` rejects privileged lines with an unquoted
+  `;`, `&&`, `||`, `|`, `&`, newline, `$(` or backtick (redirections like `2>&1` are
+  fine) with an error instead of running the rest as the login user. Scripts that may
+  run as non-root must keep privileged calls to single commands.
 
 ### Agent
 
@@ -451,6 +453,7 @@ body)`. Permissions in the manifest gate ssh/docker/http; HTTP only to the devic
 (`httpDevice`) or `httpHosts` (`*.suffix` allowed), redirects included.
 `sudo: true` PREFIXES `sudo -n` (no `sh -c`), so a sudoers rule limited to the package
 manager works; pass env vars in front of the command (sudoers needs `SETENV`).
+Compound lines are rejected (`conn.Sudo`); use one `ssh.exec` per command.
 
 - `internal/backup/` - backup targets: `smb` (go-smb2, credential of type password) or
   `local` (absolute path in the container, e.g. `/backups` from the Unraid template).
