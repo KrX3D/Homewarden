@@ -301,8 +301,11 @@ func (c *call) sshExec(cmd string, opts *execOpts) map[string]any {
 		}
 		// Prefix rather than wrap in sh -c: a sudoers rule that only allows the package
 		// manager must be enough. Scripts pass one command, env vars in front
-		// (needs SETENV in the sudoers rule).
-		cmd = "sudo -n " + cmd
+		// (needs SETENV in the sudoers rule); compound lines are rejected.
+		var err error
+		if cmd, err = conn.Sudo(cmd); err != nil {
+			c.throw("ssh.exec: %v", err)
+		}
 	}
 	timeout := time.Duration(opts.Timeout) * time.Second
 	if timeout <= 0 {

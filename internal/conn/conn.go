@@ -140,7 +140,8 @@ func (s *Service) Dial(ctx context.Context, d store.Device) (*ssh.Client, Settin
 }
 
 // Exec runs one command on a device. With privileged=true and sudo enabled in the
-// device settings, the command is prefixed with `sudo -n` (never prompts).
+// device settings, the command is prefixed with `sudo -n` (never prompts); it must
+// then be a single command (see Sudo).
 func (s *Service) Exec(ctx context.Context, d store.Device, cmd string, privileged bool, timeout time.Duration) (sshx.Result, error) {
 	if UsesAgent(d) {
 		return s.AgentExec(ctx, d, cmd, "", timeout)
@@ -150,8 +151,10 @@ func (s *Service) Exec(ctx context.Context, d store.Device, cmd string, privileg
 		return sshx.Result{}, err
 	}
 	defer c.Close()
-	if privileged && set.Sudo {
-		cmd = "sudo -n " + cmd
+	if privileged && set.Sudo && c.User() != "root" {
+		if cmd, err = Sudo(cmd); err != nil {
+			return sshx.Result{}, err
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
